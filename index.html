@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Model Viewer</title>
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .viewer-container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      width: 100%;
+      max-width: 800px;
+      margin: 24px;
+    }
+
+    model-viewer {
+      width: 100%;
+      height: 500px;
+      --poster-color: transparent;
+    }
+
+    model-viewer::part(default-ar-button) {
+      bottom: 16px;
+      right: 16px;
+    }
+
+    .info {
+      padding: 24px;
+      border-top: 1px solid #eee;
+    }
+
+    .info h1 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    .info p {
+      color: #666;
+      line-height: 1.5;
+    }
+
+    .placeholder-message {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 500px;
+      color: #999;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .placeholder-message svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      fill: #ccc;
+    }
+
+    .placeholder-message p {
+      font-size: 0.9rem;
+      max-width: 300px;
+    }
+
+    @media (max-width: 600px) {
+      model-viewer,
+      .placeholder-message {
+        height: 350px;
+      }
+
+      .viewer-container {
+        margin: 12px;
+      }
+
+      .info {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="viewer-container">
+    <!--
+      Replace the src below with your .glb model file path.
+      You can also add a poster image for a loading preview:
+        poster="poster.webp"
+    -->
+    <model-viewer
+      src="model.glb"
+      ar
+      ar-modes="webxr scene-viewer quick-look"
+      camera-controls
+      touch-action="pan-y"
+      auto-rotate
+      auto-rotate-delay="2000"
+      rotation-per-second="30deg"
+      shadow-intensity="1"
+      shadow-softness="0.5"
+      exposure="1"
+      environment-image="neutral"
+      alt="3D model viewer"
+    >
+      <!-- Fallback shown while model loads or if missing -->
+      <div class="placeholder-message" slot="poster">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.18 7 12 9.82 4.82 7 12 4.18zM4 8.64l7 3.5v7.72l-7-3.5V8.64zm9 11.22v-7.72l7-3.5v7.72l-7 3.5z"/>
+        </svg>
+        <p>Place your <strong>model.glb</strong> file in this directory to see it here.</p>
+      </div>
+    </model-viewer>
+
+    <div class="info">
+      <h1>3D Model Viewer</h1>
+      <p>Drag to rotate. Pinch or scroll to zoom. On supported mobile devices, tap the AR button to view in your space.</p>
+    </div>
+  </div>
+</body>
+</html>
