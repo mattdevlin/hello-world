@@ -43,6 +43,64 @@
       right: 16px;
     }
 
+    .customizer {
+      padding: 24px;
+      border-top: 1px solid #eee;
+    }
+
+    .customizer h2 {
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+    }
+
+    .customizer .step-label {
+      font-size: 0.8rem;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    .swatch-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .swatch {
+      width: 72px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      padding: 4px;
+      background: none;
+      transition: border-color 0.2s;
+    }
+
+    .swatch:hover {
+      border-color: #ccc;
+    }
+
+    .swatch.active {
+      border-color: #333;
+    }
+
+    .swatch-preview {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 4px;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .swatch-label {
+      display: block;
+      font-size: 0.7rem;
+      text-align: center;
+      margin-top: 4px;
+      color: #555;
+    }
+
     .info {
       padding: 24px;
       border-top: 1px solid #eee;
@@ -91,8 +149,13 @@
         margin: 12px;
       }
 
+      .customizer,
       .info {
         padding: 16px;
+      }
+
+      .swatch {
+        width: 60px;
       }
     }
   </style>
@@ -101,10 +164,13 @@
   <div class="viewer-container">
     <!--
       Replace the src below with your .glb model file path.
-      You can also add a poster image for a loading preview:
-        poster="poster.webp"
+
+      IMPORTANT: Your architect must name the exterior cladding material
+      "Exterior_Cladding" in ArchiCAD before exporting to GLB. This is
+      the material name the texture swap targets.
     -->
     <model-viewer
+      id="viewer"
       src="model.glb"
       ar
       ar-modes="webxr scene-viewer quick-look"
@@ -119,7 +185,6 @@
       environment-image="neutral"
       alt="3D model viewer"
     >
-      <!-- Fallback shown while model loads or if missing -->
       <div class="placeholder-message" slot="poster">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
           <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.18 7 12 9.82 4.82 7 12 4.18zM4 8.64l7 3.5v7.72l-7-3.5V8.64zm9 11.22v-7.72l7-3.5v7.72l-7 3.5z"/>
@@ -128,10 +193,126 @@
       </div>
     </model-viewer>
 
+    <div class="customizer">
+      <div class="step-label">Step 1</div>
+      <h2>Exterior Cladding</h2>
+      <p style="color: #999; font-size: 0.85rem; margin-bottom: 12px;">Select a cladding type to update the 3D model.</p>
+      <div class="swatch-group" id="cladding-options"></div>
+    </div>
+
     <div class="info">
       <h1>3D Model Viewer</h1>
       <p>Drag to rotate. Pinch or scroll to zoom. On supported mobile devices, tap the AR button to view in your space.</p>
     </div>
   </div>
+
+  <script type="module">
+    // ---------------------------------------------------------------
+    // CONFIGURATION
+    // ---------------------------------------------------------------
+    // 1. The "materialName" must match the material name in your GLB
+    //    file. Ask your architect to name the exterior cladding
+    //    material "Exterior_Cladding" in ArchiCAD before export.
+    //
+    // 2. For each cladding option, provide:
+    //    - name: Display label
+    //    - texture: Path to the texture image (JPG/PNG, ideally 1024x1024+)
+    //    - color: Fallback swatch color (shown before textures load)
+    // ---------------------------------------------------------------
+
+    const MATERIAL_NAME = 'Exterior_Cladding';
+
+    const claddingOptions = [
+      {
+        name: 'Cedar',
+        texture: 'textures/cedar.jpg',
+        color: '#8B6914',
+      },
+      {
+        name: 'Thermo Ash',
+        texture: 'textures/thermo-ash.jpg',
+        color: '#5C4033',
+      },
+      {
+        name: 'Charred Wood',
+        texture: 'textures/charred-wood.jpg',
+        color: '#2C2C2C',
+      },
+      {
+        name: 'White Oak',
+        texture: 'textures/white-oak.jpg',
+        color: '#C4A770',
+      },
+    ];
+
+    // ---------------------------------------------------------------
+    // RENDER SWATCHES
+    // ---------------------------------------------------------------
+
+    const swatchGroup = document.getElementById('cladding-options');
+
+    claddingOptions.forEach((option, index) => {
+      const btn = document.createElement('button');
+      btn.className = 'swatch' + (index === 0 ? ' active' : '');
+      btn.innerHTML = `
+        <div class="swatch-preview" style="background: ${option.color};"></div>
+        <span class="swatch-label">${option.name}</span>
+      `;
+      btn.addEventListener('click', () => applyTexture(option, btn));
+      swatchGroup.appendChild(btn);
+    });
+
+    // ---------------------------------------------------------------
+    // TEXTURE SWAPPING
+    // ---------------------------------------------------------------
+
+    const viewer = document.getElementById('viewer');
+    const textureCache = {};
+
+    async function applyTexture(option, btn) {
+      // Update active swatch
+      document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Wait for model to be ready
+      if (!viewer.model) return;
+
+      // Find the target material
+      const material = viewer.model.materials.find(
+        m => m.name === MATERIAL_NAME
+      );
+
+      if (!material) {
+        console.warn(
+          `Material "${MATERIAL_NAME}" not found in model. ` +
+          `Available materials: ${viewer.model.materials.map(m => m.name).join(', ')}`
+        );
+        return;
+      }
+
+      // Load texture (with caching)
+      if (!textureCache[option.texture]) {
+        try {
+          textureCache[option.texture] = await viewer.createTexture(option.texture);
+        } catch (e) {
+          console.warn(`Could not load texture: ${option.texture}`, e);
+          return;
+        }
+      }
+
+      // Apply to the base color channel
+      material.pbrMetallicRoughness.baseColorTexture.setTexture(
+        textureCache[option.texture]
+      );
+    }
+
+    // Log available material names on load to help with setup
+    viewer.addEventListener('load', () => {
+      console.log(
+        'Available materials in model:',
+        viewer.model.materials.map(m => m.name)
+      );
+    });
+  </script>
 </body>
 </html>
