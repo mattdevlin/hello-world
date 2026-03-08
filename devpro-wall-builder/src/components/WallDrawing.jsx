@@ -1,6 +1,6 @@
 import { COLORS, WALL_THICKNESS, PANEL_GAP } from '../utils/constants.js';
 
-const MARGIN = { top: 60, right: 40, bottom: 80, left: 60 };
+const MARGIN = { top: 60, right: 40, bottom: 120, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 
 export default function WallDrawing({ layout, wallName }) {
@@ -240,15 +240,66 @@ export default function WallDrawing({ layout, wallName }) {
             </g>
           ))}
 
-          {/* Overall dimension - bottom */}
-          <g>
-            <line x1={0} y1={s(height) + 30} x2={s(grossLength)} y2={s(height) + 30} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={0} y1={s(height) + 25} x2={0} y2={s(height) + 35} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={s(grossLength)} y1={s(height) + 25} x2={s(grossLength)} y2={s(height) + 35} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <text x={s(grossLength / 2)} y={s(height) + 45} textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold">
-              {grossLength} mm
-            </text>
-          </g>
+          {/* Running dimensions along bottom */}
+          {(() => {
+            // Build list of running dimension points
+            const points = new Set();
+            points.add(0);
+            points.add(grossLength);
+
+            // Deduction boundaries
+            if (deductionLeft > 0) points.add(deductionLeft);
+            if (deductionRight > 0) points.add(grossLength - deductionRight);
+
+            // Panel edges and gaps
+            for (const panel of panels) {
+              points.add(panel.x);                        // panel left edge
+              points.add(panel.x + panel.width);          // panel right edge
+              if (panel.x + panel.width + PANEL_GAP < grossLength - (deductionRight || 0)) {
+                points.add(panel.x + panel.width + PANEL_GAP); // gap right edge (next panel start)
+              }
+            }
+
+            const sorted = Array.from(points).sort((a, b) => a - b);
+            // Remove near-duplicates (within 1mm)
+            const filtered = sorted.filter((v, i) => i === 0 || v - sorted[i - 1] > 1);
+
+            const tickY = s(height) + 8;
+            const lineY = s(height) + 20;
+            const labelY = s(height) + 34;
+
+            return (
+              <g>
+                {/* Baseline */}
+                <line x1={0} y1={lineY} x2={s(grossLength)} y2={lineY} stroke={COLORS.DIMENSION} strokeWidth={1} />
+
+                {filtered.map((mm, i) => {
+                  const x = s(mm);
+                  // Alternate label angles to avoid overlap on tight spacing
+                  const tooClose = i > 0 && s(mm - filtered[i - 1]) < 30;
+                  return (
+                    <g key={`dim-${i}`}>
+                      {/* Tick mark */}
+                      <line x1={x} y1={tickY} x2={x} y2={lineY + 5} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                      {/* Vertical guide line up to wall */}
+                      <line x1={x} y1={0} x2={x} y2={tickY} stroke="#ddd" strokeWidth={0.5} strokeDasharray="2,3" />
+                      {/* Label */}
+                      <text
+                        x={x}
+                        y={labelY + (tooClose ? 12 : 0)}
+                        textAnchor="middle"
+                        fontSize="9"
+                        fill={COLORS.DIMENSION}
+                        fontWeight={mm === 0 || mm === grossLength ? 'bold' : 'normal'}
+                      >
+                        {mm}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })()}
 
           {/* Height dimension - left */}
           <g>
