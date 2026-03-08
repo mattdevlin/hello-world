@@ -2,6 +2,7 @@ import { useState } from 'react';
 import WallForm from './components/WallForm.jsx';
 import WallDrawing from './components/WallDrawing.jsx';
 import WallSummary from './components/WallSummary.jsx';
+import PanelPlans from './components/PanelPlans.jsx';
 import { calculateWallLayout } from './utils/calculator.js';
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
         {layout && (
           <>
             <WallDrawing layout={layout} wallName={wallName} />
+            <PanelPlans layout={layout} />
             <WallSummary layout={layout} wallName={wallName} />
           </>
         )}

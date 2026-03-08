@@ -168,6 +168,9 @@ export function calculateWallLayout(wall) {
         side: 'left',
         openLeft,
         openRight,
+        openBottom: opening.sill_mm || 0,
+        openTop: (opening.sill_mm || 0) + opening.height_mm,
+        openingType: opening.type,
       });
 
       // Right L-cut: panel left edge inside opening, extends right past opening right
@@ -182,6 +185,9 @@ export function calculateWallLayout(wall) {
         side: 'right',
         openLeft,
         openRight,
+        openBottom: opening.sill_mm || 0,
+        openTop: (opening.sill_mm || 0) + opening.height_mm,
+        openingType: opening.type,
       });
     }
 
@@ -258,6 +264,12 @@ export function calculateWallLayout(wall) {
         height,
         type: 'lcut',
         openingRefs: lp.openingRefs,
+        side: lp.side,
+        openLeft: lp.openLeft,
+        openRight: lp.openRight,
+        openBottom: lp.openBottom,
+        openTop: lp.openTop,
+        openingType: lp.openingType,
       });
 
       pos = lpX + lpWidth + PANEL_GAP;
