@@ -98,13 +98,13 @@ export default function FramingElevation({ layout, wallName }) {
               -{deductionLeft}
             </text>
           )}
-          {/* Vertical plate at left deduction (45mm, inside panel zone) */}
+          {/* Vertical plate at left deduction (45mm, between bottom plate and lowest top plate) */}
           {deductionLeft > 0 && (
             <rect
               x={s(deductionLeft)}
-              y={0}
+              y={s(TOP_PLATE * 2)}
               width={s(BOTTOM_PLATE)}
-              height={s(height)}
+              height={s(height - BOTTOM_PLATE - TOP_PLATE * 2)}
               fill="none"
               stroke={PLATE_COLOR}
               strokeWidth={1}
@@ -128,13 +128,13 @@ export default function FramingElevation({ layout, wallName }) {
               -{deductionRight}
             </text>
           )}
-          {/* Vertical plate at right deduction (45mm, inside panel zone) */}
+          {/* Vertical plate at right deduction (45mm, between bottom plate and lowest top plate) */}
           {deductionRight > 0 && (
             <rect
               x={s(grossLength - deductionRight - BOTTOM_PLATE)}
-              y={0}
+              y={s(TOP_PLATE * 2)}
               width={s(BOTTOM_PLATE)}
-              height={s(height)}
+              height={s(height - BOTTOM_PLATE - TOP_PLATE * 2)}
               fill="none"
               stroke={PLATE_COLOR}
               strokeWidth={1}
