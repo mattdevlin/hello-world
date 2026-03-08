@@ -1,4 +1,4 @@
-import { COLORS, WALL_THICKNESS, PANEL_GAP } from '../utils/constants.js';
+import { COLORS, WALL_THICKNESS, PANEL_GAP, WINDOW_OVERHANG } from '../utils/constants.js';
 
 const MARGIN = { top: 60, right: 40, bottom: 60, left: 60 };
 const MAX_SVG_WIDTH = 1200;
@@ -136,7 +136,11 @@ export default function WallDrawing({ layout, wallName }) {
                   fontSize="9"
                   fill="#999"
                 >
-                  {panel.width}
+                  {panel.type === 'lcut'
+                    ? panel.side === 'pier'
+                      ? panel.width - 2 * WINDOW_OVERHANG
+                      : panel.width - WINDOW_OVERHANG
+                    : panel.width}
                 </text>
               </g>
             );
