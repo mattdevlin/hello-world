@@ -61,14 +61,6 @@ export default function FramingElevation({ layout, wallName }) {
             strokeWidth={1}
             strokeDasharray={DASH}
           />
-          <text
-            x={s(plateRight) + 8}
-            y={s(height - BOTTOM_PLATE / 2) + 3}
-            fontSize="9"
-            fill={PLATE_COLOR}
-          >
-            Bottom Plate {BOTTOM_PLATE}
-          </text>
 
           {/* ── Top plate 1 (45mm from top) ── */}
           <line
@@ -78,14 +70,6 @@ export default function FramingElevation({ layout, wallName }) {
             strokeWidth={1}
             strokeDasharray={DASH}
           />
-          <text
-            x={s(plateRight) + 8}
-            y={s(TOP_PLATE) + 3}
-            fontSize="9"
-            fill={PLATE_COLOR}
-          >
-            Top Plate 1
-          </text>
 
           {/* ── Top plate 2 (90mm from top) ── */}
           <line
@@ -95,14 +79,6 @@ export default function FramingElevation({ layout, wallName }) {
             strokeWidth={1}
             strokeDasharray={DASH}
           />
-          <text
-            x={s(plateRight) + 8}
-            y={s(TOP_PLATE * 2) + 3}
-            fontSize="9"
-            fill={PLATE_COLOR}
-          >
-            Top Plate 2
-          </text>
 
           {/* ── Corner deductions ── */}
           {deductionLeft > 0 && (
@@ -141,44 +117,114 @@ export default function FramingElevation({ layout, wallName }) {
           )}
 
           {/* ── Panels ── */}
-          {panels.map((panel, i) => (
-            <g key={`panel-${i}`}>
-              <rect
-                x={s(panel.x)}
-                y={0}
-                width={s(panel.width)}
-                height={s(height)}
-                fill="none"
-                stroke={STROKE_COLOR}
-                strokeWidth={1}
-                strokeDasharray={DASH}
-              />
-              {/* Panel number */}
-              <text
-                x={s(panel.x + panel.width / 2)}
-                y={s(height / 2) + 4}
-                textAnchor="middle"
-                fontSize="10"
-                fill={LABEL_COLOR}
-              >
-                P{panel.index + 1}
-              </text>
-              {/* Panel base width */}
-              <text
-                x={s(panel.x + panel.width / 2)}
-                y={s(height) + 14}
-                textAnchor="middle"
-                fontSize="9"
-                fill="#999"
-              >
-                {panel.type === 'lcut'
-                  ? panel.side === 'pier'
-                    ? panel.width - 2 * WINDOW_OVERHANG
-                    : panel.width - WINDOW_OVERHANG
-                  : panel.width}
-              </text>
-            </g>
-          ))}
+          {/* Draw panel edges as individual lines, skipping lintel/footer zones */}
+          {panels.map((panel, i) => {
+            // Build exclusion zones (in wall mm from top, as SVG y ranges)
+            // For a vertical edge at xEdge, find lintels/footers that span it
+            const getExclusions = (xEdge) => {
+              const zones = [];
+              for (const l of lintels) {
+                if (l.x < xEdge && xEdge < l.x + l.width) {
+                  // Lintel: top of wall down to bottom of lintel
+                  // l.y is distance from bottom of wall to top of lintel
+                  // l.height is lintel height downward from l.y
+                  const yTop = height - l.y - l.height;
+                  const yBot = height - l.y;
+                  zones.push([yTop, yBot]);
+                }
+              }
+              for (const f of footers) {
+                if (f.x < xEdge && xEdge < f.x + f.width) {
+                  // Footer sits at bottom of wall, f.height tall
+                  zones.push([height - f.height, height]);
+                }
+              }
+              // Sort by start
+              zones.sort((a, b) => a[0] - b[0]);
+              return zones;
+            };
+
+            // Build vertical line segments that skip exclusion zones
+            const vertSegments = (xEdge) => {
+              const excl = getExclusions(xEdge);
+              const segs = [];
+              let cursor = 0;
+              for (const [eTop, eBot] of excl) {
+                if (cursor < eTop) {
+                  segs.push([cursor, eTop]);
+                }
+                cursor = Math.max(cursor, eBot);
+              }
+              if (cursor < height) {
+                segs.push([cursor, height]);
+              }
+              return segs;
+            };
+
+            const leftX = panel.x;
+            const rightX = panel.x + panel.width;
+            const leftSegs = vertSegments(leftX);
+            const rightSegs = vertSegments(rightX);
+
+            return (
+              <g key={`panel-${i}`}>
+                {/* Top horizontal */}
+                <line
+                  x1={s(leftX)} y1={0}
+                  x2={s(rightX)} y2={0}
+                  stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                />
+                {/* Bottom horizontal */}
+                <line
+                  x1={s(leftX)} y1={s(height)}
+                  x2={s(rightX)} y2={s(height)}
+                  stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                />
+                {/* Left vertical segments */}
+                {leftSegs.map(([y1, y2], j) => (
+                  <line
+                    key={`l-${j}`}
+                    x1={s(leftX)} y1={s(y1)}
+                    x2={s(leftX)} y2={s(y2)}
+                    stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                  />
+                ))}
+                {/* Right vertical segments */}
+                {rightSegs.map(([y1, y2], j) => (
+                  <line
+                    key={`r-${j}`}
+                    x1={s(rightX)} y1={s(y1)}
+                    x2={s(rightX)} y2={s(y2)}
+                    stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                  />
+                ))}
+                {/* Panel number */}
+                <text
+                  x={s(panel.x + panel.width / 2)}
+                  y={s(height / 2) + 4}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill={LABEL_COLOR}
+                >
+                  P{panel.index + 1}
+                </text>
+                {/* Panel base width */}
+                <text
+                  x={s(panel.x + panel.width / 2)}
+                  y={s(height) + 14}
+                  textAnchor="middle"
+                  fontSize="9"
+                  fill="#999"
+                >
+                  {panel.type === 'lcut'
+                    ? panel.side === 'pier'
+                      ? panel.width - 2 * WINDOW_OVERHANG
+                      : panel.width - WINDOW_OVERHANG
+                    : panel.width}
+                </text>
+              </g>
+            );
+          })}
 
           {/* ── Openings ── */}
           {openings.map((op, i) => (
