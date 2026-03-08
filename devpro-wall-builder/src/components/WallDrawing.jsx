@@ -1,6 +1,6 @@
 import { COLORS, WALL_THICKNESS, PANEL_GAP, WINDOW_OVERHANG } from '../utils/constants.js';
 
-const MARGIN = { top: 60, right: 40, bottom: 90, left: 60 };
+const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 
 export default function WallDrawing({ layout, wallName }) {
@@ -253,14 +253,43 @@ export default function WallDrawing({ layout, wallName }) {
             </g>
           ))}
 
+          {/* Running measurement from left edge */}
+          <g>
+            {(() => {
+              const pointSet = new Set([0, grossLength]);
+              panels.forEach(p => {
+                pointSet.add(Math.round(p.x));
+                pointSet.add(Math.round(p.x + p.width));
+              });
+              if (deductionLeft > 0) pointSet.add(deductionLeft);
+              if (deductionRight > 0) pointSet.add(grossLength - deductionRight);
+              const points = [...pointSet].sort((a, b) => a - b);
+              const tickY = s(height) + 22;
+              return points.map((pt, i) => (
+                <g key={`rm-${i}`}>
+                  <line x1={s(pt)} y1={tickY - 4} x2={s(pt)} y2={tickY + 4} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                  <text
+                    x={s(pt)}
+                    y={tickY + 14}
+                    textAnchor="middle"
+                    fontSize="9"
+                    fill={COLORS.DIMENSION}
+                  >
+                    {pt}
+                  </text>
+                </g>
+              ));
+            })()}
+          </g>
+
           {/* Total width dimension - bottom */}
           <g>
-            <line x1={0} y1={s(height) + 24} x2={s(grossLength)} y2={s(height) + 24} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={0} y1={s(height) + 19} x2={0} y2={s(height) + 29} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={s(grossLength)} y1={s(height) + 19} x2={s(grossLength)} y2={s(height) + 29} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={0} y1={s(height) + 44} x2={s(grossLength)} y2={s(height) + 44} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={0} y1={s(height) + 39} x2={0} y2={s(height) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={s(grossLength)} y1={s(height) + 39} x2={s(grossLength)} y2={s(height) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
             <text
               x={s(grossLength / 2)}
-              y={s(height) + 40}
+              y={s(height) + 60}
               textAnchor="middle"
               fontSize="12"
               fill={COLORS.DIMENSION}
