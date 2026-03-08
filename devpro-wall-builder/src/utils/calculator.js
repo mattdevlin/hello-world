@@ -6,7 +6,6 @@ import {
   MIN_LCUT_PANEL,
   WALL_THICKNESS,
   WINDOW_OVERHANG,
-  DOOR_OVERHANG,
   DOOR_TOP_CUTOUT,
   LINTEL_DEPTH,
   OPENING_TYPES,
@@ -64,7 +63,7 @@ export function calculateWallLayout(wall) {
       });
     }
 
-    const lintelOverhang = isWindow ? WINDOW_OVERHANG : DOOR_OVERHANG;
+    const lintelOverhang = WINDOW_OVERHANG;
     const lintelDepth = height - openTop; // magboard extends to top of wall
     lintels.push({
       ref: opening.ref,
