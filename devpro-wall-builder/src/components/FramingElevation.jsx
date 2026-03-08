@@ -256,9 +256,15 @@ export default function FramingElevation({ layout, wallName }) {
           })}
 
           {/* ── Panel joint splines (146mm centred on 5mm gap) ── */}
+          {/* Skip joints that fall inside a lintel or footer (opening zones) */}
           {panels.slice(0, -1).map((panel, i) => {
-            // Gap centre is at right edge of panel + half the gap
             const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
+
+            // Skip if gap centre is inside any lintel or footer x-range
+            const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+            const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+            if (insideLintel || insideFooter) return null;
+
             const splineX = gapCentre - HALF_SPLINE;
             const splineY = TOP_PLATE * 2;
             const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2;
