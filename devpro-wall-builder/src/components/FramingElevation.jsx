@@ -299,6 +299,38 @@ export default function FramingElevation({ layout, wallName }) {
             </g>
           ))}
 
+          {/* ── Vertical plates around openings (45mm, inside adjacent panels) ── */}
+          {openings.map((op, i) => {
+            const opTopY = s(height - op.y - op.drawHeight);
+            const opH = s(op.drawHeight);
+            return (
+              <g key={`op-plates-${i}`}>
+                {/* Left vertical plate */}
+                <rect
+                  x={s(op.x - BOTTOM_PLATE)}
+                  y={opTopY}
+                  width={s(BOTTOM_PLATE)}
+                  height={opH}
+                  fill="none"
+                  stroke={PLATE_COLOR}
+                  strokeWidth={1}
+                  strokeDasharray={DASH}
+                />
+                {/* Right vertical plate */}
+                <rect
+                  x={s(op.x + op.drawWidth)}
+                  y={opTopY}
+                  width={s(BOTTOM_PLATE)}
+                  height={opH}
+                  fill="none"
+                  stroke={PLATE_COLOR}
+                  strokeWidth={1}
+                  strokeDasharray={DASH}
+                />
+              </g>
+            );
+          })}
+
           {/* ── Footer panels ── */}
           {footers.map((f, i) => (
             <g key={`footer-${i}`}>
