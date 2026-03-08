@@ -1,9 +1,12 @@
+import { useRef } from 'react';
 import { COLORS, WALL_THICKNESS, PANEL_GAP, WINDOW_OVERHANG } from '../utils/constants.js';
+import PrintButton from './PrintButton.jsx';
 
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 
 export default function WallDrawing({ layout, wallName }) {
+  const sectionRef = useRef(null);
   if (!layout) return null;
 
   const { grossLength, height, panels, openings, footers, lintels, deductionLeft, deductionRight } = layout;
@@ -18,7 +21,10 @@ export default function WallDrawing({ layout, wallName }) {
   const s = (mm) => mm * scale; // scale helper
 
   return (
-    <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
+    <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0' }}>
+        <PrintButton sectionRef={sectionRef} label="Elevation" />
+      </div>
       <svg
         width={svgWidth}
         height={svgHeight}

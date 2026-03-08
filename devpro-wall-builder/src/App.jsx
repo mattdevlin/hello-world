@@ -125,17 +125,13 @@ function App() {
 
         {layout && (
           <>
-            <div data-no-print>
-              <WallDrawing layout={layout} wallName={wallName} />
-              <FramingElevation layout={layout} wallName={wallName} />
-              <EpsElevation layout={layout} wallName={wallName} />
-            </div>
+            <WallDrawing layout={layout} wallName={wallName} />
+            <FramingElevation layout={layout} wallName={wallName} />
+            <EpsElevation layout={layout} wallName={wallName} />
             <PanelPlans layout={layout} wallName={wallName} />
-            <div data-no-print>
-              <EpsCutPlans layout={layout} />
-              <Offcuts layout={layout} />
-              <WallSummary layout={layout} wallName={wallName} />
-            </div>
+            <EpsCutPlans layout={layout} wallName={wallName} />
+            <Offcuts layout={layout} wallName={wallName} />
+            <WallSummary layout={layout} wallName={wallName} />
           </>
         )}
       </main>

@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_PITCH } from '../utils/constants.js';
+import PrintButton from './PrintButton.jsx';
 
 const SPLINE_WIDTH = 146; // mm
 const HALF_SPLINE = SPLINE_WIDTH / 2; // 73mm each side of centre
@@ -11,6 +13,7 @@ const LABEL_COLOR = '#555';
 const PLATE_COLOR = '#888';
 
 export default function FramingElevation({ layout, wallName }) {
+  const sectionRef = useRef(null);
   if (!layout) return null;
 
   const { grossLength, height, panels, openings, footers, lintels, deductionLeft, deductionRight } = layout;
@@ -28,7 +31,10 @@ export default function FramingElevation({ layout, wallName }) {
   const plateRight = grossLength - deductionRight;
 
   return (
-    <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
+    <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0' }}>
+        <PrintButton sectionRef={sectionRef} label="Framing" />
+      </div>
       <svg
         width={svgWidth}
         height={svgHeight}

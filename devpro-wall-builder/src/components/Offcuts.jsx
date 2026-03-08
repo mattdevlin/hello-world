@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { WINDOW_OVERHANG, PANEL_WIDTH, PANEL_GAP, COLORS, OPENING_TYPES } from '../utils/constants.js';
+import PrintButton from './PrintButton.jsx';
 
 const CARD_MARGIN = { top: 44, right: 30, bottom: 20, left: 30 };
 const CARD_MAX_H = 240;
@@ -230,7 +232,8 @@ const cardStyle = {
   margin: 4,
 };
 
-export default function Offcuts({ layout }) {
+export default function Offcuts({ layout, wallName }) {
+  const sectionRef = useRef(null);
   if (!layout) return null;
 
   const offcuts = computeOffcuts(layout);
@@ -240,10 +243,13 @@ export default function Offcuts({ layout }) {
   const stockPieces = offcuts.filter(o => o.type === 'stock');
 
   return (
-    <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
-      <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: '#333' }}>
-        Offcuts
-      </h3>
+    <div ref={sectionRef} data-print-section style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h3 style={{ margin: 0, fontSize: 16, color: '#333' }}>
+          Offcuts {wallName && `— ${wallName}`}
+        </h3>
+        <PrintButton sectionRef={sectionRef} label="Offcuts" />
+      </div>
 
       {stockPieces.length > 0 && (
         <>

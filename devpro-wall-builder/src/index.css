@@ -28,38 +28,48 @@ body {
     print-color-adjust: exact;
   }
 
-  /* Hide everything except printable sections */
-  header, form, .no-print,
-  [data-no-print] {
+  /* Hide everything by default */
+  header, form, .no-print {
     display: none !important;
   }
 
-  /* Show only the targeted print section */
+  /* All printable sections hidden unless active */
   [data-print-section] {
-    display: block !important;
-    break-inside: avoid;
-    page-break-inside: avoid;
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: #fff;
+    display: none !important;
   }
 
-  /* Panel plan cards: fit A3 landscape grid */
-  [data-print-section] > div {
+  /* Only the active section prints */
+  [data-print-active="true"] {
+    display: block !important;
+    margin: 0;
+    padding: 8px;
+    border: none;
+    background: #fff;
+    width: 100%;
+  }
+
+  /* SVGs inside active section scale to fit A3 */
+  [data-print-active="true"] svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Card grids inside active section */
+  [data-print-active="true"] > div {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
 
-  /* Print header for each section */
-  .print-header {
-    display: block !important;
+  /* Tables inside active section */
+  [data-print-active="true"] table {
     width: 100%;
-    font-size: 14pt;
-    font-weight: bold;
-    margin-bottom: 8px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #333;
+    border-collapse: collapse;
+  }
+  [data-print-active="true"] th,
+  [data-print-active="true"] td {
+    border: 1px solid #999;
+    padding: 4px 8px;
+    font-size: 10pt;
   }
 }

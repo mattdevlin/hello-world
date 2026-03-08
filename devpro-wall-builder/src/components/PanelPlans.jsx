@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { WINDOW_OVERHANG, PANEL_GAP, COLORS, OPENING_TYPES, BOTTOM_PLATE, TOP_PLATE } from '../utils/constants.js';
+import PrintButton from './PrintButton.jsx';
 
 const SPLINE_WIDTH = 146;
 const HALF_SPLINE = SPLINE_WIDTH / 2;
@@ -397,17 +399,6 @@ function SplineMagboardCard({ label, splineHeight, totalQty }) {
   );
 }
 
-const printBtnStyle = {
-  padding: '6px 16px',
-  background: '#2C5F8A',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 600,
-};
-
 const cardStyle = {
   background: '#fff',
   border: '1px solid #ddd',
@@ -418,6 +409,7 @@ const cardStyle = {
 };
 
 export default function PanelPlans({ layout, wallName }) {
+  const sectionRef = useRef(null);
   if (!layout) return null;
 
   const panels = layout.panels || [];
@@ -457,19 +449,13 @@ export default function PanelPlans({ layout, wallName }) {
     || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length;
   if (!hasContent) return null;
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
-    <div data-print-section style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
+    <div ref={sectionRef} data-print-section style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <h3 style={{ margin: 0, fontSize: 16, color: '#333' }}>
           CNC Panel Plans {wallName && `— ${wallName}`}
         </h3>
-        <button onClick={handlePrint} style={printBtnStyle} className="no-print">
-          Print A3
-        </button>
+        <PrintButton sectionRef={sectionRef} label="Panel Plans" />
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {dedLeft > 0 && (

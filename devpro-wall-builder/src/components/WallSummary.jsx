@@ -1,9 +1,16 @@
+import { useRef } from 'react';
+import PrintButton from './PrintButton.jsx';
+
 export default function WallSummary({ layout, wallName }) {
+  const sectionRef = useRef(null);
   if (!layout) return null;
 
   return (
-    <div style={styles.container}>
-      <h3 style={styles.heading}>Panel Summary — {wallName}</h3>
+    <div ref={sectionRef} data-print-section style={styles.container}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h3 style={{ ...styles.heading, margin: 0 }}>Panel Summary — {wallName}</h3>
+        <PrintButton sectionRef={sectionRef} label="Summary" />
+      </div>
       <table style={styles.table}>
         <tbody>
           <tr><td style={styles.labelCell}>Gross Length</td><td style={styles.valueCell}>{layout.grossLength} mm</td></tr>

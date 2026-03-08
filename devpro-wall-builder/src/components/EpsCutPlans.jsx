@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP } from '../utils/constants.js';
+import PrintButton from './PrintButton.jsx';
 
 const SPLINE_WIDTH = 146;
 const HALF_SPLINE = SPLINE_WIDTH / 2;
@@ -83,7 +85,8 @@ const cardStyle = {
   margin: 6,
 };
 
-export default function EpsCutPlans({ layout }) {
+export default function EpsCutPlans({ layout, wallName }) {
+  const sectionRef = useRef(null);
   if (!layout) return null;
 
   const { height, panels, openings, footers, lintels, deductionLeft, deductionRight } = layout;
@@ -237,12 +240,15 @@ export default function EpsCutPlans({ layout }) {
   if (!hasPanelEps && !hasSplineEps) return null;
 
   return (
-    <>
+    <div ref={sectionRef} data-print-section>
       {hasPanelEps && (
         <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
-          <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: '#333' }}>
-            EPS Cut Plans — 142mm thick
-          </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h3 style={{ margin: 0, fontSize: 16, color: '#333' }}>
+              EPS Cut Plans — 142mm thick {wallName && `— ${wallName}`}
+            </h3>
+            <PrintButton sectionRef={sectionRef} label="EPS Cuts" />
+          </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {pieces.map((piece, i) => (
               <RectCard
@@ -274,6 +280,6 @@ export default function EpsCutPlans({ layout }) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

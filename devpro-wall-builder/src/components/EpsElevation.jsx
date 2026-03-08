@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP } from '../utils/constants.js';
+import PrintButton from './PrintButton.jsx';
 
 const SPLINE_WIDTH = 146;
 const HALF_SPLINE = SPLINE_WIDTH / 2;
@@ -15,6 +17,7 @@ const SPLINE_EPS_STROKE = '#6AACE6';
 const MAGBOARD = 10; // mm each face
 
 export default function EpsElevation({ layout, wallName }) {
+  const sectionRef = useRef(null);
   if (!layout) return null;
 
   const { grossLength, height, panels, openings, footers, lintels, deductionLeft, deductionRight } = layout;
@@ -176,7 +179,10 @@ export default function EpsElevation({ layout, wallName }) {
   };
 
   return (
-    <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
+    <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0' }}>
+        <PrintButton sectionRef={sectionRef} label="EPS" />
+      </div>
       <svg
         width={svgWidth}
         height={svgHeight}
