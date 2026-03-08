@@ -204,7 +204,7 @@ export default function EpsCutPlans({ layout }) {
   });
 
   // ── Build list of spline EPS cut pieces (120mm thick) ──
-  const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2;
+  const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2 - 10; // 10mm short of lowest top plate
   const splinePieces = [];
 
   // Joint splines

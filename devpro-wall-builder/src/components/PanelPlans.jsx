@@ -420,7 +420,7 @@ export default function PanelPlans({ layout }) {
   const wallH = layout.height;
 
   // ── Wall spline magboard pieces ──
-  const splineH = wallH - BOTTOM_PLATE - TOP_PLATE * 2;
+  const splineH = wallH - BOTTOM_PLATE - TOP_PLATE * 2 - 10; // 10mm short of lowest top plate
   const splinePieces = [];
 
   // Joint splines

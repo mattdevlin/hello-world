@@ -353,8 +353,8 @@ export default function EpsElevation({ layout, wallName }) {
 
           {/* ── Spline EPS (120mm EPS inside 146mm splines) ── */}
           {(() => {
-            const splineTop = TOP_PLATE * 2;
-            const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2;
+            const splineTop = TOP_PLATE * 2 + 10; // 10mm short of lowest top plate
+            const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2 - 10;
             const splineEpsX = MAGBOARD; // 10mm magboard inset from each edge in width
             const splineEpsW = SPLINE_WIDTH - MAGBOARD * 2; // 126mm EPS width in elevation
             const splines = [];
