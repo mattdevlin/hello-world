@@ -5,6 +5,7 @@ import WallSummary from './components/WallSummary.jsx';
 import PanelPlans from './components/PanelPlans.jsx';
 import FramingElevation from './components/FramingElevation.jsx';
 import EpsElevation from './components/EpsElevation.jsx';
+import EpsCutPlans from './components/EpsCutPlans.jsx';
 import Offcuts from './components/Offcuts.jsx';
 import { calculateWallLayout } from './utils/calculator.js';
 
@@ -36,6 +37,7 @@ function App() {
             <FramingElevation layout={layout} wallName={wallName} />
             <EpsElevation layout={layout} wallName={wallName} />
             <PanelPlans layout={layout} />
+            <EpsCutPlans layout={layout} />
             <Offcuts layout={layout} />
             <WallSummary layout={layout} wallName={wallName} />
           </>
