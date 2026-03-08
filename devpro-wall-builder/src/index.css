@@ -14,3 +14,52 @@ body {
 #root {
   width: 100%;
 }
+
+/* ── Print styles: A3 landscape ── */
+@media print {
+  @page {
+    size: A3 landscape;
+    margin: 10mm;
+  }
+
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide everything except printable sections */
+  header, form, .no-print,
+  [data-no-print] {
+    display: none !important;
+  }
+
+  /* Show only the targeted print section */
+  [data-print-section] {
+    display: block !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: #fff;
+  }
+
+  /* Panel plan cards: fit A3 landscape grid */
+  [data-print-section] > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Print header for each section */
+  .print-header {
+    display: block !important;
+    width: 100%;
+    font-size: 14pt;
+    font-weight: bold;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #333;
+  }
+}

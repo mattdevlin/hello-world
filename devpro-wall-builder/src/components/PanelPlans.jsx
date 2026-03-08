@@ -397,6 +397,17 @@ function SplineMagboardCard({ label, splineHeight, totalQty }) {
   );
 }
 
+const printBtnStyle = {
+  padding: '6px 16px',
+  background: '#2C5F8A',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 4,
+  cursor: 'pointer',
+  fontSize: 13,
+  fontWeight: 600,
+};
+
 const cardStyle = {
   background: '#fff',
   border: '1px solid #ddd',
@@ -406,7 +417,7 @@ const cardStyle = {
   margin: 6,
 };
 
-export default function PanelPlans({ layout }) {
+export default function PanelPlans({ layout, wallName }) {
   if (!layout) return null;
 
   const panels = layout.panels || [];
@@ -446,11 +457,20 @@ export default function PanelPlans({ layout }) {
     || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length;
   if (!hasContent) return null;
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
-      <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: '#333' }}>
-        CNC Panel Plans
-      </h3>
+    <div data-print-section style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h3 style={{ margin: 0, fontSize: 16, color: '#333' }}>
+          CNC Panel Plans {wallName && `— ${wallName}`}
+        </h3>
+        <button onClick={handlePrint} style={printBtnStyle} className="no-print">
+          Print A3
+        </button>
+      </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {dedLeft > 0 && (
           <DeductionCard side="left" width={dedLeft} height={wallH} />

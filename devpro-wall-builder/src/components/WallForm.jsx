@@ -10,15 +10,17 @@ const defaultOpening = {
   position_from_left_mm: 1000,
 };
 
-export default function WallForm({ onCalculate }) {
-  const [wall, setWall] = useState({
-    name: 'N-W1',
-    length_mm: 9740,
-    height_mm: 2440,
-    deduction_left_mm: 162,
-    deduction_right_mm: 0,
-    openings: [],
-  });
+const defaultWall = {
+  name: 'N-W1',
+  length_mm: 9740,
+  height_mm: 2440,
+  deduction_left_mm: 162,
+  deduction_right_mm: 0,
+  openings: [],
+};
+
+export default function WallForm({ onCalculate, initialWall }) {
+  const [wall, setWall] = useState(initialWall || defaultWall);
 
   const updateField = (field, value) => {
     setWall(prev => ({ ...prev, [field]: value }));
