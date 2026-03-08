@@ -253,52 +253,59 @@ export default function WallDrawing({ layout, wallName }) {
             </g>
           ))}
 
-          {/* Running measurement from left edge */}
+          {/* Running measurement — right-edge of each base-width element */}
           <g>
             {(() => {
-              const pointSet = new Set([0, grossLength]);
+              // Collect all base-width elements with their display width and sort x
+              const baseElements = [];
 
-              // Deduction boundaries + gap after
               if (deductionLeft > 0) {
-                pointSet.add(deductionLeft);
-                pointSet.add(deductionLeft + PANEL_GAP);
-              }
-              if (deductionRight > 0) {
-                pointSet.add(grossLength - deductionRight);
-                pointSet.add(grossLength - deductionRight - PANEL_GAP);
+                baseElements.push({ sortX: 0, displayWidth: deductionLeft });
               }
 
-              // Panel BASE boundaries (exclude L-cut overhang)
               panels.forEach(p => {
+                let displayWidth, sortX;
                 if (p.type === 'lcut') {
                   if (p.side === 'left') {
-                    // overhang extends right over opening
-                    pointSet.add(Math.round(p.x));
-                    pointSet.add(Math.round(p.x + p.width - WINDOW_OVERHANG));
+                    displayWidth = p.width - WINDOW_OVERHANG;
+                    sortX = p.x;
                   } else if (p.side === 'right') {
-                    // overhang extends left over opening
-                    pointSet.add(Math.round(p.x + WINDOW_OVERHANG));
-                    pointSet.add(Math.round(p.x + p.width));
-                  } else if (p.side === 'pier') {
-                    // overhang on both sides
-                    pointSet.add(Math.round(p.x + WINDOW_OVERHANG));
-                    pointSet.add(Math.round(p.x + p.width - WINDOW_OVERHANG));
+                    displayWidth = p.width - WINDOW_OVERHANG;
+                    sortX = p.x + WINDOW_OVERHANG;
+                  } else {
+                    displayWidth = p.width - 2 * WINDOW_OVERHANG;
+                    sortX = p.x + WINDOW_OVERHANG;
                   }
                 } else {
-                  pointSet.add(Math.round(p.x));
-                  pointSet.add(Math.round(p.x + p.width));
+                  displayWidth = p.width;
+                  sortX = p.x;
                 }
+                baseElements.push({ sortX, displayWidth });
               });
 
-              // Footer boundaries
               footers.forEach(f => {
-                pointSet.add(Math.round(f.x));
-                pointSet.add(Math.round(f.x + f.width));
+                baseElements.push({ sortX: f.x, displayWidth: f.width });
               });
 
-              const points = [...pointSet].sort((a, b) => a - b);
+              if (deductionRight > 0) {
+                baseElements.push({ sortX: grossLength - deductionRight, displayWidth: deductionRight });
+              }
+
+              // Sort left to right
+              baseElements.sort((a, b) => a.sortX - b.sortX);
+
+              // Build right-edge positions working backwards from grossLength
+              const points = new Set([0, grossLength]);
+              let pos = grossLength;
+              for (let i = baseElements.length - 1; i >= 0; i--) {
+                points.add(Math.round(pos));
+                pos -= baseElements[i].displayWidth;
+                if (i > 0) pos -= PANEL_GAP;
+              }
+
+              const sorted = [...points].sort((a, b) => a - b);
               const tickY = s(height) + 22;
-              return points.map((pt, i) => (
+              return sorted.map((pt, i) => (
                 <g key={`rm-${i}`}>
                   <line x1={s(pt)} y1={tickY - 4} x2={s(pt)} y2={tickY + 4} stroke={COLORS.DIMENSION} strokeWidth={1} />
                   <text
