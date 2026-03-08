@@ -3,6 +3,7 @@ export const PANEL_WIDTH = 1200;        // mm
 export const PANEL_GAP = 5;             // mm plaster gap
 export const PANEL_PITCH = 1205;        // mm (width + gap)
 export const MIN_PANEL = 300;           // mm minimum panel width
+export const MIN_LCUT_PANEL = 600;      // mm minimum L-cut panel width at base
 export const WALL_THICKNESS = 162;      // mm
 export const FLOOR_THICKNESS = 192;     // mm
 export const ROOF_THICKNESS = 242;      // mm

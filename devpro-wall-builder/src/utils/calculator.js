@@ -3,6 +3,7 @@ import {
   PANEL_GAP,
   PANEL_PITCH,
   MIN_PANEL,
+  MIN_LCUT_PANEL,
   WALL_THICKNESS,
   WINDOW_OVERHANG,
   DOOR_OVERHANG,
@@ -137,6 +138,65 @@ export function calculateWallLayout(wall) {
           panel.openingRefs.push(opening.ref);
         }
       }
+    }
+
+    // Enforce minimum L-cut panel width (600mm at base)
+    // Exceptions: windows too close together, or near end of wall run
+    for (let i = 0; i < panels.length; i++) {
+      const panel = panels[i];
+      if (panel.type !== 'lcut' || panel.width >= MIN_LCUT_PANEL) continue;
+
+      // Check if this panel is between two openings (windows close together)
+      const betweenOpenings = panel.openingRefs && panel.openingRefs.length > 1;
+      if (betweenOpenings) continue;
+
+      // Check if adjacent panel is also L-cut from a different opening
+      // (windows close together scenario)
+      const prev = i > 0 ? panels[i - 1] : null;
+      const next = i < panels.length - 1 ? panels[i + 1] : null;
+      const prevIsLcutOther = prev && prev.type === 'lcut' &&
+        prev.openingRefs && panel.openingRefs &&
+        !prev.openingRefs.some(r => panel.openingRefs.includes(r));
+      const nextIsLcutOther = next && next.type === 'lcut' &&
+        next.openingRefs && panel.openingRefs &&
+        !next.openingRefs.some(r => panel.openingRefs.includes(r));
+
+      // End of wall run — no neighbor to redistribute with
+      const isLastPanel = i === panels.length - 1;
+      const isFirstPanel = i === 0;
+
+      // Try to redistribute with a neighbor that isn't constrained
+      if (prev && !prevIsLcutOther && !isFirstPanel) {
+        const combined = prev.pitch + panel.pitch;
+        const halfPitch = Math.round(combined / 2);
+        const otherPitch = combined - halfPitch;
+        const newPrevWidth = halfPitch - PANEL_GAP;
+        const newWidth = otherPitch - PANEL_GAP;
+        // Only redistribute if both panels stay >= MIN_LCUT_PANEL (or MIN_PANEL for non-lcut)
+        const prevMin = prev.type === 'lcut' ? MIN_LCUT_PANEL : MIN_PANEL;
+        if (newPrevWidth >= prevMin && newWidth >= MIN_LCUT_PANEL) {
+          prev.width = newPrevWidth;
+          prev.pitch = halfPitch;
+          panel.x = prev.x + halfPitch;
+          panel.width = newWidth;
+          panel.pitch = otherPitch;
+        }
+      } else if (next && !nextIsLcutOther && !isLastPanel) {
+        const combined = panel.pitch + next.pitch;
+        const halfPitch = Math.round(combined / 2);
+        const otherPitch = combined - halfPitch;
+        const newWidth = halfPitch - PANEL_GAP;
+        const newNextWidth = otherPitch - PANEL_GAP;
+        const nextMin = next.type === 'lcut' ? MIN_LCUT_PANEL : MIN_PANEL;
+        if (newWidth >= MIN_LCUT_PANEL && newNextWidth >= nextMin) {
+          panel.width = newWidth;
+          panel.pitch = halfPitch;
+          next.x = panel.x + halfPitch;
+          next.width = newNextWidth;
+          next.pitch = otherPitch;
+        }
+      }
+      // If neither redistribution works, leave as-is (exception case)
     }
   }
 
