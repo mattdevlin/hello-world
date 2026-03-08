@@ -26,8 +26,10 @@ export function calculateWallLayout(wall) {
   const grossLength = wall.length_mm;
   const netLength = grossLength - (wall.deduction_left_mm || 0) - (wall.deduction_right_mm || 0);
   const height = wall.height_mm;
-  const wallStart = wall.deduction_left_mm || 0;
-  const wallEnd = grossLength - (wall.deduction_right_mm || 0);
+  const dedLeft = wall.deduction_left_mm || 0;
+  const dedRight = wall.deduction_right_mm || 0;
+  const wallStart = dedLeft + (dedLeft > 0 ? PANEL_GAP : 0);
+  const wallEnd = grossLength - dedRight - (dedRight > 0 ? PANEL_GAP : 0);
 
   // Process openings first to determine clear spans
   const openingDetails = [];
@@ -106,7 +108,7 @@ export function calculateWallLayout(wall) {
 
   const panels = [];
   const ovh = WINDOW_OVERHANG;                  // 121 mm leg overhang
-  const maxBase = PANEL_WIDTH - ovh;             // 1079 mm max L-cut base
+  const maxBase = PANEL_WIDTH;                   // max L-cut panel clear-zone width
 
   // Helper: fill a clear span with full panels + end panel
   function fillClearSpan(start, end) {
@@ -249,8 +251,8 @@ export function calculateWallLayout(wall) {
 
       if (needLeft && needRight) {
         // Both sides need L-cuts — check if a single pier panel fits
-        if (zoneLen + 2 * ovh <= PANEL_WIDTH) {
-          // Entire pier (base + both overhangs) fits on one sheet → single panel
+        if (zoneLen <= PANEL_WIDTH) {
+          // Entire pier (clear zone) fits on one sheet → single panel
           addPier(zone.start, zoneLen, zone.leftOp, zone.rightOp);
           continue;
         } else if (zoneLen <= 2 * maxBase) {
@@ -294,8 +296,8 @@ export function calculateWallLayout(wall) {
     grossLength,
     netLength,
     height,
-    deductionLeft: wall.deduction_left_mm || 0,
-    deductionRight: wall.deduction_right_mm || 0,
+    deductionLeft: dedLeft,
+    deductionRight: dedRight,
     panels,
     openings: openingDetails,
     footers,

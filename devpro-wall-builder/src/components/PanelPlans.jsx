@@ -25,8 +25,10 @@ function computeLcutProfile(panel) {
   const lintelStep = panel.openTop - gap;
 
   if (isLeft) {
-    const base = panel.openLeft - panel.x;
-    const totalW = base + ovh;
+    // totalW = clear-zone width (panel CNC sheet width)
+    // base = full-height portion; ovh = leg extending towards opening
+    const totalW = panel.openLeft - panel.x;
+    const base = totalW - ovh;
 
     if (isWindow && sill > 0) {
       const verts = [
@@ -52,8 +54,9 @@ function computeLcutProfile(panel) {
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     }
   } else {
-    const base = (panel.x + panel.width) - panel.openRight;
-    const totalW = base + ovh;
+    // totalW = clear-zone width (panel CNC sheet width)
+    // ovh = leg width on left side (towards opening)
+    const totalW = (panel.x + panel.width) - panel.openRight;
 
     if (isWindow && sill > 0) {
       const verts = [
@@ -90,8 +93,8 @@ function computePierProfile(panel) {
   const H = panel.height;
   const ovh = WINDOW_OVERHANG;
   const gap = PANEL_GAP;
-  const base = panel.width;                      // clear-zone width
-  const totalW = base + 2 * ovh;                 // full sheet width
+  const totalW = panel.width;                     // clear-zone width = CNC sheet width
+  const base = totalW - 2 * ovh;                 // full-height centre section
 
   // Left opening (right L-cut side)
   const lIsWindow = panel.openingType === OPENING_TYPES.WINDOW;
