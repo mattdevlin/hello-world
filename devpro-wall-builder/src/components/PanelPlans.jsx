@@ -103,37 +103,31 @@ function computePierProfile(panel) {
   const rSill = panel.rightOpenBottom + gap;
   const rLintel = panel.rightOpenTop - gap;
 
-  // Build vertices clockwise from top-left.
-  // Left leg at x=0, base from ovh to ovh+base, right leg at ovh+base to totalW.
+  // Build vertices clockwise from top-left of the base.
+  // Left leg (x=0..ovh), base (x=ovh..ovh+base), right leg (x=ovh+base..totalW).
+  // Legs only reach up to their respective lintel heights, not full H.
   const verts = [];
 
-  // ── Top edge (left to right) ──
-  verts.push({ x: 0, y: H });
-  verts.push({ x: totalW, y: H });
+  // ── Top of base, then step down to right leg ──
+  verts.push({ x: ovh, y: H });
+  verts.push({ x: ovh + base, y: H });
+  verts.push({ x: ovh + base, y: rLintel });
 
-  // ── Right side: descend with right opening cutout ──
+  // ── Right leg: descend with right opening cutout ──
   if (rIsWindow && rSill > 0) {
-    // Step in at lintel, out at sill
     verts.push({ x: totalW, y: rLintel });
-    verts.push({ x: ovh + base, y: rLintel });
-    verts.push({ x: ovh + base, y: rSill });
     verts.push({ x: totalW, y: rSill });
-    verts.push({ x: totalW, y: 0 });
-  } else {
-    // Door: leg from top down to lintel only
-    verts.push({ x: totalW, y: rLintel });
-    verts.push({ x: ovh + base, y: rLintel });
+    verts.push({ x: ovh + base, y: rSill });
     verts.push({ x: ovh + base, y: 0 });
+  } else {
+    verts.push({ x: totalW, y: rLintel });
+    verts.push({ x: totalW, y: 0 });
   }
 
   // ── Bottom edge (right to left) ──
-  if (lIsWindow && lSill > 0) {
-    verts.push({ x: ovh, y: 0 });
-  } else {
-    verts.push({ x: ovh, y: 0 });
-  }
+  verts.push({ x: ovh, y: 0 });
 
-  // ── Left side: ascend with left opening cutout ──
+  // ── Left leg: ascend with left opening cutout ──
   if (lIsWindow && lSill > 0) {
     verts.push({ x: ovh, y: lSill });
     verts.push({ x: 0, y: lSill });
@@ -142,6 +136,7 @@ function computePierProfile(panel) {
   } else {
     verts.push({ x: ovh, y: lLintel });
     verts.push({ x: 0, y: lLintel });
+    verts.push({ x: ovh, y: lLintel });
   }
 
   return { vertices: verts, profileWidth: totalW, profileHeight: H };
