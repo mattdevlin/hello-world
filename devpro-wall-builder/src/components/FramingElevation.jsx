@@ -98,6 +98,19 @@ export default function FramingElevation({ layout, wallName }) {
               -{deductionLeft}
             </text>
           )}
+          {/* Vertical plate at left deduction (45mm, attached to deduction side) */}
+          {deductionLeft > 0 && (
+            <rect
+              x={s(deductionLeft - BOTTOM_PLATE)}
+              y={0}
+              width={s(BOTTOM_PLATE)}
+              height={s(height)}
+              fill="none"
+              stroke={PLATE_COLOR}
+              strokeWidth={1}
+              strokeDasharray={DASH}
+            />
+          )}
           {deductionRight > 0 && (
             <rect
               x={s(grossLength - deductionRight)}
@@ -114,6 +127,19 @@ export default function FramingElevation({ layout, wallName }) {
             <text x={s(grossLength - deductionRight / 2)} y={s(height) + 14} textAnchor="middle" fontSize="9" fill="#999">
               -{deductionRight}
             </text>
+          )}
+          {/* Vertical plate at right deduction (45mm, attached to deduction side) */}
+          {deductionRight > 0 && (
+            <rect
+              x={s(grossLength - deductionRight)}
+              y={0}
+              width={s(BOTTOM_PLATE)}
+              height={s(height)}
+              fill="none"
+              stroke={PLATE_COLOR}
+              strokeWidth={1}
+              strokeDasharray={DASH}
+            />
           )}
 
           {/* ── Panels ── */}
