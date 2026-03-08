@@ -14,9 +14,13 @@ function computeLcutProfile(panel) {
   const H = panel.height;
   const ovh = WINDOW_OVERHANG;
   const gap = PANEL_GAP;
+
+  if (panel.side === 'pier') {
+    return computePierProfile(panel);
+  }
+
   const isLeft = panel.side === 'left';
   const isWindow = panel.openingType === OPENING_TYPES.WINDOW;
-  // Step positions include 5mm gap: sill step is 5mm above footer, lintel step is 5mm below lintel
   const sill = panel.openBottom + gap;
   const lintelStep = panel.openTop - gap;
 
@@ -25,7 +29,6 @@ function computeLcutProfile(panel) {
     const totalW = base + ovh;
 
     if (isWindow && sill > 0) {
-      // 8-vertex: base width at lintel (top) and footer (bottom), wider at window zone
       const verts = [
         { x: 0, y: H },
         { x: base, y: H },
@@ -38,7 +41,6 @@ function computeLcutProfile(panel) {
       ];
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     } else {
-      // 6-vertex door L-cut: base width at lintel, wider below
       const verts = [
         { x: 0, y: H },
         { x: base, y: H },
@@ -54,7 +56,6 @@ function computeLcutProfile(panel) {
     const totalW = base + ovh;
 
     if (isWindow && sill > 0) {
-      // 8-vertex: base width at lintel (top) and footer (bottom), wider at window zone
       const verts = [
         { x: ovh, y: H },
         { x: totalW, y: H },
@@ -67,7 +68,6 @@ function computeLcutProfile(panel) {
       ];
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     } else {
-      // 6-vertex door L-cut: base width at lintel, wider below
       const verts = [
         { x: ovh, y: H },
         { x: totalW, y: H },
@@ -79,6 +79,72 @@ function computeLcutProfile(panel) {
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     }
   }
+}
+
+/**
+ * Compute profile for a pier panel — L-cuts on both sides.
+ * Left side has right-L-cut (leg extends left over left opening).
+ * Right side has left-L-cut (leg extends right over right opening).
+ */
+function computePierProfile(panel) {
+  const H = panel.height;
+  const ovh = WINDOW_OVERHANG;
+  const gap = PANEL_GAP;
+  const base = panel.width;                      // clear-zone width
+  const totalW = base + 2 * ovh;                 // full sheet width
+
+  // Left opening (right L-cut side)
+  const lIsWindow = panel.openingType === OPENING_TYPES.WINDOW;
+  const lSill = panel.openBottom + gap;
+  const lLintel = panel.openTop - gap;
+
+  // Right opening (left L-cut side)
+  const rIsWindow = panel.rightOpeningType === OPENING_TYPES.WINDOW;
+  const rSill = panel.rightOpenBottom + gap;
+  const rLintel = panel.rightOpenTop - gap;
+
+  // Build vertices clockwise from top-left.
+  // Left leg at x=0, base from ovh to ovh+base, right leg at ovh+base to totalW.
+  const verts = [];
+
+  // ── Top edge (left to right) ──
+  verts.push({ x: 0, y: H });
+  verts.push({ x: totalW, y: H });
+
+  // ── Right side: descend with right opening cutout ──
+  if (rIsWindow && rSill > 0) {
+    // Step in at lintel, out at sill
+    verts.push({ x: totalW, y: rLintel });
+    verts.push({ x: ovh + base, y: rLintel });
+    verts.push({ x: ovh + base, y: rSill });
+    verts.push({ x: totalW, y: rSill });
+    verts.push({ x: totalW, y: 0 });
+  } else {
+    // Door: leg from top down to lintel only
+    verts.push({ x: totalW, y: rLintel });
+    verts.push({ x: ovh + base, y: rLintel });
+    verts.push({ x: ovh + base, y: 0 });
+  }
+
+  // ── Bottom edge (right to left) ──
+  if (lIsWindow && lSill > 0) {
+    verts.push({ x: ovh, y: 0 });
+  } else {
+    verts.push({ x: ovh, y: 0 });
+  }
+
+  // ── Left side: ascend with left opening cutout ──
+  if (lIsWindow && lSill > 0) {
+    verts.push({ x: ovh, y: lSill });
+    verts.push({ x: 0, y: lSill });
+    verts.push({ x: 0, y: lLintel });
+    verts.push({ x: ovh, y: lLintel });
+  } else {
+    verts.push({ x: ovh, y: lLintel });
+    verts.push({ x: 0, y: lLintel });
+  }
+
+  return { vertices: verts, profileWidth: totalW, profileHeight: H };
 }
 
 /**
@@ -190,13 +256,14 @@ function ProfileCard({ vertices, profileWidth, profileHeight, fill, title, subti
 function LcutPlanCard({ panel }) {
   const profile = computeLcutProfile(panel);
   const panelLabel = `P${panel.index + 1}`;
-  const sideLabel = panel.side === 'left' ? 'left' : 'right';
+  const isPier = panel.side === 'pier';
+  const sideLabel = isPier ? 'pier' : panel.side === 'left' ? 'left' : 'right';
   return (
     <ProfileCard
       {...profile}
       fill={COLORS.LCUT}
-      title={`${panelLabel} — L-Cut (${sideLabel})`}
-      subtitle={`${panel.openingRefs.join(', ')} | ${panel.openingType}`}
+      title={`${panelLabel} — ${isPier ? 'Pier' : 'L-Cut'} (${sideLabel})`}
+      subtitle={`${panel.openingRefs.join(', ')} | ${isPier ? 'pier' : panel.openingType}`}
     />
   );
 }

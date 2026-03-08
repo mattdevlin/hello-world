@@ -161,6 +161,36 @@ export function calculateWallLayout(wall) {
     });
   }
 
+  // Helper: push a pier panel (single panel between two openings, L-cuts both sides)
+  function addPier(x, base, leftOpening, rightOpening) {
+    if (base < MIN_PANEL) return;
+    const lOpenLeft = leftOpening.position_from_left_mm;
+    const lOpenRight = lOpenLeft + leftOpening.width_mm;
+    const rOpenLeft = rightOpening.position_from_left_mm;
+    const rOpenRight = rOpenLeft + rightOpening.width_mm;
+    panels.push({
+      x,
+      width: base,
+      pitch: base + PANEL_GAP,
+      height,
+      type: 'lcut',
+      openingRefs: [leftOpening.ref, rightOpening.ref],
+      side: 'pier',
+      // Left opening data (right L-cut side)
+      openLeft: lOpenLeft,
+      openRight: lOpenRight,
+      openBottom: leftOpening.sill_mm || 0,
+      openTop: (leftOpening.sill_mm || 0) + leftOpening.height_mm,
+      openingType: leftOpening.type,
+      // Right opening data (left L-cut side)
+      rightOpenLeft: rOpenLeft,
+      rightOpenRight: rOpenRight,
+      rightOpenBottom: rightOpening.sill_mm || 0,
+      rightOpenTop: (rightOpening.sill_mm || 0) + rightOpening.height_mm,
+      rightOpeningType: rightOpening.type,
+    });
+  }
+
   if (sortedOpenings.length === 0) {
     // No openings — just fill the wall
     fillClearSpan(wallStart, wallEnd);
@@ -218,12 +248,11 @@ export function calculateWallLayout(wall) {
       let rightBase = 0;   // left L-cut of right opening
 
       if (needLeft && needRight) {
-        // Both sides need L-cuts — split the zone
-        if (zoneLen <= maxBase) {
-          // Zone fits in a single panel width — split evenly
-          const half = Math.floor(zoneLen / 2);
-          leftBase = half;
-          rightBase = zoneLen - half;
+        // Both sides need L-cuts — check if a single pier panel fits
+        if (zoneLen + 2 * ovh <= PANEL_WIDTH) {
+          // Entire pier (base + both overhangs) fits on one sheet → single panel
+          addPier(zone.start, zoneLen, zone.leftOp, zone.rightOp);
+          continue;
         } else if (zoneLen <= 2 * maxBase) {
           // Zone fits two L-cuts with no fill between
           leftBase = Math.min(maxBase, Math.floor(zoneLen / 2));
