@@ -193,19 +193,26 @@ export function calculateWallLayout(wall) {
     });
   }
 
+  // Helper: does this opening have a footer panel?
+  function hasFooter(opening) {
+    return opening.type === OPENING_TYPES.WINDOW && (opening.sill_mm || 0) > 0;
+  }
+
   if (sortedOpenings.length === 0) {
     // No openings — just fill the wall
     fillClearSpan(wallStart, wallEnd);
   } else {
     // Build clear zones between wall edges and openings.
     // Each zone knows which opening (if any) borders it on each side.
+    // Zone boundaries are shrunk by PANEL_GAP on sides where a footer
+    // exists, so that the panel base → footer joint has a 5 mm gap.
     const zones = [];
 
     // Zone before first opening
     const firstOp = sortedOpenings[0];
     zones.push({
       start: wallStart,
-      end: firstOp.position_from_left_mm,
+      end: firstOp.position_from_left_mm - (hasFooter(firstOp) ? PANEL_GAP : 0),
       leftOp: null,                       // wall edge — no L-cut
       rightOp: firstOp,                   // opening on right — left L-cut
     });
@@ -215,8 +222,8 @@ export function calculateWallLayout(wall) {
       const curr = sortedOpenings[i];
       const next = sortedOpenings[i + 1];
       zones.push({
-        start: curr.position_from_left_mm + curr.width_mm,
-        end: next.position_from_left_mm,
+        start: curr.position_from_left_mm + curr.width_mm + (hasFooter(curr) ? PANEL_GAP : 0),
+        end: next.position_from_left_mm - (hasFooter(next) ? PANEL_GAP : 0),
         leftOp: curr,                     // opening on left — right L-cut
         rightOp: next,                    // opening on right — left L-cut
       });
@@ -225,7 +232,7 @@ export function calculateWallLayout(wall) {
     // Zone after last opening
     const lastOp = sortedOpenings[sortedOpenings.length - 1];
     zones.push({
-      start: lastOp.position_from_left_mm + lastOp.width_mm,
+      start: lastOp.position_from_left_mm + lastOp.width_mm + (hasFooter(lastOp) ? PANEL_GAP : 0),
       end: wallEnd,
       leftOp: lastOp,                     // opening on left — right L-cut
       rightOp: null,                      // wall edge — no L-cut
