@@ -120,9 +120,9 @@ export default function WallDrawing({ layout, wallName }) {
                 {/* Panel number */}
                 <text
                   x={s(panel.x + panel.width / 2)}
-                  y={s(height) - 8}
+                  y={s(height / 2) + 4}
                   textAnchor="middle"
-                  fontSize="10"
+                  fontSize="11"
                   fill={COLORS.PANEL_LABEL}
                   fontWeight="bold"
                 >
@@ -131,9 +131,9 @@ export default function WallDrawing({ layout, wallName }) {
                 {/* Panel width label */}
                 <text
                   x={s(panel.x + panel.width / 2)}
-                  y={s(height) - 22}
+                  y={s(height / 2) + 18}
                   textAnchor="middle"
-                  fontSize="8"
+                  fontSize="9"
                   fill="#666"
                 >
                   {panel.width}
