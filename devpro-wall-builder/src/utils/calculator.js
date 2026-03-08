@@ -94,13 +94,24 @@ export function calculateWallLayout(wall) {
     spans.push({ start: cursor, end: wallEnd, type: 'clear' });
   }
 
-  // Fill each span with panels
+  // ── Panel generation: built around openings ──────────────────────
+  //
+  // Logic:
+  //   1. Identify clear zones (wall regions between openings / wall edges)
+  //   2. At each opening edge, place an L-cut panel whose BASE sits in
+  //      the clear zone and whose LEG (overhang) extends over the opening.
+  //      Panel width in layout = base only.  CNC profile = base + ovh.
+  //   3. Fill whatever clear-zone space remains with full / end panels.
+  //   4. No panels are placed inside the opening void.
+
   const panels = [];
+  const ovh = WINDOW_OVERHANG;                  // 121 mm leg overhang
+  const maxBase = PANEL_WIDTH - ovh;             // 1079 mm max L-cut base
 
   // Helper: fill a clear span with full panels + end panel
   function fillClearSpan(start, end) {
     const spanLen = end - start;
-    if (spanLen < MIN_PANEL) return; // too small for a panel
+    if (spanLen < MIN_PANEL) return;
 
     const count = Math.floor(spanLen / PANEL_PITCH);
     const remainder = spanLen - count * PANEL_PITCH;
@@ -114,7 +125,6 @@ export function calculateWallLayout(wall) {
     if (remainder >= MIN_PANEL) {
       panels.push({ x, width: remainder, pitch: remainder, height, type: 'end' });
     } else if (remainder > 0 && count > 0) {
-      // Redistribute with last full panel
       const last = panels[panels.length - 1];
       const combined = PANEL_PITCH + remainder;
       const each = Math.round(combined / 2);
@@ -130,174 +140,120 @@ export function calculateWallLayout(wall) {
     }
   }
 
+  // Helper: push an L-cut panel
+  function addLcut(x, base, opening, side) {
+    if (base < MIN_PANEL) return;
+    const openLeft = opening.position_from_left_mm;
+    const openRight = openLeft + opening.width_mm;
+    panels.push({
+      x,
+      width: base,
+      pitch: base + PANEL_GAP,
+      height,
+      type: 'lcut',
+      openingRefs: [opening.ref],
+      side,
+      openLeft,
+      openRight,
+      openBottom: opening.sill_mm || 0,
+      openTop: (opening.sill_mm || 0) + opening.height_mm,
+      openingType: opening.type,
+    });
+  }
+
   if (sortedOpenings.length === 0) {
-    // No openings — simple case
+    // No openings — just fill the wall
     fillClearSpan(wallStart, wallEnd);
   } else {
-    // For each opening, we need L-cut panels on left and right sides.
-    // Then fill clear gaps between with full panels.
+    // Build clear zones between wall edges and openings.
+    // Each zone knows which opening (if any) borders it on each side.
+    const zones = [];
 
-    // First, determine L-cut panel positions for each opening
-    // L-cut panel on left side: extends from some position leftward of opening, INTO the opening
-    // L-cut panel on right side: extends from opening right edge, rightward
-    // Each L-cut panel is a full 1200mm panel positioned so it overlaps the opening edge
+    // Zone before first opening
+    const firstOp = sortedOpenings[0];
+    zones.push({
+      start: wallStart,
+      end: firstOp.position_from_left_mm,
+      leftOp: null,                       // wall edge — no L-cut
+      rightOp: firstOp,                   // opening on right — left L-cut
+    });
 
-    // Collect all "features" left to right: wall-start, opening-edges, wall-end
-    // Between features that are far enough apart, place full panels
-    // At opening edges, place L-cut panels
-
-    // Build list of L-cut panels and the clear zones between them
-    const lcutPanels = []; // { x, width, openingRef, side }
-
-    for (const opening of sortedOpenings) {
-      const openLeft = opening.position_from_left_mm;
-      const openRight = openLeft + opening.width_mm;
-
-      // Left L-cut: panel right edge at opening left + some overlap into opening
-      // Panel is 1200mm wide, positioned so it straddles the left edge of the opening
-      // The panel extends from (openLeft - baseWidth) to (openLeft + legWidth)
-      // We want at least MIN_LCUT_PANEL (600mm) of base (the part outside the opening)
-      const leftLcutX = openLeft - PANEL_WIDTH; // panel starts 1200mm left of opening left
-      lcutPanels.push({
-        x: leftLcutX,
-        width: PANEL_WIDTH,
-        pitch: PANEL_PITCH,
-        height,
-        type: 'lcut',
-        openingRefs: [opening.ref],
-        side: 'left',
-        openLeft,
-        openRight,
-        openBottom: opening.sill_mm || 0,
-        openTop: (opening.sill_mm || 0) + opening.height_mm,
-        openingType: opening.type,
-      });
-
-      // Right L-cut: panel left edge inside opening, extends right past opening right
-      const rightLcutX = openRight; // panel starts at opening right edge
-      lcutPanels.push({
-        x: rightLcutX,
-        width: PANEL_WIDTH,
-        pitch: PANEL_PITCH,
-        height,
-        type: 'lcut',
-        openingRefs: [opening.ref],
-        side: 'right',
-        openLeft,
-        openRight,
-        openBottom: opening.sill_mm || 0,
-        openTop: (opening.sill_mm || 0) + opening.height_mm,
-        openingType: opening.type,
+    // Zones between consecutive openings
+    for (let i = 0; i < sortedOpenings.length - 1; i++) {
+      const curr = sortedOpenings[i];
+      const next = sortedOpenings[i + 1];
+      zones.push({
+        start: curr.position_from_left_mm + curr.width_mm,
+        end: next.position_from_left_mm,
+        leftOp: curr,                     // opening on left — right L-cut
+        rightOp: next,                    // opening on right — left L-cut
       });
     }
 
-    // Resolve overlapping L-cut panels, clamp to wall boundaries,
-    // and fill clear spans between L-cut panels with full panels.
-    // L-cuts are already in correct order: per opening (left then right),
-    // openings sorted left-to-right. Do NOT re-sort by x — that can
-    // interleave panels from adjacent openings incorrectly.
+    // Zone after last opening
+    const lastOp = sortedOpenings[sortedOpenings.length - 1];
+    zones.push({
+      start: lastOp.position_from_left_mm + lastOp.width_mm,
+      end: wallEnd,
+      leftOp: lastOp,                     // opening on left — right L-cut
+      rightOp: null,                      // wall edge — no L-cut
+    });
 
-    // Walk left to right, placing L-cut panels and filling gaps
-    let pos = wallStart;
+    // Process each zone
+    for (const zone of zones) {
+      const zoneLen = zone.end - zone.start;
+      if (zoneLen <= 0) continue;
 
-    for (let i = 0; i < lcutPanels.length; i++) {
-      const lp = lcutPanels[i];
-      let lpX = lp.x;
-      let lpRight = lpX + lp.width;
+      const needLeft  = !!zone.leftOp;     // right L-cut of left opening
+      const needRight = !!zone.rightOp;    // left L-cut of right opening
 
-      // Clamp to wall boundaries
-      if (lpX < wallStart) { lpX = wallStart; }
-      if (lpRight > wallEnd) { lpRight = wallEnd; }
-      let lpWidth = lpRight - lpX;
-
-      // If this L-cut would overlap with already-placed panels, adjust
-      if (lpX < pos) {
-        // Overlap with previous panel — check if it's an adjacent opening scenario
-        const overlap = pos - lpX;
-        lpX = pos;
-        lpWidth = lpRight - lpX;
+      if (!needLeft && !needRight) {
+        // Pure clear span (shouldn't happen with openings, but safe)
+        fillClearSpan(zone.start, zone.end);
+        continue;
       }
 
-      if (lpWidth < MIN_PANEL) continue; // too narrow, skip
+      // Determine base widths for L-cut panels on each side
+      let leftBase = 0;    // right L-cut of left opening
+      let rightBase = 0;   // left L-cut of right opening
 
-      // Fill clear gap before this L-cut panel
-      if (lpX > pos + PANEL_GAP) {
-        fillClearSpan(pos, lpX - PANEL_GAP);
-        // Add gap
-        pos = lpX;
-      } else if (lpX > pos) {
-        pos = lpX;
-      }
-
-      // Cap width at PANEL_WIDTH
-      if (lpWidth > PANEL_WIDTH) lpWidth = PANEL_WIDTH;
-
-      // Enforce MIN_LCUT_PANEL: ensure the base portion (outside opening) is >= 600mm
-      // For left L-cut: base = openLeft - lpX
-      // For right L-cut: base = (lpX + lpWidth) - openRight
-      if (lp.side === 'left') {
-        const base = lp.openLeft - lpX;
-        if (base < MIN_LCUT_PANEL && lpX > wallStart) {
-          // Shift panel left to get more base
-          const shift = MIN_LCUT_PANEL - base;
-          const newX = Math.max(wallStart, lpX - shift);
-          if (newX >= pos || pos === lpX) {
-            lpWidth += (lpX - newX);
-            lpX = newX;
-            if (lpWidth > PANEL_WIDTH) lpWidth = PANEL_WIDTH;
-          }
-        }
-      } else {
-        const base = (lpX + lpWidth) - lp.openRight;
-        if (base < MIN_LCUT_PANEL && lpX + lpWidth < wallEnd) {
-          const needed = MIN_LCUT_PANEL - base;
-          lpWidth = Math.min(PANEL_WIDTH, lpWidth + needed);
-          if (lpX + lpWidth > wallEnd) lpWidth = wallEnd - lpX;
-        }
-      }
-
-      panels.push({
-        x: lpX,
-        width: lpWidth,
-        pitch: lpWidth + PANEL_GAP,
-        height,
-        type: 'lcut',
-        openingRefs: lp.openingRefs,
-        side: lp.side,
-        openLeft: lp.openLeft,
-        openRight: lp.openRight,
-        openBottom: lp.openBottom,
-        openTop: lp.openTop,
-        openingType: lp.openingType,
-      });
-
-      pos = lpX + lpWidth + PANEL_GAP;
-    }
-
-    // Fill remaining clear span after last L-cut to wall end
-    if (pos < wallEnd) {
-      const remaining = wallEnd - pos;
-      if (remaining >= MIN_PANEL) {
-        fillClearSpan(pos, wallEnd);
-      } else if (remaining > 0 && panels.length > 0) {
-        // Redistribute with previous panel
-        const last = panels[panels.length - 1];
-        const combined = last.width + PANEL_GAP + remaining;
-        if (combined <= PANEL_WIDTH) {
-          last.width = combined;
-          last.pitch = combined + PANEL_GAP;
+      if (needLeft && needRight) {
+        // Both sides need L-cuts — split the zone
+        if (zoneLen <= maxBase) {
+          // Zone fits in a single panel width — split evenly
+          const half = Math.floor(zoneLen / 2);
+          leftBase = half;
+          rightBase = zoneLen - half;
+        } else if (zoneLen <= 2 * maxBase) {
+          // Zone fits two L-cuts with no fill between
+          leftBase = Math.min(maxBase, Math.floor(zoneLen / 2));
+          rightBase = Math.min(maxBase, zoneLen - leftBase);
         } else {
-          const each = Math.round((combined + PANEL_GAP) / 2);
-          last.width = each - PANEL_GAP;
-          last.pitch = each;
-          panels.push({
-            x: last.x + each,
-            width: combined + PANEL_GAP - each - PANEL_GAP,
-            pitch: combined + PANEL_GAP - each,
-            height,
-            type: 'end',
-          });
+          // Plenty of room — both L-cuts at max, fill between
+          leftBase = maxBase;
+          rightBase = maxBase;
         }
+      } else if (needLeft) {
+        leftBase = Math.min(maxBase, zoneLen);
+      } else {
+        rightBase = Math.min(maxBase, zoneLen);
+      }
+
+      // Place right L-cut of left opening (base extends rightward from opening)
+      if (needLeft && leftBase >= MIN_PANEL) {
+        addLcut(zone.start, leftBase, zone.leftOp, 'right');
+      }
+
+      // Fill middle clear space
+      const fillStart = zone.start + (leftBase > 0 ? leftBase + PANEL_GAP : 0);
+      const fillEnd   = zone.end   - (rightBase > 0 ? rightBase + PANEL_GAP : 0);
+      if (fillEnd - fillStart >= MIN_PANEL) {
+        fillClearSpan(fillStart, fillEnd);
+      }
+
+      // Place left L-cut of right opening (base extends leftward from opening)
+      if (needRight && rightBase >= MIN_PANEL) {
+        addLcut(zone.end - rightBase, rightBase, zone.rightOp, 'left');
       }
     }
   }
