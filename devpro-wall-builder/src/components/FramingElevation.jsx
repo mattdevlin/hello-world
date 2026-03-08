@@ -1,4 +1,6 @@
-import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE } from '../utils/constants.js';
+import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP } from '../utils/constants.js';
+
+const SPLINE_WIDTH = 146; // mm
 
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
@@ -341,6 +343,32 @@ export default function FramingElevation({ layout, wallName }) {
                   strokeWidth={1}
                   strokeDasharray={DASH}
                 />
+                {/* Left spline (butts up to left vertical plate) */}
+                {hasSill && (
+                  <rect
+                    x={s(op.x - BOTTOM_PLATE - SPLINE_WIDTH)}
+                    y={s(TOP_PLATE * 2)}
+                    width={s(SPLINE_WIDTH)}
+                    height={s(height - BOTTOM_PLATE - TOP_PLATE * 2)}
+                    fill="none"
+                    stroke={PLATE_COLOR}
+                    strokeWidth={1}
+                    strokeDasharray={DASH}
+                  />
+                )}
+                {/* Right spline (butts up to right vertical plate) */}
+                {hasSill && (
+                  <rect
+                    x={s(op.x + op.drawWidth + BOTTOM_PLATE)}
+                    y={s(TOP_PLATE * 2)}
+                    width={s(SPLINE_WIDTH)}
+                    height={s(height - BOTTOM_PLATE - TOP_PLATE * 2)}
+                    fill="none"
+                    stroke={PLATE_COLOR}
+                    strokeWidth={1}
+                    strokeDasharray={DASH}
+                  />
+                )}
               </g>
             );
           })}
