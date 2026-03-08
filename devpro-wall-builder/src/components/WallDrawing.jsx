@@ -1,6 +1,6 @@
 import { COLORS, WALL_THICKNESS, PANEL_GAP } from '../utils/constants.js';
 
-const MARGIN = { top: 60, right: 40, bottom: 120, left: 60 };
+const MARGIN = { top: 60, right: 40, bottom: 140, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 
 export default function WallDrawing({ layout, wallName }) {
@@ -242,7 +242,7 @@ export default function WallDrawing({ layout, wallName }) {
 
           {/* Running dimensions along bottom */}
           {(() => {
-            // Build list of running dimension points
+            // Build significant dimension points (skip gap edges to avoid clutter)
             const points = new Set();
             points.add(0);
             points.add(grossLength);
@@ -251,46 +251,47 @@ export default function WallDrawing({ layout, wallName }) {
             if (deductionLeft > 0) points.add(deductionLeft);
             if (deductionRight > 0) points.add(grossLength - deductionRight);
 
-            // Panel edges and gaps
+            // Panel left edges only (right edges are ~5mm from next left edge)
             for (const panel of panels) {
-              points.add(panel.x);                        // panel left edge
-              points.add(panel.x + panel.width);          // panel right edge
-              if (panel.x + panel.width + PANEL_GAP < grossLength - (deductionRight || 0)) {
-                points.add(panel.x + panel.width + PANEL_GAP); // gap right edge (next panel start)
-              }
+              points.add(panel.x);
+            }
+            // Last panel right edge
+            if (panels.length > 0) {
+              const last = panels[panels.length - 1];
+              points.add(last.x + last.width);
             }
 
             const sorted = Array.from(points).sort((a, b) => a - b);
-            // Remove near-duplicates (within 1mm)
-            const filtered = sorted.filter((v, i) => i === 0 || v - sorted[i - 1] > 1);
+            // Remove near-duplicates (within 10mm)
+            const filtered = sorted.filter((v, i) => i === 0 || v - sorted[i - 1] > 10);
 
-            const tickY = s(height) + 8;
-            const lineY = s(height) + 20;
-            const labelY = s(height) + 34;
+            const tickY = s(height) + 10;
+            const lineY = s(height) + 24;
+            const labelY = s(height) + 40;
 
             return (
               <g>
                 {/* Baseline */}
-                <line x1={0} y1={lineY} x2={s(grossLength)} y2={lineY} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                <line x1={0} y1={lineY} x2={s(grossLength)} y2={lineY} stroke={COLORS.DIMENSION} strokeWidth={1.5} />
 
                 {filtered.map((mm, i) => {
                   const x = s(mm);
-                  // Alternate label angles to avoid overlap on tight spacing
-                  const tooClose = i > 0 && s(mm - filtered[i - 1]) < 30;
+                  const tooClose = i > 0 && s(mm - filtered[i - 1]) < 40;
                   return (
                     <g key={`dim-${i}`}>
                       {/* Tick mark */}
-                      <line x1={x} y1={tickY} x2={x} y2={lineY + 5} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                      <line x1={x} y1={tickY} x2={x} y2={lineY + 6} stroke={COLORS.DIMENSION} strokeWidth={1.5} />
                       {/* Vertical guide line up to wall */}
-                      <line x1={x} y1={0} x2={x} y2={tickY} stroke="#ddd" strokeWidth={0.5} strokeDasharray="2,3" />
-                      {/* Label */}
+                      <line x1={x} y1={0} x2={x} y2={tickY} stroke="#ccc" strokeWidth={0.5} strokeDasharray="3,4" />
+                      {/* Label — rotate if too close to previous */}
                       <text
                         x={x}
-                        y={labelY + (tooClose ? 12 : 0)}
-                        textAnchor="middle"
-                        fontSize="9"
+                        y={tooClose ? labelY + 2 : labelY}
+                        textAnchor={tooClose ? 'end' : 'middle'}
+                        fontSize="10"
                         fill={COLORS.DIMENSION}
                         fontWeight={mm === 0 || mm === grossLength ? 'bold' : 'normal'}
+                        transform={tooClose ? `rotate(-45, ${x}, ${labelY + 2})` : undefined}
                       >
                         {mm}
                       </text>
