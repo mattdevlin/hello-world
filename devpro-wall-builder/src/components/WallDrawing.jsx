@@ -253,6 +253,23 @@ export default function WallDrawing({ layout, wallName }) {
             </g>
           ))}
 
+          {/* Total width dimension - bottom */}
+          <g>
+            <line x1={0} y1={s(height) + 24} x2={s(grossLength)} y2={s(height) + 24} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={0} y1={s(height) + 19} x2={0} y2={s(height) + 29} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={s(grossLength)} y1={s(height) + 19} x2={s(grossLength)} y2={s(height) + 29} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <text
+              x={s(grossLength / 2)}
+              y={s(height) + 40}
+              textAnchor="middle"
+              fontSize="12"
+              fill={COLORS.DIMENSION}
+              fontWeight="bold"
+            >
+              {grossLength} mm
+            </text>
+          </g>
+
           {/* Height dimension - left */}
           <g>
             <line x1={-20} y1={0} x2={-20} y2={s(height)} stroke={COLORS.DIMENSION} strokeWidth={1} />
