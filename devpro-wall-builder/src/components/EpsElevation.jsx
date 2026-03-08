@@ -118,7 +118,7 @@ export default function EpsElevation({ layout, wallName }) {
     return segs;
   };
 
-  // Footer EPS calculation
+  // Footer EPS calculation — inset 10mm from splines it butts up to
   const getFooterEps = (f) => {
     const op = openings.find(o => o.ref === f.ref);
     if (!op) return null;
@@ -127,8 +127,26 @@ export default function EpsElevation({ layout, wallName }) {
     const fEpsBot = height - BOTTOM_PLATE - EPS_INSET;
     if (fEpsBot <= fEpsTop) return null;
 
-    const fEpsLeft = f.x + EPS_INSET;
-    const fEpsRight = f.x + f.width - EPS_INSET;
+    // Left edge: check if footer butts up to left opening spline
+    const leftSplineRight = op.x - BOTTOM_PLATE; // right edge of left spline area (plate + spline)
+    let fEpsLeft;
+    if (f.x < leftSplineRight) {
+      // Footer extends under the left spline — inset from spline right edge
+      fEpsLeft = leftSplineRight + EPS_INSET;
+    } else {
+      fEpsLeft = f.x + EPS_INSET;
+    }
+
+    // Right edge: check if footer butts up to right opening spline
+    const rightSplineLeft = op.x + op.drawWidth + BOTTOM_PLATE; // left edge of right spline area
+    let fEpsRight;
+    if (f.x + f.width > rightSplineLeft) {
+      // Footer extends under the right spline — inset from spline left edge
+      fEpsRight = rightSplineLeft - EPS_INSET;
+    } else {
+      fEpsRight = f.x + f.width - EPS_INSET;
+    }
+
     if (fEpsRight <= fEpsLeft) return null;
 
     return {
