@@ -1,6 +1,6 @@
 import { COLORS, WALL_THICKNESS, PANEL_GAP, WINDOW_OVERHANG } from '../utils/constants.js';
 
-const MARGIN = { top: 60, right: 40, bottom: 60, left: 60 };
+const MARGIN = { top: 60, right: 40, bottom: 90, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 
 export default function WallDrawing({ layout, wallName }) {
