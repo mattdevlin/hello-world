@@ -25,9 +25,9 @@ function computeLcutProfile(panel) {
   const lintelStep = panel.openTop - gap;
 
   if (isLeft) {
-    // totalW = clear-zone width (panel CNC sheet width)
+    // totalW = CNC sheet width (base + overhang)
     // base = full-height portion; ovh = leg extending towards opening
-    const totalW = panel.openLeft - panel.x;
+    const totalW = panel.width;
     const base = totalW - ovh;
 
     if (isWindow && sill > 0) {
@@ -54,9 +54,9 @@ function computeLcutProfile(panel) {
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     }
   } else {
-    // totalW = clear-zone width (panel CNC sheet width)
+    // totalW = CNC sheet width (base + overhang)
     // ovh = leg width on left side (towards opening)
-    const totalW = (panel.x + panel.width) - panel.openRight;
+    const totalW = panel.width;
 
     if (isWindow && sill > 0) {
       const verts = [
