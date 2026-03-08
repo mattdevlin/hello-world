@@ -191,14 +191,13 @@ export function calculateWallLayout(wall) {
       });
     }
 
-    // Now merge overlapping L-cut panels (e.g., right L-cut of W01 and left L-cut of W02
-    // might overlap if windows are close). Also clamp to wall boundaries.
-    // And fill clear spans between L-cut panels with full panels.
+    // Resolve overlapping L-cut panels, clamp to wall boundaries,
+    // and fill clear spans between L-cut panels with full panels.
+    // L-cuts are already in correct order: per opening (left then right),
+    // openings sorted left-to-right. Do NOT re-sort by x — that can
+    // interleave panels from adjacent openings incorrectly.
 
-    // Sort all L-cut panels by x position
-    lcutPanels.sort((a, b) => a.x - b.x);
-
-    // Resolve: walk left to right, placing L-cut panels and filling gaps
+    // Walk left to right, placing L-cut panels and filling gaps
     let pos = wallStart;
 
     for (let i = 0; i < lcutPanels.length; i++) {

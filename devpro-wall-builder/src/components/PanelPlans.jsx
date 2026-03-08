@@ -247,6 +247,50 @@ function FooterPlanCard({ footer }) {
   );
 }
 
+/**
+ * End panel plan card — simple rectangle (cut from stock).
+ */
+function EndPanelCard({ panel }) {
+  const W = panel.width;
+  const H = panel.height;
+  const verts = [
+    { x: 0, y: H },
+    { x: W, y: H },
+    { x: W, y: 0 },
+    { x: 0, y: 0 },
+  ];
+  return (
+    <ProfileCard
+      vertices={verts}
+      profileWidth={W}
+      profileHeight={H}
+      fill={COLORS.END_CAP}
+      title={`P${panel.index + 1} — End`}
+    />
+  );
+}
+
+/**
+ * Deduction end-wall piece — simple rectangle.
+ */
+function DeductionCard({ side, width, height }) {
+  const verts = [
+    { x: 0, y: height },
+    { x: width, y: height },
+    { x: width, y: 0 },
+    { x: 0, y: 0 },
+  ];
+  return (
+    <ProfileCard
+      vertices={verts}
+      profileWidth={width}
+      profileHeight={height}
+      fill={COLORS.PANEL}
+      title={`End Wall (${side})`}
+    />
+  );
+}
+
 const cardStyle = {
   background: '#fff',
   border: '1px solid #ddd',
@@ -260,10 +304,16 @@ export default function PanelPlans({ layout }) {
   if (!layout) return null;
 
   const lcutPanels = layout.panels.filter(p => p.type === 'lcut');
+  const endPanels = layout.panels.filter(p => p.type === 'end');
   const lintels = layout.lintels || [];
   const footers = layout.footers || [];
+  const dedLeft = layout.deductionLeft || 0;
+  const dedRight = layout.deductionRight || 0;
+  const wallH = layout.height;
 
-  if (!lcutPanels.length && !lintels.length && !footers.length) return null;
+  const hasContent = lcutPanels.length || endPanels.length || lintels.length
+    || footers.length || dedLeft > 0 || dedRight > 0;
+  if (!hasContent) return null;
 
   return (
     <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
@@ -271,9 +321,18 @@ export default function PanelPlans({ layout }) {
         CNC Panel Plans
       </h3>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        {dedLeft > 0 && (
+          <DeductionCard side="left" width={dedLeft} height={wallH} />
+        )}
         {lcutPanels.map((panel, i) => (
           <LcutPlanCard key={`lcut-${i}`} panel={panel} />
         ))}
+        {endPanels.map((panel, i) => (
+          <EndPanelCard key={`end-${i}`} panel={panel} />
+        ))}
+        {dedRight > 0 && (
+          <DeductionCard side="right" width={dedRight} height={wallH} />
+        )}
         {lintels.map((lintel, i) => (
           <LintelPlanCard key={`lintel-${i}`} lintel={lintel} />
         ))}
