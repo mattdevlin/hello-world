@@ -203,24 +203,71 @@ export default function EpsCutPlans({ layout }) {
     }
   });
 
-  if (pieces.length === 0) return null;
+  // ── Build list of spline EPS cut pieces (120mm thick) ──
+  const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2;
+  const splinePieces = [];
+
+  // Joint splines
+  for (let i = 0; i < panels.length - 1; i++) {
+    const panel = panels[i];
+    const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
+    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintel && !insideFooter) {
+      splinePieces.push({ label: `Joint P${panels[i].index + 1}/P${panels[i + 1].index + 1}`, width: SPLINE_WIDTH, height: splineH });
+    }
+  }
+
+  // Opening splines (only for windows with sills)
+  for (const op of openings) {
+    if (op.y > 0) {
+      splinePieces.push({ label: `${op.ref} Left`, width: SPLINE_WIDTH, height: splineH });
+      splinePieces.push({ label: `${op.ref} Right`, width: SPLINE_WIDTH, height: splineH });
+    }
+  }
+
+  const hasPanelEps = pieces.length > 0;
+  const hasSplineEps = splinePieces.length > 0;
+  if (!hasPanelEps && !hasSplineEps) return null;
 
   return (
-    <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
-      <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: '#333' }}>
-        EPS Cut Plans — 142mm thick
-      </h3>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-        {pieces.map((piece, i) => (
-          <RectCard
-            key={`eps-cut-${i}`}
-            width={piece.width}
-            height={piece.height}
-            title={piece.label}
-            subtitle={`${piece.width} × ${piece.height} mm`}
-          />
-        ))}
-      </div>
-    </div>
+    <>
+      {hasPanelEps && (
+        <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
+          <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: '#333' }}>
+            EPS Cut Plans — 142mm thick
+          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {pieces.map((piece, i) => (
+              <RectCard
+                key={`eps-cut-${i}`}
+                width={piece.width}
+                height={piece.height}
+                title={piece.label}
+                subtitle={`${piece.width} × ${piece.height} mm`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      {hasSplineEps && (
+        <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
+          <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: '#333' }}>
+            EPS Cut Plans — Wall Splines 120mm thick
+          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {splinePieces.map((piece, i) => (
+              <RectCard
+                key={`spline-eps-cut-${i}`}
+                width={piece.width}
+                height={piece.height}
+                title={piece.label}
+                subtitle={`${piece.width} × ${piece.height} mm`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

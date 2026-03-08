@@ -10,6 +10,9 @@ const STROKE_COLOR = '#333';
 const LABEL_COLOR = '#555';
 const EPS_FILL = '#B3D9FF';
 const EPS_STROKE = '#4A90D9';
+const SPLINE_EPS_FILL = '#CCE6FF';
+const SPLINE_EPS_STROKE = '#6AACE6';
+const MAGBOARD = 10; // mm each face
 
 export default function EpsElevation({ layout, wallName }) {
   if (!layout) return null;
@@ -347,6 +350,44 @@ export default function EpsElevation({ layout, wallName }) {
               </text>
             </g>
           ))}
+
+          {/* ── Spline EPS (120mm EPS inside 146mm splines) ── */}
+          {(() => {
+            const splineTop = TOP_PLATE * 2;
+            const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2;
+            const splineEpsX = MAGBOARD; // 10mm magboard inset from each edge in width
+            const splineEpsW = SPLINE_WIDTH - MAGBOARD * 2; // 126mm EPS width in elevation
+            const splines = [];
+
+            // Joint splines
+            for (let i = 0; i < panels.length - 1; i++) {
+              const panel = panels[i];
+              const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
+              const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+              const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+              if (!insideLintel && !insideFooter) {
+                splines.push({ x: gapCentre - HALF_SPLINE, label: `Joint P${panels[i].index + 1}/P${panels[i + 1].index + 1}` });
+              }
+            }
+
+            // Opening splines (only for windows with sills)
+            for (const op of openings) {
+              const hasSill = op.y > 0;
+              if (hasSill) {
+                splines.push({ x: op.x - BOTTOM_PLATE - SPLINE_WIDTH, label: `${op.ref} L` });
+                splines.push({ x: op.x + op.drawWidth + BOTTOM_PLATE, label: `${op.ref} R` });
+              }
+            }
+
+            return splines.map((sp, i) => (
+              <rect
+                key={`spline-eps-${i}`}
+                x={s(sp.x + splineEpsX)} y={s(splineTop)}
+                width={s(splineEpsW)} height={s(splineH)}
+                fill={SPLINE_EPS_FILL} stroke={SPLINE_EPS_STROKE} strokeWidth={1}
+              />
+            ));
+          })()}
 
           {/* ── Running measurement ── */}
           <g>
