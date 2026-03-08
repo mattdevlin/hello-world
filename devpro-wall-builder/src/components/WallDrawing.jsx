@@ -215,6 +215,15 @@ export default function WallDrawing({ layout, wallName }) {
               >
                 Footer {f.ref}
               </text>
+              <text
+                x={s(f.x + f.width / 2)}
+                y={s(height) + 14}
+                textAnchor="middle"
+                fontSize="9"
+                fill="#999"
+              >
+                {f.width}
+              </text>
             </g>
           ))}
 
