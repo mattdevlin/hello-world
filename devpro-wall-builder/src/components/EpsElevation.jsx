@@ -23,101 +23,105 @@ export default function EpsElevation({ layout, wallName }) {
 
   const s = (mm) => mm * scale;
 
-  // EPS vertical bounds (same for all panels)
-  // Top: below lowest top plate + 10mm inset
+  // EPS vertical bounds
   const epsTop = TOP_PLATE * 2 + EPS_INSET;
-  // Bottom: above bottom plate + 10mm inset
   const epsBottom = height - BOTTOM_PLATE - EPS_INSET;
   const epsHeight = epsBottom - epsTop;
 
-  // Determine left inset for each panel
-  // - First panel after left deduction: 45mm deduction plate + 10mm
-  // - Panel with spline on left (joint or opening): half-spline intrusion + 10mm
-  // - Panel left edge at wall edge (no deduction): just 10mm
-  const getLeftInset = (panel, i) => {
-    // Check if adjacent to left deduction
-    if (i === 0 && deductionLeft > 0 && Math.abs(panel.x - deductionLeft) < 1) {
-      return BOTTOM_PLATE + EPS_INSET; // 45mm plate + 10mm
-    }
+  // ── Collect all exclusion zones (x-ranges where there's no EPS) ──
+  // These are all splines, plates, and openings that occupy space inside panels.
 
-    // Check if there's a joint spline on the left (previous panel gap)
-    if (i > 0) {
-      const prevPanel = panels[i - 1];
-      const gapCentre = prevPanel.x + prevPanel.width + PANEL_GAP / 2;
-      // Check if this gap has a joint spline (not inside opening zone)
-      const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-      const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-      if (!insideLintel && !insideFooter) {
-        // Joint spline: half-spline extends into this panel from the gap
-        return HALF_SPLINE + EPS_INSET;
+  const exclusions = []; // array of [xLeft, xRight]
+
+  // 1. Deduction plates (45mm, inside panel zone)
+  if (deductionLeft > 0) {
+    exclusions.push([deductionLeft, deductionLeft + BOTTOM_PLATE]);
+  }
+  if (deductionRight > 0) {
+    exclusions.push([grossLength - deductionRight - BOTTOM_PLATE, grossLength - deductionRight]);
+  }
+
+  // 2. Joint splines (146mm centred on 5mm gap between panels)
+  for (let i = 0; i < panels.length - 1; i++) {
+    const panel = panels[i];
+    const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
+    // Skip if inside opening zone (same logic as framing elevation)
+    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintel && !insideFooter) {
+      exclusions.push([gapCentre - HALF_SPLINE, gapCentre + HALF_SPLINE]);
+    }
+  }
+
+  // 3. Opening vertical plates (45mm) + splines (146mm) on each side
+  for (const op of openings) {
+    const hasSill = op.y > 0;
+    // Left side: 45mm plate at op.x - 45 to op.x, spline at op.x - 45 - 146 to op.x - 45
+    exclusions.push([op.x - BOTTOM_PLATE, op.x]); // left vertical plate
+    if (hasSill) {
+      exclusions.push([op.x - BOTTOM_PLATE - SPLINE_WIDTH, op.x - BOTTOM_PLATE]); // left spline
+    }
+    // Right side: 45mm plate at op.x+w to op.x+w+45, spline at op.x+w+45 to op.x+w+45+146
+    exclusions.push([op.x + op.drawWidth, op.x + op.drawWidth + BOTTOM_PLATE]); // right vertical plate
+    if (hasSill) {
+      exclusions.push([op.x + op.drawWidth + BOTTOM_PLATE, op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH]); // right spline
+    }
+    // The opening itself (no EPS in the opening area)
+    exclusions.push([op.x, op.x + op.drawWidth]);
+  }
+
+  // 4. Lintel areas (no EPS — timber lintels)
+  for (const l of lintels) {
+    exclusions.push([l.x, l.x + l.width]);
+  }
+
+  // Sort exclusions by start
+  exclusions.sort((a, b) => a[0] - b[0]);
+
+  // For a given panel x-range, find EPS segments (gaps between exclusions)
+  const getEpsSegments = (panelLeft, panelRight) => {
+    // Clip exclusions to panel range and merge overlapping
+    const clipped = [];
+    for (const [eL, eR] of exclusions) {
+      const cL = Math.max(eL, panelLeft);
+      const cR = Math.min(eR, panelRight);
+      if (cL < cR) clipped.push([cL, cR]);
+    }
+    // Merge overlapping
+    const merged = [];
+    for (const zone of clipped) {
+      if (merged.length > 0 && zone[0] <= merged[merged.length - 1][1]) {
+        merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], zone[1]);
+      } else {
+        merged.push([...zone]);
       }
     }
 
-    // Check if adjacent to a window opening spline on the left
-    // (opening spline butts up to 45mm plate which is at op.x - 45)
-    // The spline extends from op.x - 45 - 146 to op.x - 45
-    // If panel.x is near op.x - 45 - 146, the spline is inside this panel
-    for (const op of openings) {
-      if (op.y <= 0) continue; // skip doors
-      const splineLeft = op.x - BOTTOM_PLATE - SPLINE_WIDTH;
-      if (Math.abs(panel.x - splineLeft) < 5) {
-        // This panel's left edge aligns with the left side of the opening spline
-        // No extra inset from spline on this side
+    // Build segments between exclusions (with EPS_INSET from each boundary)
+    const segs = [];
+    let cursor = panelLeft + EPS_INSET; // inset from panel left edge
+
+    for (const [eL, eR] of merged) {
+      const segRight = eL - EPS_INSET;
+      if (cursor < segRight) {
+        segs.push([cursor, segRight]);
       }
-      // If panel right edge is near the spline, handled in right inset
+      cursor = eR + EPS_INSET;
     }
 
-    return EPS_INSET;
+    // Final segment to panel right edge
+    const segRight = panelRight - EPS_INSET;
+    if (cursor < segRight) {
+      segs.push([cursor, segRight]);
+    }
+
+    return segs;
   };
 
-  const getRightInset = (panel, i) => {
-    // Check if adjacent to right deduction
-    if (i === panels.length - 1 && deductionRight > 0 &&
-        Math.abs(panel.x + panel.width - (grossLength - deductionRight)) < 1) {
-      return BOTTOM_PLATE + EPS_INSET; // 45mm plate + 10mm
-    }
-
-    // Check if there's a joint spline on the right (gap after this panel)
-    if (i < panels.length - 1) {
-      const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-      const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-      const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-      if (!insideLintel && !insideFooter) {
-        return HALF_SPLINE + EPS_INSET;
-      }
-    }
-
-    return EPS_INSET;
-  };
-
-  // For footer EPS: inset 10mm from all edges
-  // Footer is bounded by sill plate on top and bottom plate at base
+  // Footer EPS calculation
   const getFooterEps = (f) => {
-    // Find the matching opening for this footer
     const op = openings.find(o => o.ref === f.ref);
     if (!op) return null;
-
-    // Footer sits from wall base up to sill height
-    // Top: sill plate (45mm) sits at op.y from base, so footer EPS top = op.y - EPS_INSET (below sill plate)
-    // Actually the sill plate top is at height - op.y in wall coords from top
-    // Footer EPS: inset 10mm from footer edges
-    // Footer has: x, width, height (from base)
-    // The sill plate is at top of footer area (height - op.y to height - op.y + 45)
-    // So EPS top is below sill plate: height - op.y + BOTTOM_PLATE + EPS_INSET...
-    // Wait: the sill plate sits at the bottom of the opening (height - op.y),
-    // going DOWN into the footer by 45mm. So sill plate bottom = height - op.y + BOTTOM_PLATE
-    // Footer EPS top = sill plate bottom + 10mm = height - op.y + BOTTOM_PLATE + EPS_INSET
-
-    // But actually the footer goes from base (height) up to sill (height - f.height)
-    // In wall mm from top: footer top = height - f.height, footer bottom = height
-    // The sill plate sits just below the opening at y = height - op.y (top of sill plate, going down 45mm)
-    // So sill plate occupies: height - op.y to height - op.y + BOTTOM_PLATE (in mm from top of wall)
-
-    // Footer EPS:
-    // Top: below sill plate = height - op.y + BOTTOM_PLATE + EPS_INSET (from wall top)
-    // Bottom: above bottom plate = height - BOTTOM_PLATE - EPS_INSET (from wall top)
-    // Left: footer left + 10mm (or + spline if opening vertical plate/spline is there)
-    // Right: footer right - 10mm
 
     const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_INSET;
     const fEpsBot = height - BOTTOM_PLATE - EPS_INSET;
@@ -178,11 +182,7 @@ export default function EpsElevation({ layout, wallName }) {
 
           {/* ── Panels with EPS cores ── */}
           {panels.map((panel, i) => {
-            const leftInset = getLeftInset(panel, i);
-            const rightInset = getRightInset(panel, i);
-
-            const epsX = panel.x + leftInset;
-            const epsW = panel.width - leftInset - rightInset;
+            const segments = getEpsSegments(panel.x, panel.x + panel.width);
 
             return (
               <g key={`panel-${i}`}>
@@ -192,14 +192,18 @@ export default function EpsElevation({ layout, wallName }) {
                   width={s(panel.width)} height={s(height)}
                   fill="none" stroke={STROKE_COLOR} strokeWidth={1}
                 />
-                {/* EPS core */}
-                {epsW > 0 && epsHeight > 0 && (
-                  <rect
-                    x={s(epsX)} y={s(epsTop)}
-                    width={s(epsW)} height={s(epsHeight)}
-                    fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1}
-                  />
-                )}
+                {/* EPS core segments */}
+                {segments.map(([segL, segR], j) => {
+                  const w = segR - segL;
+                  return w > 0 && epsHeight > 0 ? (
+                    <rect
+                      key={`eps-${j}`}
+                      x={s(segL)} y={s(epsTop)}
+                      width={s(w)} height={s(epsHeight)}
+                      fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1}
+                    />
+                  ) : null;
+                })}
                 {/* Panel number */}
                 <text
                   x={s(panel.x + panel.width / 2)}
