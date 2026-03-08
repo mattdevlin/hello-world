@@ -375,7 +375,7 @@ function DeductionCard({ side, width, height }) {
 /**
  * Wall spline magboard card — simple rectangle.
  */
-function SplineMagboardCard({ label, splineHeight }) {
+function SplineMagboardCard({ label, splineHeight, totalQty }) {
   const W = SPLINE_WIDTH;
   const H = splineHeight;
   const verts = [
@@ -392,7 +392,7 @@ function SplineMagboardCard({ label, splineHeight }) {
       fill="#7FB3D8"
       title={label}
       subtitle={`${W} × ${H} mm`}
-      qty={2}
+      qty={totalQty}
     />
   );
 }
@@ -470,9 +470,9 @@ export default function PanelPlans({ layout }) {
         {footers.map((footer, i) => (
           <FooterPlanCard key={`footer-${i}`} footer={footer} />
         ))}
-        {splinePieces.map((sp, i) => (
-          <SplineMagboardCard key={`spline-${i}`} label={sp.label} splineHeight={splineH} />
-        ))}
+        {splinePieces.length > 0 && (
+          <SplineMagboardCard label="Splines" splineHeight={splineH} totalQty={splinePieces.length * 2} />
+        )}
       </div>
     </div>
   );
