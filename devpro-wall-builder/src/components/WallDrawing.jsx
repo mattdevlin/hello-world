@@ -128,6 +128,16 @@ export default function WallDrawing({ layout, wallName }) {
                 >
                   P{panel.index + 1}
                 </text>
+                {/* Panel base width */}
+                <text
+                  x={s(panel.x + panel.width / 2)}
+                  y={s(height) + 14}
+                  textAnchor="middle"
+                  fontSize="9"
+                  fill="#999"
+                >
+                  {panel.width}
+                </text>
               </g>
             );
           })}
