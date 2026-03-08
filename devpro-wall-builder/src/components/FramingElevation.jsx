@@ -12,32 +12,17 @@ export default function FramingElevation({ layout, wallName }) {
 
   const { grossLength, height, panels, openings, footers, lintels, deductionLeft, deductionRight } = layout;
 
-  // Total height includes bottom plate + panels + two top plates
-  const totalHeight = BOTTOM_PLATE + height + TOP_PLATE * 2;
-
   const drawWidth = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
   const scale = drawWidth / grossLength;
-  const drawHeight = totalHeight * scale;
+  const drawHeight = height * scale;
   const svgWidth = MAX_SVG_WIDTH;
   const svgHeight = drawHeight + MARGIN.top + MARGIN.bottom;
 
   const s = (mm) => mm * scale;
 
-  // Y origin: bottom of SVG drawing area = bottom of bottom plate
-  // Bottom plate sits at bottom, panels sit on top of bottom plate,
-  // two top plates sit on top of panels.
-  // SVG y=0 is top, so:
-  //   top plate 2 top:    y = 0
-  //   top plate 1 top:    y = s(TOP_PLATE)
-  //   panel top:          y = s(TOP_PLATE * 2)
-  //   panel bottom:       y = s(TOP_PLATE * 2 + height)
-  //   bottom plate top:   y = s(TOP_PLATE * 2 + height)
-  //   bottom plate bottom:y = s(totalHeight)
-
-  const topPlatesY = 0;
-  const panelTopY = s(TOP_PLATE * 2);
-  const panelBottomY = s(TOP_PLATE * 2 + height);
-  const bottomPlateY = panelBottomY;
+  // Plate lines run full width but skip deduction zones
+  const plateLeft = deductionLeft;
+  const plateRight = grossLength - deductionRight;
 
   return (
     <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
@@ -52,72 +37,15 @@ export default function FramingElevation({ layout, wallName }) {
           {wallName || 'Wall'} — Framing Elevation
         </text>
         <text x={svgWidth / 2} y={42} textAnchor="middle" fontSize="12" fill="#666">
-          {grossLength}mm × {totalHeight}mm (incl. plates)
+          {grossLength}mm × {height}mm | Bottom plate {BOTTOM_PLATE}mm, 2× top plate {TOP_PLATE}mm
         </text>
 
         <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
 
-          {/* ── Bottom plate ── */}
-          <rect
-            x={0}
-            y={bottomPlateY}
-            width={s(grossLength)}
-            height={s(BOTTOM_PLATE)}
-            fill="none"
-            stroke={PLATE_COLOR}
-            strokeWidth={1.5}
-          />
-          <text
-            x={s(grossLength) + 8}
-            y={bottomPlateY + s(BOTTOM_PLATE) / 2 + 3}
-            fontSize="9"
-            fill={PLATE_COLOR}
-          >
-            Bottom Plate {BOTTOM_PLATE}mm
-          </text>
-
-          {/* ── Top plate 1 (lower) ── */}
-          <rect
-            x={0}
-            y={s(TOP_PLATE)}
-            width={s(grossLength)}
-            height={s(TOP_PLATE)}
-            fill="none"
-            stroke={PLATE_COLOR}
-            strokeWidth={1.5}
-          />
-          <text
-            x={s(grossLength) + 8}
-            y={s(TOP_PLATE) + s(TOP_PLATE) / 2 + 3}
-            fontSize="9"
-            fill={PLATE_COLOR}
-          >
-            Top Plate 1 {TOP_PLATE}mm
-          </text>
-
-          {/* ── Top plate 2 (upper) ── */}
+          {/* ── Wall outline ── */}
           <rect
             x={0}
             y={0}
-            width={s(grossLength)}
-            height={s(TOP_PLATE)}
-            fill="none"
-            stroke={PLATE_COLOR}
-            strokeWidth={1.5}
-          />
-          <text
-            x={s(grossLength) + 8}
-            y={s(TOP_PLATE) / 2 + 3}
-            fontSize="9"
-            fill={PLATE_COLOR}
-          >
-            Top Plate 2 {TOP_PLATE}mm
-          </text>
-
-          {/* ── Wall outline (panel zone only) ── */}
-          <rect
-            x={0}
-            y={panelTopY}
             width={s(grossLength)}
             height={s(height)}
             fill="none"
@@ -125,11 +53,62 @@ export default function FramingElevation({ layout, wallName }) {
             strokeWidth={1.5}
           />
 
+          {/* ── Bottom plate line (45mm from base) ── */}
+          <line
+            x1={s(plateLeft)} y1={s(height - BOTTOM_PLATE)}
+            x2={s(plateRight)} y2={s(height - BOTTOM_PLATE)}
+            stroke={PLATE_COLOR}
+            strokeWidth={1}
+            strokeDasharray={DASH}
+          />
+          <text
+            x={s(plateRight) + 8}
+            y={s(height - BOTTOM_PLATE / 2) + 3}
+            fontSize="9"
+            fill={PLATE_COLOR}
+          >
+            Bottom Plate {BOTTOM_PLATE}
+          </text>
+
+          {/* ── Top plate 1 (45mm from top) ── */}
+          <line
+            x1={s(plateLeft)} y1={s(TOP_PLATE)}
+            x2={s(plateRight)} y2={s(TOP_PLATE)}
+            stroke={PLATE_COLOR}
+            strokeWidth={1}
+            strokeDasharray={DASH}
+          />
+          <text
+            x={s(plateRight) + 8}
+            y={s(TOP_PLATE) + 3}
+            fontSize="9"
+            fill={PLATE_COLOR}
+          >
+            Top Plate 1
+          </text>
+
+          {/* ── Top plate 2 (90mm from top) ── */}
+          <line
+            x1={s(plateLeft)} y1={s(TOP_PLATE * 2)}
+            x2={s(plateRight)} y2={s(TOP_PLATE * 2)}
+            stroke={PLATE_COLOR}
+            strokeWidth={1}
+            strokeDasharray={DASH}
+          />
+          <text
+            x={s(plateRight) + 8}
+            y={s(TOP_PLATE * 2) + 3}
+            fontSize="9"
+            fill={PLATE_COLOR}
+          >
+            Top Plate 2
+          </text>
+
           {/* ── Corner deductions ── */}
           {deductionLeft > 0 && (
             <rect
               x={0}
-              y={panelTopY}
+              y={0}
               width={s(deductionLeft)}
               height={s(height)}
               fill="none"
@@ -139,14 +118,14 @@ export default function FramingElevation({ layout, wallName }) {
             />
           )}
           {deductionLeft > 0 && (
-            <text x={s(deductionLeft / 2)} y={panelBottomY + 14} textAnchor="middle" fontSize="9" fill="#999">
+            <text x={s(deductionLeft / 2)} y={s(height) + 14} textAnchor="middle" fontSize="9" fill="#999">
               -{deductionLeft}
             </text>
           )}
           {deductionRight > 0 && (
             <rect
               x={s(grossLength - deductionRight)}
-              y={panelTopY}
+              y={0}
               width={s(deductionRight)}
               height={s(height)}
               fill="none"
@@ -156,7 +135,7 @@ export default function FramingElevation({ layout, wallName }) {
             />
           )}
           {deductionRight > 0 && (
-            <text x={s(grossLength - deductionRight / 2)} y={panelBottomY + 14} textAnchor="middle" fontSize="9" fill="#999">
+            <text x={s(grossLength - deductionRight / 2)} y={s(height) + 14} textAnchor="middle" fontSize="9" fill="#999">
               -{deductionRight}
             </text>
           )}
@@ -166,7 +145,7 @@ export default function FramingElevation({ layout, wallName }) {
             <g key={`panel-${i}`}>
               <rect
                 x={s(panel.x)}
-                y={panelTopY}
+                y={0}
                 width={s(panel.width)}
                 height={s(height)}
                 fill="none"
@@ -177,7 +156,7 @@ export default function FramingElevation({ layout, wallName }) {
               {/* Panel number */}
               <text
                 x={s(panel.x + panel.width / 2)}
-                y={panelTopY + s(height / 2) + 4}
+                y={s(height / 2) + 4}
                 textAnchor="middle"
                 fontSize="10"
                 fill={LABEL_COLOR}
@@ -187,7 +166,7 @@ export default function FramingElevation({ layout, wallName }) {
               {/* Panel base width */}
               <text
                 x={s(panel.x + panel.width / 2)}
-                y={panelBottomY + 14}
+                y={s(height) + 14}
                 textAnchor="middle"
                 fontSize="9"
                 fill="#999"
@@ -206,7 +185,7 @@ export default function FramingElevation({ layout, wallName }) {
             <g key={`opening-${i}`}>
               <rect
                 x={s(op.x)}
-                y={panelTopY + s(height - op.y - op.drawHeight)}
+                y={s(height - op.y - op.drawHeight)}
                 width={s(op.drawWidth)}
                 height={s(op.drawHeight)}
                 fill="none"
@@ -216,19 +195,19 @@ export default function FramingElevation({ layout, wallName }) {
               />
               {/* Cross lines */}
               <line
-                x1={s(op.x)} y1={panelTopY + s(height - op.y - op.drawHeight)}
-                x2={s(op.x + op.drawWidth)} y2={panelTopY + s(height - op.y)}
+                x1={s(op.x)} y1={s(height - op.y - op.drawHeight)}
+                x2={s(op.x + op.drawWidth)} y2={s(height - op.y)}
                 stroke="#bbb" strokeWidth={0.5} strokeDasharray="4,3"
               />
               <line
-                x1={s(op.x + op.drawWidth)} y1={panelTopY + s(height - op.y - op.drawHeight)}
-                x2={s(op.x)} y2={panelTopY + s(height - op.y)}
+                x1={s(op.x + op.drawWidth)} y1={s(height - op.y - op.drawHeight)}
+                x2={s(op.x)} y2={s(height - op.y)}
                 stroke="#bbb" strokeWidth={0.5} strokeDasharray="4,3"
               />
               {/* Label */}
               <text
                 x={s(op.x + op.drawWidth / 2)}
-                y={panelTopY + s(height - op.y - op.drawHeight / 2) + 4}
+                y={s(height - op.y - op.drawHeight / 2) + 4}
                 textAnchor="middle"
                 fontSize="10"
                 fill={LABEL_COLOR}
@@ -238,7 +217,7 @@ export default function FramingElevation({ layout, wallName }) {
               </text>
               <text
                 x={s(op.x + op.drawWidth / 2)}
-                y={panelTopY + s(height - op.y - op.drawHeight / 2) + 16}
+                y={s(height - op.y - op.drawHeight / 2) + 16}
                 textAnchor="middle"
                 fontSize="8"
                 fill="#999"
@@ -253,7 +232,7 @@ export default function FramingElevation({ layout, wallName }) {
             <g key={`footer-${i}`}>
               <rect
                 x={s(f.x)}
-                y={panelTopY + s(height - f.height)}
+                y={s(height - f.height)}
                 width={s(f.width)}
                 height={s(f.height)}
                 fill="none"
@@ -263,7 +242,7 @@ export default function FramingElevation({ layout, wallName }) {
               />
               <text
                 x={s(f.x + f.width / 2)}
-                y={panelTopY + s(height - f.height / 2) + 3}
+                y={s(height - f.height / 2) + 3}
                 textAnchor="middle"
                 fontSize="8"
                 fill={LABEL_COLOR}
@@ -278,7 +257,7 @@ export default function FramingElevation({ layout, wallName }) {
             <g key={`lintel-${i}`}>
               <rect
                 x={s(l.x)}
-                y={panelTopY + s(height - l.y - l.height)}
+                y={s(height - l.y - l.height)}
                 width={s(l.width)}
                 height={s(l.height)}
                 fill="none"
@@ -288,7 +267,7 @@ export default function FramingElevation({ layout, wallName }) {
               />
               <text
                 x={s(l.x + l.width / 2)}
-                y={panelTopY + s(height - l.y - l.height / 2) + 3}
+                y={s(height - l.y - l.height / 2) + 3}
                 textAnchor="middle"
                 fontSize="8"
                 fill={LABEL_COLOR}
@@ -321,7 +300,7 @@ export default function FramingElevation({ layout, wallName }) {
               footers.forEach(f => points.add(Math.round(f.x + f.width)));
 
               const sorted = [...points].sort((a, b) => a - b);
-              const tickY = panelBottomY + 22;
+              const tickY = s(height) + 22;
               return sorted.map((pt, i) => (
                 <g key={`rm-${i}`}>
                   <line x1={s(pt)} y1={tickY - 4} x2={s(pt)} y2={tickY + 4} stroke={COLORS.DIMENSION} strokeWidth={1} />
@@ -335,12 +314,12 @@ export default function FramingElevation({ layout, wallName }) {
 
           {/* ── Total width dimension ── */}
           <g>
-            <line x1={0} y1={panelBottomY + 44} x2={s(grossLength)} y2={panelBottomY + 44} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={0} y1={panelBottomY + 39} x2={0} y2={panelBottomY + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={s(grossLength)} y1={panelBottomY + 39} x2={s(grossLength)} y2={panelBottomY + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={0} y1={s(height) + 44} x2={s(grossLength)} y2={s(height) + 44} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={0} y1={s(height) + 39} x2={0} y2={s(height) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={s(grossLength)} y1={s(height) + 39} x2={s(grossLength)} y2={s(height) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
             <text
               x={s(grossLength / 2)}
-              y={panelBottomY + 60}
+              y={s(height) + 60}
               textAnchor="middle"
               fontSize="12"
               fill={COLORS.DIMENSION}
@@ -350,38 +329,21 @@ export default function FramingElevation({ layout, wallName }) {
             </text>
           </g>
 
-          {/* ── Total height dimension (including plates) — left ── */}
+          {/* ── Height dimension — left ── */}
           <g>
-            <line x1={-20} y1={0} x2={-20} y2={s(totalHeight)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={-20} y1={0} x2={-20} y2={s(height)} stroke={COLORS.DIMENSION} strokeWidth={1} />
             <line x1={-25} y1={0} x2={-15} y2={0} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={-25} y1={s(totalHeight)} x2={-15} y2={s(totalHeight)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={-25} y1={s(height)} x2={-15} y2={s(height)} stroke={COLORS.DIMENSION} strokeWidth={1} />
             <text
               x={-35}
-              y={s(totalHeight / 2)}
+              y={s(height / 2)}
               textAnchor="middle"
               fontSize="12"
               fill={COLORS.DIMENSION}
               fontWeight="bold"
-              transform={`rotate(-90, -35, ${s(totalHeight / 2)})`}
+              transform={`rotate(-90, -35, ${s(height / 2)})`}
             >
-              {totalHeight} mm
-            </text>
-          </g>
-
-          {/* ── Panel height dimension — far left ── */}
-          <g>
-            <line x1={-46} y1={panelTopY} x2={-46} y2={panelBottomY} stroke="#999" strokeWidth={0.5} />
-            <line x1={-50} y1={panelTopY} x2={-42} y2={panelTopY} stroke="#999" strokeWidth={0.5} />
-            <line x1={-50} y1={panelBottomY} x2={-42} y2={panelBottomY} stroke="#999" strokeWidth={0.5} />
-            <text
-              x={-54}
-              y={panelTopY + s(height) / 2}
-              textAnchor="middle"
-              fontSize="9"
-              fill="#999"
-              transform={`rotate(-90, -54, ${panelTopY + s(height) / 2})`}
-            >
-              {height} panels
+              {height} mm
             </text>
           </g>
 
