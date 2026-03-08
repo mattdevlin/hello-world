@@ -131,6 +131,12 @@ export default function EpsCutPlans({ layout }) {
     if (p.type === 'end') {
       exclusions.push([p.x + p.width - BOTTOM_PLATE, p.x + p.width]);
     }
+    if (layout.deductionRight === 0 && Math.abs(p.x + p.width - layout.grossLength) < 1) {
+      exclusions.push([layout.grossLength - BOTTOM_PLATE, layout.grossLength]);
+    }
+    if (layout.deductionLeft === 0 && Math.abs(p.x) < 1) {
+      exclusions.push([0, BOTTOM_PLATE]);
+    }
   }
 
   for (const l of lintels) {

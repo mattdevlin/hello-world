@@ -73,10 +73,18 @@ export default function EpsElevation({ layout, wallName }) {
     exclusions.push([op.x, op.x + op.drawWidth]);
   }
 
-  // 4. End panel vertical plates (45mm at outer edge)
+  // 4. Vertical plates at panel outer edges (45mm)
   for (const p of panels) {
+    // End panels always have a plate at their trailing edge
     if (p.type === 'end') {
       exclusions.push([p.x + p.width - BOTTOM_PLATE, p.x + p.width]);
+    }
+    // Any panel at the wall edge gets a plate (when no deduction on that side)
+    if (deductionRight === 0 && Math.abs(p.x + p.width - grossLength) < 1) {
+      exclusions.push([grossLength - BOTTOM_PLATE, grossLength]);
+    }
+    if (deductionLeft === 0 && Math.abs(p.x) < 1) {
+      exclusions.push([0, BOTTOM_PLATE]);
     }
   }
 

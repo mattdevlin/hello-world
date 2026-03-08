@@ -255,12 +255,27 @@ export default function FramingElevation({ layout, wallName }) {
             );
           })}
 
-          {/* ── End panel vertical plates (45mm at outer edge) ── */}
-          {panels.filter(p => p.type === 'end').map((panel, i) => {
-            const plateX = panel.x + panel.width - BOTTOM_PLATE;
-            return (
+          {/* ── Vertical plates at panel outer edges (45mm) ── */}
+          {(() => {
+            const plates = [];
+            for (const panel of panels) {
+              // End panels always have a plate at their trailing edge
+              if (panel.type === 'end') {
+                plates.push(panel.x + panel.width - BOTTOM_PLATE);
+              }
+              // Any panel at the wall edge gets a plate (when no deduction on that side)
+              if (deductionRight === 0 && Math.abs(panel.x + panel.width - grossLength) < 1) {
+                plates.push(grossLength - BOTTOM_PLATE);
+              }
+              if (deductionLeft === 0 && Math.abs(panel.x) < 1) {
+                plates.push(0);
+              }
+            }
+            // Dedupe
+            const unique = [...new Set(plates)];
+            return unique.map((plateX, i) => (
               <rect
-                key={`end-plate-${i}`}
+                key={`edge-plate-${i}`}
                 x={s(plateX)}
                 y={s(TOP_PLATE * 2)}
                 width={s(BOTTOM_PLATE)}
@@ -270,8 +285,8 @@ export default function FramingElevation({ layout, wallName }) {
                 strokeWidth={1}
                 strokeDasharray={DASH}
               />
-            );
-          })}
+            ));
+          })()}
 
           {/* ── Panel joint splines (146mm centred on 5mm gap) ── */}
           {/* Skip joints that fall inside a lintel or footer (opening zones) */}
