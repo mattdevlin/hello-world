@@ -1,6 +1,7 @@
-import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP } from '../utils/constants.js';
+import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_PITCH } from '../utils/constants.js';
 
 const SPLINE_WIDTH = 146; // mm
+const HALF_SPLINE = SPLINE_WIDTH / 2; // 73mm each side of centre
 
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
@@ -251,6 +252,28 @@ export default function FramingElevation({ layout, wallName }) {
                     : panel.width}
                 </text>
               </g>
+            );
+          })}
+
+          {/* ── Panel joint splines (146mm centred on 5mm gap) ── */}
+          {panels.slice(0, -1).map((panel, i) => {
+            // Gap centre is at right edge of panel + half the gap
+            const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
+            const splineX = gapCentre - HALF_SPLINE;
+            const splineY = TOP_PLATE * 2;
+            const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2;
+            return (
+              <rect
+                key={`joint-spline-${i}`}
+                x={s(splineX)}
+                y={s(splineY)}
+                width={s(SPLINE_WIDTH)}
+                height={s(splineH)}
+                fill="none"
+                stroke={PLATE_COLOR}
+                strokeWidth={1}
+                strokeDasharray={DASH}
+              />
             );
           })}
 
