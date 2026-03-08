@@ -1,8 +1,8 @@
 import { WINDOW_OVERHANG, PANEL_GAP, COLORS, OPENING_TYPES } from '../utils/constants.js';
 
-const PLAN_MARGIN = { top: 40, right: 50, bottom: 30, left: 50 };
-const PLAN_MAX_H = 320;
-const DIM_OFFSET = 18;
+const PLAN_MARGIN = { top: 58, right: 50, bottom: 30, left: 50 };
+const PLAN_MAX_H = 340;
+const DIM_OFFSET = 14;
 const DIM_FONT = 10;
 const LABEL_FONT = 12;
 
@@ -13,10 +13,12 @@ const LABEL_FONT = 12;
 function computeLcutProfile(panel) {
   const H = panel.height;
   const ovh = WINDOW_OVERHANG;
+  const gap = PANEL_GAP;
   const isLeft = panel.side === 'left';
   const isWindow = panel.openingType === OPENING_TYPES.WINDOW;
-  const sill = panel.openBottom;
-  const openTop = panel.openTop;
+  // Step positions include 5mm gap: sill step is 5mm above footer, lintel step is 5mm below lintel
+  const sill = panel.openBottom + gap;
+  const lintelStep = panel.openTop - gap;
 
   if (isLeft) {
     const base = panel.openLeft - panel.x;
@@ -27,8 +29,8 @@ function computeLcutProfile(panel) {
       const verts = [
         { x: 0, y: H },
         { x: base, y: H },
-        { x: base, y: openTop },
-        { x: totalW, y: openTop },
+        { x: base, y: lintelStep },
+        { x: totalW, y: lintelStep },
         { x: totalW, y: sill },
         { x: base, y: sill },
         { x: base, y: 0 },
@@ -40,8 +42,8 @@ function computeLcutProfile(panel) {
       const verts = [
         { x: 0, y: H },
         { x: base, y: H },
-        { x: base, y: openTop },
-        { x: totalW, y: openTop },
+        { x: base, y: lintelStep },
+        { x: totalW, y: lintelStep },
         { x: totalW, y: 0 },
         { x: 0, y: 0 },
       ];
@@ -60,8 +62,8 @@ function computeLcutProfile(panel) {
         { x: ovh, y: 0 },
         { x: ovh, y: sill },
         { x: 0, y: sill },
-        { x: 0, y: openTop },
-        { x: ovh, y: openTop },
+        { x: 0, y: lintelStep },
+        { x: ovh, y: lintelStep },
       ];
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     } else {
@@ -71,8 +73,8 @@ function computeLcutProfile(panel) {
         { x: totalW, y: H },
         { x: totalW, y: 0 },
         { x: 0, y: 0 },
-        { x: 0, y: openTop },
-        { x: ovh, y: openTop },
+        { x: 0, y: lintelStep },
+        { x: ovh, y: lintelStep },
       ];
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     }

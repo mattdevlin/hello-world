@@ -58,7 +58,7 @@ export function calculateWallLayout(wall) {
         x: openLeft - WINDOW_OVERHANG,
         y: 0,
         width: opening.width_mm + 2 * WINDOW_OVERHANG,
-        height: openBottom - PANEL_GAP,
+        height: openBottom,
         type: 'footer',
       });
     }
