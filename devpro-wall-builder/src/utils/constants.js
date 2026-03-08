@@ -11,6 +11,10 @@ export const ROOF_THICKNESS = 242;      // mm
 // Panel heights available
 export const PANEL_HEIGHTS = [2400, 2700, 3000]; // mm
 
+// Plates
+export const BOTTOM_PLATE = 45;         // mm single bottom plate
+export const TOP_PLATE = 45;            // mm each (two top plates)
+
 // Opening constants
 export const WINDOW_OVERHANG = 121;     // mm each side
 export const DOOR_OVERHANG = 166;       // mm each side
