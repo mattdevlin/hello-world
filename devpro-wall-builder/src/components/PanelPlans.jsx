@@ -1,4 +1,7 @@
-import { WINDOW_OVERHANG, PANEL_GAP, COLORS, OPENING_TYPES } from '../utils/constants.js';
+import { WINDOW_OVERHANG, PANEL_GAP, COLORS, OPENING_TYPES, BOTTOM_PLATE, TOP_PLATE } from '../utils/constants.js';
+
+const SPLINE_WIDTH = 146;
+const HALF_SPLINE = SPLINE_WIDTH / 2;
 
 const PLAN_MARGIN = { top: 58, right: 50, bottom: 30, left: 50 };
 const PLAN_MAX_H = 340;
@@ -209,7 +212,7 @@ function buildDimLabels(vertices, profileWidth, profileHeight, scale, drawH, tx)
 /**
  * Shared SVG card renderer for any profile shape.
  */
-function ProfileCard({ vertices, profileWidth, profileHeight, fill, title, subtitle }) {
+function ProfileCard({ vertices, profileWidth, profileHeight, fill, title, subtitle, qty }) {
   const availW = 220;
   const availH = PLAN_MAX_H - PLAN_MARGIN.top - PLAN_MARGIN.bottom;
   const sx = availW / profileWidth;
@@ -243,6 +246,14 @@ function ProfileCard({ vertices, profileWidth, profileHeight, fill, title, subti
         )}
         <path d={pathD} fill={fill} fillOpacity={0.15} stroke={fill} strokeWidth={2} />
         {dims}
+        {qty > 1 && (
+          <>
+            <rect x={svgW - 36} y={4} width={32} height={18} rx={9} fill={fill} fillOpacity={0.85} />
+            <text x={svgW - 20} y={16} textAnchor="middle" fontSize={11} fontWeight="bold" fill="#fff">
+              ×{qty}
+            </text>
+          </>
+        )}
       </svg>
     </div>
   );
@@ -262,6 +273,7 @@ function LcutPlanCard({ panel }) {
       fill={COLORS.LCUT}
       title={`${panelLabel} — ${isPier ? 'Pier' : 'L-Cut'} (${sideLabel})`}
       subtitle={`${panel.openingRefs.join(', ')} | ${isPier ? 'pier' : panel.openingType}`}
+      qty={2}
     />
   );
 }
@@ -285,6 +297,7 @@ function LintelPlanCard({ lintel }) {
       profileHeight={H}
       fill={COLORS.LINTEL}
       title={`${lintel.ref} — Lintel`}
+      qty={2}
     />
   );
 }
@@ -308,6 +321,7 @@ function FooterPlanCard({ footer }) {
       profileHeight={H}
       fill={COLORS.FOOTER}
       title={`${footer.ref} — Footer`}
+      qty={2}
     />
   );
 }
@@ -331,6 +345,7 @@ function EndPanelCard({ panel }) {
       profileHeight={H}
       fill={COLORS.END_CAP}
       title={`P${panel.index + 1} — End`}
+      qty={2}
     />
   );
 }
@@ -352,6 +367,32 @@ function DeductionCard({ side, width, height }) {
       profileHeight={height}
       fill={COLORS.PANEL}
       title={`End Wall (${side})`}
+      qty={2}
+    />
+  );
+}
+
+/**
+ * Wall spline magboard card — simple rectangle.
+ */
+function SplineMagboardCard({ label, splineHeight }) {
+  const W = SPLINE_WIDTH;
+  const H = splineHeight;
+  const verts = [
+    { x: 0, y: H },
+    { x: W, y: H },
+    { x: W, y: 0 },
+    { x: 0, y: 0 },
+  ];
+  return (
+    <ProfileCard
+      vertices={verts}
+      profileWidth={W}
+      profileHeight={H}
+      fill="#7FB3D8"
+      title={label}
+      subtitle={`${W} × ${H} mm`}
+      qty={2}
     />
   );
 }
@@ -368,16 +409,41 @@ const cardStyle = {
 export default function PanelPlans({ layout }) {
   if (!layout) return null;
 
-  const lcutPanels = layout.panels.filter(p => p.type === 'lcut');
-  const endPanels = layout.panels.filter(p => p.type === 'end');
+  const panels = layout.panels || [];
+  const lcutPanels = panels.filter(p => p.type === 'lcut');
+  const endPanels = panels.filter(p => p.type === 'end');
   const lintels = layout.lintels || [];
   const footers = layout.footers || [];
+  const openings = layout.openings || [];
   const dedLeft = layout.deductionLeft || 0;
   const dedRight = layout.deductionRight || 0;
   const wallH = layout.height;
 
+  // ── Wall spline magboard pieces ──
+  const splineH = wallH - BOTTOM_PLATE - TOP_PLATE * 2;
+  const splinePieces = [];
+
+  // Joint splines
+  for (let i = 0; i < panels.length - 1; i++) {
+    const panel = panels[i];
+    const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
+    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintel && !insideFooter) {
+      splinePieces.push({ label: `Spline P${panels[i].index + 1}/P${panels[i + 1].index + 1}` });
+    }
+  }
+
+  // Opening splines (only for windows with sills)
+  for (const op of openings) {
+    if (op.y > 0) {
+      splinePieces.push({ label: `Spline ${op.ref} L` });
+      splinePieces.push({ label: `Spline ${op.ref} R` });
+    }
+  }
+
   const hasContent = lcutPanels.length || endPanels.length || lintels.length
-    || footers.length || dedLeft > 0 || dedRight > 0;
+    || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length;
   if (!hasContent) return null;
 
   return (
@@ -403,6 +469,9 @@ export default function PanelPlans({ layout }) {
         ))}
         {footers.map((footer, i) => (
           <FooterPlanCard key={`footer-${i}`} footer={footer} />
+        ))}
+        {splinePieces.map((sp, i) => (
+          <SplineMagboardCard key={`spline-${i}`} label={sp.label} splineHeight={splineH} />
         ))}
       </div>
     </div>
