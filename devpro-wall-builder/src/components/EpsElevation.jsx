@@ -70,7 +70,14 @@ export default function EpsElevation({ layout, wallName }) {
     exclusions.push([op.x, op.x + op.drawWidth]);
   }
 
-  // 4. Lintel areas (no EPS — timber lintels)
+  // 4. End panel vertical plates (45mm at outer edge)
+  for (const p of panels) {
+    if (p.type === 'end') {
+      exclusions.push([p.x + p.width - BOTTOM_PLATE, p.x + p.width]);
+    }
+  }
+
+  // 5. Lintel areas (no EPS — timber lintels)
   for (const l of lintels) {
     exclusions.push([l.x, l.x + l.width]);
   }
