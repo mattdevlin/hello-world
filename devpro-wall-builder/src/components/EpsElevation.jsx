@@ -202,14 +202,55 @@ export default function EpsElevation({ layout, wallName }) {
           {panels.map((panel, i) => {
             const segments = getEpsSegments(panel.x, panel.x + panel.width);
 
+            // Build exclusion zones for vertical edges (skip lintels/footers)
+            const getVertExclusions = (xEdge) => {
+              const zones = [];
+              for (const l of lintels) {
+                if (l.x < xEdge && xEdge < l.x + l.width) {
+                  const yTop = height - l.y - l.height;
+                  const yBot = height - l.y;
+                  zones.push([yTop, yBot]);
+                }
+              }
+              for (const f of footers) {
+                if (f.x < xEdge && xEdge < f.x + f.width) {
+                  zones.push([height - f.height, height]);
+                }
+              }
+              zones.sort((a, b) => a[0] - b[0]);
+              return zones;
+            };
+
+            const vertSegments = (xEdge) => {
+              const excl = getVertExclusions(xEdge);
+              const segs = [];
+              let cursor = 0;
+              for (const [eTop, eBot] of excl) {
+                if (cursor < eTop) segs.push([cursor, eTop]);
+                cursor = Math.max(cursor, eBot);
+              }
+              if (cursor < height) segs.push([cursor, height]);
+              return segs;
+            };
+
+            const leftX = panel.x;
+            const rightX = panel.x + panel.width;
+            const leftSegs = vertSegments(leftX);
+            const rightSegs = vertSegments(rightX);
+
             return (
               <g key={`panel-${i}`}>
-                {/* Panel outline (solid) */}
-                <rect
-                  x={s(panel.x)} y={0}
-                  width={s(panel.width)} height={s(height)}
-                  fill="none" stroke={STROKE_COLOR} strokeWidth={1}
-                />
+                {/* Panel outline — horizontal top & bottom */}
+                <line x1={s(leftX)} y1={0} x2={s(rightX)} y2={0} stroke={STROKE_COLOR} strokeWidth={1} />
+                <line x1={s(leftX)} y1={s(height)} x2={s(rightX)} y2={s(height)} stroke={STROKE_COLOR} strokeWidth={1} />
+                {/* Left vertical segments (skip lintels/footers) */}
+                {leftSegs.map(([y1, y2], j) => (
+                  <line key={`l-${j}`} x1={s(leftX)} y1={s(y1)} x2={s(leftX)} y2={s(y2)} stroke={STROKE_COLOR} strokeWidth={1} />
+                ))}
+                {/* Right vertical segments (skip lintels/footers) */}
+                {rightSegs.map(([y1, y2], j) => (
+                  <line key={`r-${j}`} x1={s(rightX)} y1={s(y1)} x2={s(rightX)} y2={s(y2)} stroke={STROKE_COLOR} strokeWidth={1} />
+                ))}
                 {/* EPS core segments */}
                 {segments.map(([segL, segR], j) => {
                   const w = segR - segL;
