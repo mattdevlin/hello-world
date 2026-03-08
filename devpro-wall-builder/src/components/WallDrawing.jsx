@@ -258,12 +258,12 @@ export default function WallDrawing({ layout, wallName }) {
             }
 
             const sorted = Array.from(points).sort((a, b) => a - b);
-            // Remove near-duplicates (within 10mm)
-            const filtered = sorted.filter((v, i) => i === 0 || v - sorted[i - 1] > 10);
+            // Remove near-duplicates (within 2mm — keep both sides of panel gaps)
+            const filtered = sorted.filter((v, i) => i === 0 || v - sorted[i - 1] > 2);
 
-            const tickY = s(height) + 10;
-            const lineY = s(height) + 24;
-            const labelY = s(height) + 40;
+            const tickY = s(height);      // start ticks at bottom of panels
+            const lineY = s(height) + 20;
+            const labelY = s(height) + 36;
 
             return (
               <g>
@@ -275,10 +275,8 @@ export default function WallDrawing({ layout, wallName }) {
                   const tooClose = i > 0 && s(mm - filtered[i - 1]) < 40;
                   return (
                     <g key={`dim-${i}`}>
-                      {/* Tick mark */}
-                      <line x1={x} y1={tickY} x2={x} y2={lineY + 6} stroke={COLORS.DIMENSION} strokeWidth={1.5} />
-                      {/* Vertical guide line up to wall */}
-                      <line x1={x} y1={0} x2={x} y2={tickY} stroke="#ccc" strokeWidth={0.5} strokeDasharray="3,4" />
+                      {/* Tick mark from panel bottom to dimension line */}
+                      <line x1={x} y1={tickY} x2={x} y2={lineY + 4} stroke={COLORS.DIMENSION} strokeWidth={1} />
                       {/* Label — rotate if too close to previous */}
                       <text
                         x={x}
