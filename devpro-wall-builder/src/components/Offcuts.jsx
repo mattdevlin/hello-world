@@ -111,6 +111,40 @@ function computeOffcuts(layout) {
     }
   }
 
+  // ── Lintel offcuts ──
+  for (const lintel of (layout.lintels || [])) {
+    const lW = lintel.width;
+    const lH = lintel.height;
+
+    // Stock remainder (width)
+    if (lW < PANEL_WIDTH) {
+      offcuts.push({
+        width: PANEL_WIDTH - lW,
+        height: lH,
+        source: `Lintel ${lintel.ref}`,
+        label: `Lintel ${lintel.ref} stock remainder`,
+        type: 'stock',
+      });
+    }
+  }
+
+  // ── Footer offcuts ──
+  for (const footer of (layout.footers || [])) {
+    const fW = footer.width;
+    const fH = footer.height;
+
+    // Stock remainder (width)
+    if (fW < PANEL_WIDTH) {
+      offcuts.push({
+        width: PANEL_WIDTH - fW,
+        height: fH,
+        source: `Footer ${footer.ref}`,
+        label: `Footer ${footer.ref} stock remainder`,
+        type: 'stock',
+      });
+    }
+  }
+
   return offcuts;
 }
 
