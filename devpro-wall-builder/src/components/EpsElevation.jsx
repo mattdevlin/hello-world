@@ -405,9 +405,15 @@ export default function EpsElevation({ layout, wallName }) {
               if (deductionRight > 0) points.add(grossLength - deductionRight);
               panels.forEach(p => {
                 if (p.type === 'lcut') {
-                  if (p.side === 'left') points.add(Math.round(p.x + p.width - WINDOW_OVERHANG));
-                  else if (p.side === 'right') points.add(Math.round(p.x + p.width));
-                  else points.add(Math.round(p.x + p.width - WINDOW_OVERHANG));
+                  if (p.side === 'left') {
+                    const adj = p.openBottom > 0 ? WINDOW_OVERHANG : 0;
+                    points.add(Math.round(p.x + p.width - adj));
+                  } else if (p.side === 'right') {
+                    points.add(Math.round(p.x + p.width));
+                  } else {
+                    const adj = p.rightOpenBottom > 0 ? WINDOW_OVERHANG : 0;
+                    points.add(Math.round(p.x + p.width - adj));
+                  }
                 } else {
                   points.add(Math.round(p.x + p.width));
                 }

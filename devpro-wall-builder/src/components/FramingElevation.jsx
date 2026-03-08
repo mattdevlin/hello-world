@@ -495,11 +495,15 @@ export default function FramingElevation({ layout, wallName }) {
               panels.forEach(p => {
                 if (p.type === 'lcut') {
                   if (p.side === 'left') {
-                    points.add(Math.round(p.x + p.width - WINDOW_OVERHANG));
+                    // Only subtract overhang when opening has a footer (window with sill)
+                    const adj = p.openBottom > 0 ? WINDOW_OVERHANG : 0;
+                    points.add(Math.round(p.x + p.width - adj));
                   } else if (p.side === 'right') {
                     points.add(Math.round(p.x + p.width));
                   } else {
-                    points.add(Math.round(p.x + p.width - WINDOW_OVERHANG));
+                    // Pier — right edge borders the right opening
+                    const adj = p.rightOpenBottom > 0 ? WINDOW_OVERHANG : 0;
+                    points.add(Math.round(p.x + p.width - adj));
                   }
                 } else {
                   points.add(Math.round(p.x + p.width));
