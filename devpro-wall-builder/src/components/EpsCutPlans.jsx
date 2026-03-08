@@ -208,7 +208,7 @@ export default function EpsCutPlans({ layout }) {
   return (
     <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
       <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: '#333' }}>
-        EPS Cut Plans
+        EPS Cut Plans — 142mm thick
       </h3>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {pieces.map((piece, i) => (
