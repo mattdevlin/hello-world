@@ -251,14 +251,10 @@ export default function WallDrawing({ layout, wallName }) {
             if (deductionLeft > 0) points.add(deductionLeft);
             if (deductionRight > 0) points.add(grossLength - deductionRight);
 
-            // Panel left edges only (right edges are ~5mm from next left edge)
+            // Panel left and right edges
             for (const panel of panels) {
               points.add(panel.x);
-            }
-            // Last panel right edge
-            if (panels.length > 0) {
-              const last = panels[panels.length - 1];
-              points.add(last.x + last.width);
+              points.add(panel.x + panel.width);
             }
 
             const sorted = Array.from(points).sort((a, b) => a - b);
