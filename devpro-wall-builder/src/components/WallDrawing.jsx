@@ -1,6 +1,6 @@
 import { COLORS, WALL_THICKNESS, PANEL_GAP } from '../utils/constants.js';
 
-const MARGIN = { top: 60, right: 40, bottom: 140, left: 60 };
+const MARGIN = { top: 60, right: 40, bottom: 60, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 
 export default function WallDrawing({ layout, wallName }) {
@@ -239,62 +239,6 @@ export default function WallDrawing({ layout, wallName }) {
               </text>
             </g>
           ))}
-
-          {/* Running dimensions along bottom */}
-          {(() => {
-            // Build significant dimension points (skip gap edges to avoid clutter)
-            const points = new Set();
-            points.add(0);
-            points.add(grossLength);
-
-            // Deduction boundaries
-            if (deductionLeft > 0) points.add(deductionLeft);
-            if (deductionRight > 0) points.add(grossLength - deductionRight);
-
-            // Panel left and right edges
-            for (const panel of panels) {
-              points.add(panel.x);
-              points.add(panel.x + panel.width);
-            }
-
-            const sorted = Array.from(points).sort((a, b) => a - b);
-            // Remove near-duplicates (within 2mm — keep both sides of panel gaps)
-            const filtered = sorted.filter((v, i) => i === 0 || v - sorted[i - 1] > 2);
-
-            const tickY = s(height);      // start ticks at bottom of panels
-            const lineY = s(height) + 20;
-            const labelY = s(height) + 36;
-
-            return (
-              <g>
-                {/* Baseline */}
-                <line x1={0} y1={lineY} x2={s(grossLength)} y2={lineY} stroke={COLORS.DIMENSION} strokeWidth={1.5} />
-
-                {filtered.map((mm, i) => {
-                  const x = s(mm);
-                  const tooClose = i > 0 && s(mm - filtered[i - 1]) < 40;
-                  return (
-                    <g key={`dim-${i}`}>
-                      {/* Tick mark from panel bottom to dimension line */}
-                      <line x1={x} y1={tickY} x2={x} y2={lineY + 4} stroke={COLORS.DIMENSION} strokeWidth={1} />
-                      {/* Label — rotate if too close to previous */}
-                      <text
-                        x={x}
-                        y={tooClose ? labelY + 2 : labelY}
-                        textAnchor={tooClose ? 'end' : 'middle'}
-                        fontSize="10"
-                        fill={COLORS.DIMENSION}
-                        fontWeight={mm === 0 || mm === grossLength ? 'bold' : 'normal'}
-                        transform={tooClose ? `rotate(-45, ${x}, ${labelY + 2})` : undefined}
-                      >
-                        {mm}
-                      </text>
-                    </g>
-                  );
-                })}
-              </g>
-            );
-          })()}
 
           {/* Height dimension - left */}
           <g>
