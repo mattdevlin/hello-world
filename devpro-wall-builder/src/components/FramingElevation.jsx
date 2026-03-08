@@ -299,13 +299,27 @@ export default function FramingElevation({ layout, wallName }) {
             </g>
           ))}
 
-          {/* ── Vertical plates around openings (45mm, inside adjacent panels) ── */}
+          {/* ── Plates around openings ── */}
           {openings.map((op, i) => {
             const opTopY = s(height - op.y - op.drawHeight);
             const opH = s(op.drawHeight);
+            const hasSill = op.y > 0; // windows have a sill, doors don't
             return (
               <g key={`op-plates-${i}`}>
-                {/* Left vertical plate */}
+                {/* Sill plate (bottom of opening, inside footer) */}
+                {hasSill && (
+                  <rect
+                    x={s(op.x - BOTTOM_PLATE)}
+                    y={s(height - op.y)}
+                    width={s(op.drawWidth + BOTTOM_PLATE * 2)}
+                    height={s(BOTTOM_PLATE)}
+                    fill="none"
+                    stroke={PLATE_COLOR}
+                    strokeWidth={1}
+                    strokeDasharray={DASH}
+                  />
+                )}
+                {/* Left vertical plate (sits on sill plate) */}
                 <rect
                   x={s(op.x - BOTTOM_PLATE)}
                   y={opTopY}
@@ -316,7 +330,7 @@ export default function FramingElevation({ layout, wallName }) {
                   strokeWidth={1}
                   strokeDasharray={DASH}
                 />
-                {/* Right vertical plate */}
+                {/* Right vertical plate (sits on sill plate) */}
                 <rect
                   x={s(op.x + op.drawWidth)}
                   y={opTopY}
