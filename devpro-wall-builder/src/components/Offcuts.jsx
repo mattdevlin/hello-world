@@ -111,35 +111,43 @@ function computeOffcuts(layout) {
     }
   }
 
-  // ── Lintel offcuts ──
-  for (const lintel of (layout.lintels || [])) {
-    const lW = lintel.width;
-    const lH = lintel.height;
+  // ── Lintel & footer offcuts (cut from 2440 × 1200 sheets) ──
+  // Piece is rotated so its long dimension runs along the 2440mm sheet height.
+  // Two rectangular offcuts from the L-shaped remainder:
+  //   Strip A (full-width beside): sheetH × (sheetW - shortDim)
+  //   Strip B (under the piece):   (sheetH - longDim) × shortDim
+  const SHEET_H = layout.height;  // 2440
+  const SHEET_W = PANEL_WIDTH;    // 1200
 
-    // Stock remainder (width)
-    if (lW < PANEL_WIDTH) {
+  const sheetPieces = [
+    ...(layout.lintels || []).map(l => ({ w: l.width, h: l.height, source: `Lintel ${l.ref}` })),
+    ...(layout.footers || []).map(f => ({ w: f.width, h: f.height, source: `Footer ${f.ref}` })),
+  ];
+
+  for (const piece of sheetPieces) {
+    const longDim = Math.max(piece.w, piece.h);
+    const shortDim = Math.min(piece.w, piece.h);
+
+    // Strip A — full sheet height × remaining width
+    const stripAWidth = SHEET_W - shortDim;
+    if (stripAWidth > 0) {
       offcuts.push({
-        width: PANEL_WIDTH - lW,
-        height: lH,
-        source: `Lintel ${lintel.ref}`,
-        label: `Lintel ${lintel.ref} stock remainder`,
+        width: stripAWidth,
+        height: SHEET_H,
+        source: piece.source,
+        label: `${piece.source} side strip`,
         type: 'stock',
       });
     }
-  }
 
-  // ── Footer offcuts ──
-  for (const footer of (layout.footers || [])) {
-    const fW = footer.width;
-    const fH = footer.height;
-
-    // Stock remainder (width)
-    if (fW < PANEL_WIDTH) {
+    // Strip B — remaining height × piece short dimension
+    const stripBHeight = SHEET_H - longDim;
+    if (stripBHeight > 0) {
       offcuts.push({
-        width: PANEL_WIDTH - fW,
-        height: fH,
-        source: `Footer ${footer.ref}`,
-        label: `Footer ${footer.ref} stock remainder`,
+        width: shortDim,
+        height: stripBHeight,
+        source: piece.source,
+        label: `${piece.source} end strip`,
         type: 'stock',
       });
     }
