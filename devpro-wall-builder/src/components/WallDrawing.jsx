@@ -199,7 +199,7 @@ export default function WallDrawing({ layout, wallName }) {
                 fill={COLORS.FOOTER}
                 stroke={COLORS.FOOTER_STROKE}
                 strokeWidth={1.5}
-                opacity={0.6}
+                opacity={1}
               />
               <text
                 x={s(f.x + f.width / 2)}
@@ -225,7 +225,7 @@ export default function WallDrawing({ layout, wallName }) {
                 fill={COLORS.LINTEL}
                 stroke={COLORS.LINTEL_STROKE}
                 strokeWidth={1.5}
-                opacity={0.5}
+                opacity={1}
               />
               <text
                 x={s(l.x + l.width / 2)}

@@ -65,7 +65,7 @@ export function calculateWallLayout(wall) {
     }
 
     const lintelOverhang = isWindow ? WINDOW_OVERHANG : DOOR_OVERHANG;
-    const lintelDepth = Math.min(LINTEL_DEPTH, height - openTop);
+    const lintelDepth = height - openTop; // magboard extends to top of wall
     lintels.push({
       ref: opening.ref,
       x: openLeft - lintelOverhang,
