@@ -98,10 +98,10 @@ export default function FramingElevation({ layout, wallName }) {
               -{deductionLeft}
             </text>
           )}
-          {/* Vertical plate at left deduction (45mm, attached to deduction side) */}
+          {/* Vertical plate at left deduction (45mm, inside panel zone) */}
           {deductionLeft > 0 && (
             <rect
-              x={s(deductionLeft - BOTTOM_PLATE)}
+              x={s(deductionLeft)}
               y={0}
               width={s(BOTTOM_PLATE)}
               height={s(height)}
@@ -128,10 +128,10 @@ export default function FramingElevation({ layout, wallName }) {
               -{deductionRight}
             </text>
           )}
-          {/* Vertical plate at right deduction (45mm, attached to deduction side) */}
+          {/* Vertical plate at right deduction (45mm, inside panel zone) */}
           {deductionRight > 0 && (
             <rect
-              x={s(grossLength - deductionRight)}
+              x={s(grossLength - deductionRight - BOTTOM_PLATE)}
               y={0}
               width={s(BOTTOM_PLATE)}
               height={s(height)}
