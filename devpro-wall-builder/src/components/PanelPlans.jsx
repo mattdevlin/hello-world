@@ -26,118 +26,78 @@ function computeProfile(panel) {
       { x: W, y: 0 },
       { x: 0, y: 0 },
     ];
-    const edges = [
-      { length: W, dir: 'top' },
-      { length: H, dir: 'right' },
-      { length: W, dir: 'bottom' },
-      { length: H, dir: 'left' },
-    ];
-    return { vertices: verts, profileWidth: W, profileHeight: H, edges };
+    return { vertices: verts, profileWidth: W, profileHeight: H };
   }
 
   // L-cut panel
+  // The lintel/footer zones are NOTCHED at base width (separate lintel/footer pieces sit there).
+  // The opening zone has a TAB extending into the opening by ovh (to frame the window/door).
   const ovh = WINDOW_OVERHANG;
   const isLeft = panel.side === 'left';
   const isWindow = panel.openingType === OPENING_TYPES.WINDOW;
   const sill = panel.openBottom;         // sill height (includes 5mm gap)
-  const lintelDepth = H - panel.openTop; // from top of wall to top of opening
+  const openTop = panel.openTop;         // top of opening
+  const lintelDepth = H - openTop;       // from top of wall to top of opening
 
   if (isLeft) {
-    // Base is on the left, tabs extend right
-    // base = portion outside the opening
+    // Base is on the left, tab extends right into opening
     const base = panel.openLeft - panel.x;
     const totalW = base + ovh;
 
     if (isWindow && sill > 0) {
-      // 8-vertex window L-cut (notch on right side for window)
+      // 8-vertex: base width at lintel (top) and footer (bottom), wider at window zone
       const verts = [
-        { x: 0, y: H },                        // top-left
-        { x: totalW, y: H },                    // top-right (lintel tab)
-        { x: totalW, y: H - lintelDepth },      // bottom of lintel tab
-        { x: base, y: H - lintelDepth },         // step left (window top)
-        { x: base, y: sill },                    // window bottom
-        { x: totalW, y: sill },                  // step right (footer tab)
-        { x: totalW, y: 0 },                     // bottom-right
-        { x: 0, y: 0 },                          // bottom-left
+        { x: 0, y: H },                    // top-left
+        { x: base, y: H },                 // top-right (lintel zone, base width)
+        { x: base, y: openTop },           // down through lintel zone
+        { x: totalW, y: openTop },         // step RIGHT — tab into opening
+        { x: totalW, y: sill },            // down through window zone (wider)
+        { x: base, y: sill },              // step LEFT — back to base
+        { x: base, y: 0 },                 // down through footer zone
+        { x: 0, y: 0 },                    // bottom-left
       ];
-      const edges = [
-        { length: totalW, dir: 'top' },
-        { length: lintelDepth, dir: 'right' },
-        { length: ovh, dir: 'h-step', y: H - lintelDepth },
-        { length: panel.openTop - sill, dir: 'inner-v' },
-        { length: ovh, dir: 'h-step', y: sill },
-        { length: sill, dir: 'right' },
-        { length: totalW, dir: 'bottom' },
-        { length: H, dir: 'left' },
-      ];
-      return { vertices: verts, profileWidth: totalW, profileHeight: H, edges };
+      return { vertices: verts, profileWidth: totalW, profileHeight: H };
     } else {
-      // 6-vertex door/no-sill L-cut (L-shape, opening goes to floor)
+      // 6-vertex door L-cut: base width at lintel (top), wider below (door to floor)
       const verts = [
-        { x: 0, y: H },                        // top-left
-        { x: totalW, y: H },                    // top-right (lintel tab)
-        { x: totalW, y: H - lintelDepth },      // bottom of lintel tab
-        { x: base, y: H - lintelDepth },         // step left
-        { x: base, y: 0 },                       // bottom-right (at base width)
-        { x: 0, y: 0 },                          // bottom-left
+        { x: 0, y: H },                    // top-left
+        { x: base, y: H },                 // top-right (lintel zone)
+        { x: base, y: openTop },           // down through lintel zone
+        { x: totalW, y: openTop },         // step RIGHT — tab into opening
+        { x: totalW, y: 0 },               // down to floor (door goes to floor)
+        { x: 0, y: 0 },                    // bottom-left
       ];
-      const edges = [
-        { length: totalW, dir: 'top' },
-        { length: lintelDepth, dir: 'right' },
-        { length: ovh, dir: 'h-step', y: H - lintelDepth },
-        { length: H - lintelDepth, dir: 'inner-v' },
-        { length: base, dir: 'bottom' },
-        { length: H, dir: 'left' },
-      ];
-      return { vertices: verts, profileWidth: totalW, profileHeight: H, edges };
+      return { vertices: verts, profileWidth: totalW, profileHeight: H };
     }
   } else {
-    // Right L-cut: base on right, tabs extend left
+    // Right L-cut: base on right, tab extends left into opening
     const base = (panel.x + panel.width) - panel.openRight;
     const totalW = base + ovh;
 
     if (isWindow && sill > 0) {
-      // 8-vertex, notch on left side
+      // 8-vertex: base width at lintel (top) and footer (bottom), wider at window zone
       const verts = [
-        { x: 0, y: H },                         // top-left (lintel tab)
-        { x: totalW, y: H },                     // top-right
-        { x: totalW, y: 0 },                     // bottom-right
-        { x: 0, y: 0 },                          // bottom-left (footer tab)
-        { x: 0, y: sill },                       // up to sill
-        { x: ovh, y: sill },                     // step right
-        { x: ovh, y: H - lintelDepth },          // up through opening
-        { x: 0, y: H - lintelDepth },            // step left to lintel tab
+        { x: ovh, y: H },                  // top-left (lintel zone, at ovh offset)
+        { x: totalW, y: H },               // top-right
+        { x: totalW, y: 0 },               // bottom-right
+        { x: ovh, y: 0 },                  // bottom-left (footer zone, at ovh offset)
+        { x: ovh, y: sill },               // up through footer zone
+        { x: 0, y: sill },                 // step LEFT — tab into opening
+        { x: 0, y: openTop },              // up through window zone (wider)
+        { x: ovh, y: openTop },            // step RIGHT — back to base
       ];
-      const edges = [
-        { length: totalW, dir: 'top' },
-        { length: H, dir: 'right' },
-        { length: totalW, dir: 'bottom' },
-        { length: sill, dir: 'left' },
-        { length: ovh, dir: 'h-step', y: sill },
-        { length: panel.openTop - sill, dir: 'inner-v' },
-        { length: ovh, dir: 'h-step', y: H - lintelDepth },
-        { length: lintelDepth, dir: 'left' },
-      ];
-      return { vertices: verts, profileWidth: totalW, profileHeight: H, edges };
+      return { vertices: verts, profileWidth: totalW, profileHeight: H };
     } else {
-      // 6-vertex door L-cut, notch on left going to floor
+      // 6-vertex door L-cut: base width at lintel (top), wider below (door to floor)
       const verts = [
-        { x: 0, y: H },                         // top-left (lintel tab)
-        { x: totalW, y: H },                     // top-right
-        { x: totalW, y: 0 },                     // bottom-right
-        { x: ovh, y: 0 },                        // bottom-left (at base)
-        { x: ovh, y: H - lintelDepth },          // up through door
-        { x: 0, y: H - lintelDepth },            // step left to lintel
+        { x: ovh, y: H },                  // top-left (lintel zone)
+        { x: totalW, y: H },               // top-right
+        { x: totalW, y: 0 },               // bottom-right
+        { x: 0, y: 0 },                    // bottom-left (door zone, full width)
+        { x: 0, y: openTop },              // up through door zone
+        { x: ovh, y: openTop },            // step RIGHT — lintel notch
       ];
-      const edges = [
-        { length: totalW, dir: 'top' },
-        { length: H, dir: 'right' },
-        { length: base, dir: 'bottom' },
-        { length: H - lintelDepth, dir: 'inner-v' },
-        { length: ovh, dir: 'h-step', y: H - lintelDepth },
-        { length: lintelDepth, dir: 'left' },
-      ];
-      return { vertices: verts, profileWidth: totalW, profileHeight: H, edges };
+      return { vertices: verts, profileWidth: totalW, profileHeight: H };
     }
   }
 }
@@ -196,14 +156,13 @@ function PanelPlanCard({ panel }) {
       // Horizontal edge
       const isTop = a.y === profileHeight;
       const isBottom = a.y === 0;
-      const isStep = !isTop && !isBottom;
       let yOff;
       if (isTop) yOff = -DIM_OFFSET;
       else if (isBottom) yOff = DIM_OFFSET + 4;
       else {
-        // Step: label inside or outside depending on direction
-        const above = (pa.y < drawH / 2 + PLAN_MARGIN.top);
-        yOff = above ? -DIM_OFFSET + 2 : DIM_OFFSET + 2;
+        // Step edge — label above or below depending on position
+        const inTopHalf = my < PLAN_MARGIN.top + drawH / 2;
+        yOff = inTopHalf ? -DIM_OFFSET + 2 : DIM_OFFSET + 2;
       }
       dims.push(
         <text key={`dim-${i}`} x={mx} y={my + yOff} textAnchor="middle" fontSize={DIM_FONT} fill="#333">
@@ -211,15 +170,19 @@ function PanelPlanCard({ panel }) {
         </text>
       );
     } else if (Math.abs(dx) < 0.1) {
-      // Vertical edge
-      const isLeftEdge = a.x === 0;
-      const isRightEdge = a.x === profileWidth;
-      const isInner = !isLeftEdge && !isRightEdge;
+      // Vertical edge — place label on the outside of the shape
+      const minX = Math.min(...vertices.map(v => v.x));
+      const maxX = Math.max(...vertices.map(v => v.x));
+      const isOuterLeft = a.x === minX;
+      const isOuterRight = a.x === maxX;
       let xOff;
-      if (isLeftEdge || (a.x < profileWidth / 2 && !isRightEdge)) {
+      if (isOuterLeft) {
         xOff = -DIM_OFFSET;
-      } else {
+      } else if (isOuterRight) {
         xOff = DIM_OFFSET;
+      } else {
+        // Inner vertical edge — place on the side with more space
+        xOff = a.x < (minX + maxX) / 2 ? -DIM_OFFSET : DIM_OFFSET;
       }
       dims.push(
         <text
