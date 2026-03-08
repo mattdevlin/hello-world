@@ -256,52 +256,36 @@ export default function WallDrawing({ layout, wallName }) {
           {/* Running measurement — right-edge of each base-width element */}
           <g>
             {(() => {
-              // Collect all base-width elements with their display width and sort x
-              const baseElements = [];
+              // Collect right-edge position of each base-width element directly
+              const points = new Set([0, grossLength]);
 
               if (deductionLeft > 0) {
-                baseElements.push({ sortX: 0, displayWidth: deductionLeft });
+                points.add(deductionLeft);
+              }
+              if (deductionRight > 0) {
+                points.add(grossLength - deductionRight);
               }
 
               panels.forEach(p => {
-                let displayWidth, sortX;
                 if (p.type === 'lcut') {
                   if (p.side === 'left') {
-                    displayWidth = p.width - WINDOW_OVERHANG;
-                    sortX = p.x;
+                    // base on left, overhang extends right — right edge of base
+                    points.add(Math.round(p.x + p.width - WINDOW_OVERHANG));
                   } else if (p.side === 'right') {
-                    displayWidth = p.width - WINDOW_OVERHANG;
-                    sortX = p.x + WINDOW_OVERHANG;
+                    // overhang on left, base on right — right edge of base
+                    points.add(Math.round(p.x + p.width));
                   } else {
-                    displayWidth = p.width - 2 * WINDOW_OVERHANG;
-                    sortX = p.x + WINDOW_OVERHANG;
+                    // pier: overhang both sides — right edge of base
+                    points.add(Math.round(p.x + p.width - WINDOW_OVERHANG));
                   }
                 } else {
-                  displayWidth = p.width;
-                  sortX = p.x;
+                  points.add(Math.round(p.x + p.width));
                 }
-                baseElements.push({ sortX, displayWidth });
               });
 
               footers.forEach(f => {
-                baseElements.push({ sortX: f.x, displayWidth: f.width });
+                points.add(Math.round(f.x + f.width));
               });
-
-              if (deductionRight > 0) {
-                baseElements.push({ sortX: grossLength - deductionRight, displayWidth: deductionRight });
-              }
-
-              // Sort left to right
-              baseElements.sort((a, b) => a.sortX - b.sortX);
-
-              // Build right-edge positions working backwards from grossLength
-              const points = new Set([0, grossLength]);
-              let pos = grossLength;
-              for (let i = baseElements.length - 1; i >= 0; i--) {
-                points.add(Math.round(pos));
-                pos -= baseElements[i].displayWidth;
-                if (i > 0) pos -= PANEL_GAP;
-              }
 
               const sorted = [...points].sort((a, b) => a - b);
               const tickY = s(height) + 22;
