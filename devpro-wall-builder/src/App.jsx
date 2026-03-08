@@ -3,6 +3,7 @@ import WallForm from './components/WallForm.jsx';
 import WallDrawing from './components/WallDrawing.jsx';
 import WallSummary from './components/WallSummary.jsx';
 import PanelPlans from './components/PanelPlans.jsx';
+import Offcuts from './components/Offcuts.jsx';
 import { calculateWallLayout } from './utils/calculator.js';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
           <>
             <WallDrawing layout={layout} wallName={wallName} />
             <PanelPlans layout={layout} />
+            <Offcuts layout={layout} />
             <WallSummary layout={layout} wallName={wallName} />
           </>
         )}
