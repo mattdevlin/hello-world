@@ -257,12 +257,45 @@ export default function WallDrawing({ layout, wallName }) {
           <g>
             {(() => {
               const pointSet = new Set([0, grossLength]);
+
+              // Deduction boundaries + gap after
+              if (deductionLeft > 0) {
+                pointSet.add(deductionLeft);
+                pointSet.add(deductionLeft + PANEL_GAP);
+              }
+              if (deductionRight > 0) {
+                pointSet.add(grossLength - deductionRight);
+                pointSet.add(grossLength - deductionRight - PANEL_GAP);
+              }
+
+              // Panel BASE boundaries (exclude L-cut overhang)
               panels.forEach(p => {
-                pointSet.add(Math.round(p.x));
-                pointSet.add(Math.round(p.x + p.width));
+                if (p.type === 'lcut') {
+                  if (p.side === 'left') {
+                    // overhang extends right over opening
+                    pointSet.add(Math.round(p.x));
+                    pointSet.add(Math.round(p.x + p.width - WINDOW_OVERHANG));
+                  } else if (p.side === 'right') {
+                    // overhang extends left over opening
+                    pointSet.add(Math.round(p.x + WINDOW_OVERHANG));
+                    pointSet.add(Math.round(p.x + p.width));
+                  } else if (p.side === 'pier') {
+                    // overhang on both sides
+                    pointSet.add(Math.round(p.x + WINDOW_OVERHANG));
+                    pointSet.add(Math.round(p.x + p.width - WINDOW_OVERHANG));
+                  }
+                } else {
+                  pointSet.add(Math.round(p.x));
+                  pointSet.add(Math.round(p.x + p.width));
+                }
               });
-              if (deductionLeft > 0) pointSet.add(deductionLeft);
-              if (deductionRight > 0) pointSet.add(grossLength - deductionRight);
+
+              // Footer boundaries
+              footers.forEach(f => {
+                pointSet.add(Math.round(f.x));
+                pointSet.add(Math.round(f.x + f.width));
+              });
+
               const points = [...pointSet].sort((a, b) => a - b);
               const tickY = s(height) + 22;
               return points.map((pt, i) => (
