@@ -252,10 +252,13 @@ export default function EpsElevation({ layout, wallName }) {
                 }
               }
               // Multi-course: exclude the plate zone at each course join
+              // Only where the wall at this x is tall enough to reach the join
               if (isMultiCourse && courses.length > 1) {
                 for (let ci = 1; ci < courses.length; ci++) {
                   const joinY = yBottom - courses[ci].y;
-                  zones.push([joinY - TOP_PLATE, joinY + TOP_PLATE]);
+                  if (yTopAt(xEdge) < joinY - TOP_PLATE) {
+                    zones.push([joinY - TOP_PLATE, joinY + TOP_PLATE]);
+                  }
                 }
               }
               zones.sort((a, b) => a[0] - b[0]);
@@ -310,10 +313,14 @@ export default function EpsElevation({ layout, wallName }) {
                       const plateBelow = isBottomCourse ? BOTTOM_PLATE : TOP_PLATE;
                       const plateAbove = isTopCourse ? TOP_PLATE * 2 : TOP_PLATE;
 
+                      const wallTopHere = isRaked ? panelMidH : yTopAt(leftX);
                       const cEpsBot = yBottom - course.y - plateBelow - EPS_INSET;
                       const cEpsTop = isTopCourse
-                        ? (isRaked ? panelMidH : yTopAt(leftX)) + plateAbove + EPS_INSET
-                        : yBottom - course.y - course.height + plateAbove + EPS_INSET;
+                        ? wallTopHere + plateAbove + EPS_INSET
+                        : Math.max(
+                            yBottom - course.y - course.height + plateAbove + EPS_INSET,
+                            wallTopHere + TOP_PLATE * 2 + EPS_INSET
+                          );
                       const cH = cEpsBot - cEpsTop;
 
                       return cH > 0 ? (
@@ -452,10 +459,14 @@ export default function EpsElevation({ layout, wallName }) {
                   const plateBelow = isBottomCourse ? BOTTOM_PLATE : TOP_PLATE;
                   const plateAbove = isTopCourse ? TOP_PLATE * 2 : TOP_PLATE;
 
+                  const splineWallTop = yTopAt(sp.cx);
                   const cEpsBot = yBottom - course.y - plateBelow - EPS_INSET;
                   const cEpsTop = isTopCourse
-                    ? yTopAt(sp.cx) + plateAbove + EPS_INSET
-                    : yBottom - course.y - course.height + plateAbove + EPS_INSET;
+                    ? splineWallTop + plateAbove + EPS_INSET
+                    : Math.max(
+                        yBottom - course.y - course.height + plateAbove + EPS_INSET,
+                        splineWallTop + TOP_PLATE * 2 + EPS_INSET
+                      );
                   const cH = cEpsBot - cEpsTop;
 
                   return cH > 0 ? (
@@ -485,15 +496,26 @@ export default function EpsElevation({ layout, wallName }) {
           {/* ── Course join lines (multi-course walls > 3000mm) ── */}
           {isMultiCourse && courses.slice(1).map((course, i) => {
             const joinY = yBottom - course.y;
+            // Find x extent where wall height >= course.y (for raked/gable walls)
+            let x0 = null, x1 = null;
+            const step = grossLength / 200;
+            for (let x = 0; x <= grossLength; x = Math.min(x + step, grossLength)) {
+              if (heightAt ? heightAt(x) >= course.y : height >= course.y) {
+                if (x0 === null) x0 = x;
+                x1 = x;
+              }
+              if (x >= grossLength) break;
+            }
+            if (x0 === null) return null;
             return (
               <g key={`course-join-${i}`}>
                 <line
-                  x1={s(0)} y1={s(joinY)}
-                  x2={s(grossLength)} y2={s(joinY)}
+                  x1={s(x0)} y1={s(joinY)}
+                  x2={s(x1)} y2={s(joinY)}
                   stroke="#E74C3C" strokeWidth={2} strokeDasharray="8,4"
                 />
                 <text
-                  x={s(grossLength) + 8} y={s(joinY) + 4}
+                  x={s(x1) + 8} y={s(joinY) + 4}
                   fontSize="8" fill="#E74C3C" fontWeight="bold"
                 >
                   {course.y}

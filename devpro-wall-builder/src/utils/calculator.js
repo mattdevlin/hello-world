@@ -385,7 +385,8 @@ export function calculateWallLayout(wall) {
   panels.forEach((p, i) => { p.index = i; });
 
   // Compute vertical course layout (multi-course for walls > 3000mm)
-  const { courses, isMultiCourse } = computeCourses(height);
+  // Use maxHeight so raked/gable walls trigger multi-course when any part exceeds sheet height
+  const { courses, isMultiCourse } = computeCourses(maxHeight);
 
   return {
     grossLength,
