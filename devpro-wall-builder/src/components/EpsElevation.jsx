@@ -510,42 +510,40 @@ export default function EpsElevation({ layout, wallName }) {
             });
           })()}
 
+          </g>{/* end wall-clip */}
+
           {/* ── Course join lines (multi-course walls > 3000mm) ── */}
-          {/* Rendered inside clipPath so wall outline clips the line on raked/gable walls */}
           {isMultiCourse && courses.slice(1).map((course, i) => {
             const joinY = yBottom - course.y;
+            // Compute x-extent where wall height >= course.y analytically
+            const hL = heightAt ? heightAt(0) : height;
+            const hR = heightAt ? heightAt(grossLength) : height;
+            let x0, x1;
+            if (hL >= course.y && hR >= course.y) {
+              x0 = 0; x1 = grossLength;
+            } else if (hL >= course.y) {
+              x0 = 0;
+              x1 = (course.y - hL) / (hR - hL) * grossLength;
+            } else if (hR >= course.y) {
+              x0 = (course.y - hL) / (hR - hL) * grossLength;
+              x1 = grossLength;
+            } else {
+              return null; // wall never reaches course height
+            }
             return (
               <g key={`course-join-${i}`}>
                 <line
-                  x1={s(0)} y1={s(joinY)}
-                  x2={s(grossLength)} y2={s(joinY)}
+                  x1={s(x0)} y1={s(joinY)}
+                  x2={s(x1)} y2={s(joinY)}
                   stroke="#E74C3C" strokeWidth={2} strokeDasharray="8,4"
                 />
+                <text
+                  x={s(x1) + 8} y={s(joinY) + 4}
+                  fontSize="8" fill="#E74C3C" fontWeight="bold"
+                >
+                  {course.y}
+                </text>
               </g>
-            );
-          })}
-
-          </g>{/* end wall-clip */}
-
-          {/* Course join label (outside clip so it's always visible) */}
-          {isMultiCourse && courses.slice(1).map((course, i) => {
-            const joinY = yBottom - course.y;
-            // Find rightmost x where wall height >= course.y for label placement
-            let labelX = grossLength;
-            if (heightAt) {
-              const step = grossLength / 200;
-              for (let x = grossLength; x >= 0; x -= step) {
-                if (heightAt(x) >= course.y) { labelX = x; break; }
-              }
-            }
-            return (
-              <text
-                key={`course-label-${i}`}
-                x={s(labelX) + 8} y={s(joinY) + 4}
-                fontSize="8" fill="#E74C3C" fontWeight="bold"
-              >
-                {course.y}
-              </text>
             );
           })}
 
