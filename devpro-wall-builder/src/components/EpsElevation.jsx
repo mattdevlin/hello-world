@@ -1,4 +1,4 @@
-import { useId, useRef } from 'react';
+import { useRef } from 'react';
 import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
 
@@ -18,7 +18,7 @@ const MAGBOARD = 10; // mm each face
 
 export default function EpsElevation({ layout, wallName }) {
   const sectionRef = useRef(null);
-  const clipId = useId();
+  const clipId = useRef(`eps-clip-${Math.random().toString(36).slice(2, 8)}`).current;
   if (!layout) return null;
 
   const { grossLength, height, maxHeight, panels, openings, footers, lintels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
@@ -203,7 +203,7 @@ export default function EpsElevation({ layout, wallName }) {
 
         <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
 
-          {/* ── Wall outline (polygon for raked/gable) ── */}
+          {/* ── Wall outline & clip path (polygon for raked/gable) ── */}
           {(() => {
             const pts = [];
             const steps = isRaked ? Math.max(40, Math.round(grossLength / 50)) : 2;
@@ -216,7 +216,6 @@ export default function EpsElevation({ layout, wallName }) {
             const pointsStr = pts.join(' ');
             return (
               <>
-                {/* Clip path to contain EPS within wall outline on raked/gable walls */}
                 <defs>
                   <clipPath id={clipId}>
                     <polygon points={pointsStr} />
