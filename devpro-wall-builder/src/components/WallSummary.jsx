@@ -16,7 +16,15 @@ export default function WallSummary({ layout, wallName }) {
           <tr><td style={styles.labelCell}>Gross Length</td><td style={styles.valueCell}>{layout.grossLength} mm</td></tr>
           <tr><td style={styles.labelCell}>Deductions</td><td style={styles.valueCell}>L: {layout.deductionLeft}mm, R: {layout.deductionRight}mm</td></tr>
           <tr><td style={styles.labelCell}>Net Length</td><td style={styles.valueCell}>{layout.netLength} mm</td></tr>
-          <tr><td style={styles.labelCell}>Height</td><td style={styles.valueCell}>{layout.height} mm</td></tr>
+          <tr><td style={styles.labelCell}>Profile</td><td style={styles.valueCell}>{layout.profile === 'raked' ? 'Raked' : layout.profile === 'gable' ? 'Gable' : 'Standard'}</td></tr>
+          <tr><td style={styles.labelCell}>Height</td><td style={styles.valueCell}>
+            {layout.isRaked
+              ? `${layout.heightLeft}mm (L) → ${layout.heightRight}mm (R)`
+              : `${layout.height} mm`}
+          </td></tr>
+          {layout.peakHeight !== undefined && (
+            <tr><td style={styles.labelCell}>Peak</td><td style={styles.valueCell}>{layout.peakHeight}mm at {layout.peakPosition}mm from left</td></tr>
+          )}
           <tr style={styles.dividerRow}><td colSpan={2}></td></tr>
           <tr><td style={styles.labelCell}>Total Panels</td><td style={styles.valueCell}><strong>{layout.totalPanels}</strong></td></tr>
           <tr><td style={styles.labelCell}>Full Panels</td><td style={styles.valueCell}>{layout.fullPanels}</td></tr>
@@ -39,6 +47,8 @@ export default function WallSummary({ layout, wallName }) {
                 <th style={styles.th}>Type</th>
                 <th style={styles.th}>Width (mm)</th>
                 <th style={styles.th}>Position (mm)</th>
+                {layout.isRaked && <th style={styles.th}>H Left (mm)</th>}
+                {layout.isRaked && <th style={styles.th}>H Right (mm)</th>}
                 <th style={styles.th}>Notes</th>
               </tr>
             </thead>
@@ -53,6 +63,8 @@ export default function WallSummary({ layout, wallName }) {
                   </td>
                   <td style={styles.td}>{p.width}</td>
                   <td style={styles.td}>{p.x}</td>
+                  {layout.isRaked && <td style={styles.td}>{p.heightLeft}</td>}
+                  {layout.isRaked && <td style={styles.td}>{p.heightRight}</td>}
                   <td style={styles.td}>{p.openingRefs ? `Opens: ${p.openingRefs.join(', ')}` : '—'}</td>
                 </tr>
               ))}

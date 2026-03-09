@@ -91,11 +91,13 @@ export default function EpsCutPlans({ layout, wallName }) {
 
   const { height, panels, openings, footers, lintels, deductionLeft, deductionRight } = layout;
 
-  // EPS vertical bounds (same as EpsElevation)
+  const isRaked = layout.isRaked;
+
+  // EPS vertical bounds (same as EpsElevation) — for standard walls
   const epsTop = TOP_PLATE * 2 + EPS_INSET;
   const epsBottom = height - BOTTOM_PLATE - EPS_INSET;
   const epsHeight = epsBottom - epsTop;
-  if (epsHeight <= 0) return null;
+  if (!isRaked && epsHeight <= 0) return null;
 
   // ── Build exclusion zones (same logic as EpsElevation) ──
   const exclusions = [];
@@ -194,13 +196,17 @@ export default function EpsCutPlans({ layout, wallName }) {
 
   panels.forEach((panel) => {
     const segments = getEpsSegments(panel.x, panel.x + panel.width);
+    // For raked walls, use per-panel height (average of left/right)
+    const panelEpsH = isRaked
+      ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_INSET * 2)
+      : epsHeight;
     segments.forEach((seg, j) => {
       const w = Math.round(seg[1] - seg[0]);
-      if (w > 0) {
+      if (w > 0 && panelEpsH > 0) {
         const label = segments.length > 1
           ? `P${panel.index + 1} (${String.fromCharCode(97 + j)})`
           : `P${panel.index + 1}`;
-        pieces.push({ label, width: w, height: epsHeight });
+        pieces.push({ label, width: w, height: panelEpsH });
       }
     });
   });

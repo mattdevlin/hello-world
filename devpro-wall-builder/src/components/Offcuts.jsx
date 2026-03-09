@@ -17,7 +17,7 @@ function computeOffcuts(layout) {
 
   for (const panel of layout.panels) {
     const panelLabel = `P${panel.index + 1}`;
-    const H = panel.height;
+    const H = panel.heightLeft || panel.height;
 
     // ── Sheet stock remainder (1200mm stock) ──
     if (panel.width < PANEL_WIDTH) {

@@ -20,19 +20,22 @@ export default function EpsElevation({ layout, wallName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
-  const { grossLength, height, panels, openings, footers, lintels, deductionLeft, deductionRight } = layout;
+  const { grossLength, height, maxHeight, panels, openings, footers, lintels, deductionLeft, deductionRight, isRaked, heightAt } = layout;
 
+  const useHeight = maxHeight || height;
   const drawWidth = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
   const scale = drawWidth / grossLength;
   const svgWidth = MAX_SVG_WIDTH;
-  const svgHeight = height * scale + MARGIN.top + MARGIN.bottom;
+  const svgHeight = useHeight * scale + MARGIN.top + MARGIN.bottom;
 
   const s = (mm) => mm * scale;
+  const yTopAt = (x) => useHeight - (heightAt ? heightAt(x) : height);
+  const yBottom = useHeight;
 
-  // EPS vertical bounds
+  // EPS vertical bounds (for standard walls)
   const epsTop = TOP_PLATE * 2 + EPS_INSET;
-  const epsBottom = height - BOTTOM_PLATE - EPS_INSET;
-  const epsHeight = epsBottom - epsTop;
+  const epsBottom_std = height - BOTTOM_PLATE - EPS_INSET;
+  const epsHeight = epsBottom_std - epsTop;
 
   // ── Collect all exclusion zones (x-ranges where there's no EPS) ──
   // These are all splines, plates, and openings that occupy space inside panels.
@@ -144,8 +147,8 @@ export default function EpsElevation({ layout, wallName }) {
     const op = openings.find(o => o.ref === f.ref);
     if (!op) return null;
 
-    const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_INSET;
-    const fEpsBot = height - BOTTOM_PLATE - EPS_INSET;
+    const fEpsTop = yBottom - op.y + BOTTOM_PLATE + EPS_INSET;
+    const fEpsBot = yBottom - BOTTOM_PLATE - EPS_INSET;
     if (fEpsBot <= fEpsTop) return null;
 
     // Left edge: check if footer butts up to left opening spline
@@ -194,30 +197,36 @@ export default function EpsElevation({ layout, wallName }) {
           {wallName || 'Wall'} — EPS Elevation
         </text>
         <text x={svgWidth / 2} y={42} textAnchor="middle" fontSize="12" fill="#666">
-          {grossLength}mm × {height}mm | EPS inset {EPS_INSET}mm from framing
+          {grossLength}mm × {height}mm{isRaked ? ` (max ${useHeight}mm)` : ''} | EPS inset {EPS_INSET}mm from framing
         </text>
 
         <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
 
-          {/* ── Wall outline ── */}
-          <rect
-            x={0} y={0}
-            width={s(grossLength)} height={s(height)}
-            fill="none" stroke={STROKE_COLOR} strokeWidth={1.5}
-          />
+          {/* ── Wall outline (polygon for raked/gable) ── */}
+          {(() => {
+            const pts = [];
+            const steps = isRaked ? Math.max(40, Math.round(grossLength / 50)) : 2;
+            for (let i = 0; i <= steps; i++) {
+              const x = (i / steps) * grossLength;
+              pts.push(`${s(x)},${s(yTopAt(x))}`);
+            }
+            pts.push(`${s(grossLength)},${s(yBottom)}`);
+            pts.push(`${0},${s(yBottom)}`);
+            return <polygon points={pts.join(' ')} fill="none" stroke={STROKE_COLOR} strokeWidth={1.5} />;
+          })()}
 
           {/* ── Corner deductions ── */}
           {deductionLeft > 0 && (
             <rect
-              x={0} y={0}
-              width={s(deductionLeft)} height={s(height)}
+              x={0} y={s(yTopAt(0))}
+              width={s(deductionLeft)} height={s(yBottom - yTopAt(0))}
               fill="none" stroke={STROKE_COLOR} strokeWidth={1}
             />
           )}
           {deductionRight > 0 && (
             <rect
-              x={s(grossLength - deductionRight)} y={0}
-              width={s(deductionRight)} height={s(height)}
+              x={s(grossLength - deductionRight)} y={s(yTopAt(grossLength))}
+              width={s(deductionRight)} height={s(yBottom - yTopAt(grossLength))}
               fill="none" stroke={STROKE_COLOR} strokeWidth={1}
             />
           )}
@@ -226,19 +235,16 @@ export default function EpsElevation({ layout, wallName }) {
           {panels.map((panel, i) => {
             const segments = getEpsSegments(panel.x, panel.x + panel.width);
 
-            // Build exclusion zones for vertical edges (skip lintels/footers)
             const getVertExclusions = (xEdge) => {
               const zones = [];
               for (const l of lintels) {
                 if (l.x < xEdge && xEdge < l.x + l.width) {
-                  const yTop = height - l.y - l.height;
-                  const yBot = height - l.y;
-                  zones.push([yTop, yBot]);
+                  zones.push([yBottom - l.y - l.height, yBottom - l.y]);
                 }
               }
               for (const f of footers) {
                 if (f.x < xEdge && xEdge < f.x + f.width) {
-                  zones.push([height - f.height, height]);
+                  zones.push([yBottom - f.height, yBottom]);
                 }
               }
               zones.sort((a, b) => a[0] - b[0]);
@@ -247,13 +253,14 @@ export default function EpsElevation({ layout, wallName }) {
 
             const vertSegments = (xEdge) => {
               const excl = getVertExclusions(xEdge);
+              const topY = yTopAt(xEdge);
               const segs = [];
-              let cursor = 0;
+              let cursor = topY;
               for (const [eTop, eBot] of excl) {
                 if (cursor < eTop) segs.push([cursor, eTop]);
                 cursor = Math.max(cursor, eBot);
               }
-              if (cursor < height) segs.push([cursor, height]);
+              if (cursor < yBottom) segs.push([cursor, yBottom]);
               return segs;
             };
 
@@ -261,36 +268,39 @@ export default function EpsElevation({ layout, wallName }) {
             const rightX = panel.x + panel.width;
             const leftSegs = vertSegments(leftX);
             const rightSegs = vertSegments(rightX);
+            const panelMidH = (yTopAt(leftX) + yTopAt(rightX)) / 2;
+
+            // Per-panel EPS bounds for raked walls
+            const pEpsTop = (isRaked ? panelMidH : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_INSET;
+            const pEpsBot = yBottom - BOTTOM_PLATE - EPS_INSET;
+            const pEpsH = pEpsBot - pEpsTop;
 
             return (
               <g key={`panel-${i}`}>
-                {/* Panel outline — horizontal top & bottom */}
-                <line x1={s(leftX)} y1={0} x2={s(rightX)} y2={0} stroke={STROKE_COLOR} strokeWidth={1} />
-                <line x1={s(leftX)} y1={s(height)} x2={s(rightX)} y2={s(height)} stroke={STROKE_COLOR} strokeWidth={1} />
-                {/* Left vertical segments (skip lintels/footers) */}
+                {/* Panel outline — sloped top & flat bottom */}
+                <line x1={s(leftX)} y1={s(yTopAt(leftX))} x2={s(rightX)} y2={s(yTopAt(rightX))} stroke={STROKE_COLOR} strokeWidth={1} />
+                <line x1={s(leftX)} y1={s(yBottom)} x2={s(rightX)} y2={s(yBottom)} stroke={STROKE_COLOR} strokeWidth={1} />
                 {leftSegs.map(([y1, y2], j) => (
                   <line key={`l-${j}`} x1={s(leftX)} y1={s(y1)} x2={s(leftX)} y2={s(y2)} stroke={STROKE_COLOR} strokeWidth={1} />
                 ))}
-                {/* Right vertical segments (skip lintels/footers) */}
                 {rightSegs.map(([y1, y2], j) => (
                   <line key={`r-${j}`} x1={s(rightX)} y1={s(y1)} x2={s(rightX)} y2={s(y2)} stroke={STROKE_COLOR} strokeWidth={1} />
                 ))}
                 {/* EPS core segments */}
                 {segments.map(([segL, segR], j) => {
                   const w = segR - segL;
-                  return w > 0 && epsHeight > 0 ? (
+                  return w > 0 && pEpsH > 0 ? (
                     <rect
                       key={`eps-${j}`}
-                      x={s(segL)} y={s(epsTop)}
-                      width={s(w)} height={s(epsHeight)}
+                      x={s(segL)} y={s(pEpsTop)}
+                      width={s(w)} height={s(pEpsH)}
                       fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1}
                     />
                   ) : null;
                 })}
-                {/* Panel number */}
                 <text
                   x={s(panel.x + panel.width / 2)}
-                  y={s(height / 2) + 4}
+                  y={s((panelMidH + yBottom) / 2) + 4}
                   textAnchor="middle" fontSize="10" fill={LABEL_COLOR}
                 >
                   P{panel.index + 1}
@@ -303,13 +313,13 @@ export default function EpsElevation({ layout, wallName }) {
           {openings.map((op, i) => (
             <g key={`opening-${i}`}>
               <rect
-                x={s(op.x)} y={s(height - op.y - op.drawHeight)}
+                x={s(op.x)} y={s(yBottom - op.y - op.drawHeight)}
                 width={s(op.drawWidth)} height={s(op.drawHeight)}
                 fill="none" stroke={STROKE_COLOR} strokeWidth={1.5}
               />
               <text
                 x={s(op.x + op.drawWidth / 2)}
-                y={s(height - op.y - op.drawHeight / 2) + 4}
+                y={s(yBottom - op.y - op.drawHeight / 2) + 4}
                 textAnchor="middle" fontSize="10" fill={LABEL_COLOR} fontWeight="bold"
               >
                 {op.ref}
@@ -322,13 +332,11 @@ export default function EpsElevation({ layout, wallName }) {
             const fEps = getFooterEps(f);
             return (
               <g key={`footer-${i}`}>
-                {/* Footer outline (solid) */}
                 <rect
-                  x={s(f.x)} y={s(height - f.height)}
+                  x={s(f.x)} y={s(yBottom - f.height)}
                   width={s(f.width)} height={s(f.height)}
                   fill="none" stroke={STROKE_COLOR} strokeWidth={1}
                 />
-                {/* Footer EPS */}
                 {fEps && (
                   <rect
                     x={s(fEps.x)} y={s(fEps.y)}
@@ -338,7 +346,7 @@ export default function EpsElevation({ layout, wallName }) {
                 )}
                 <text
                   x={s(f.x + f.width / 2)}
-                  y={s(height - f.height / 2) + 3}
+                  y={s(yBottom - f.height / 2) + 3}
                   textAnchor="middle" fontSize="8" fill={LABEL_COLOR}
                 >
                   Footer {f.ref}
@@ -351,13 +359,13 @@ export default function EpsElevation({ layout, wallName }) {
           {lintels.map((l, i) => (
             <g key={`lintel-${i}`}>
               <rect
-                x={s(l.x)} y={s(height - l.y - l.height)}
+                x={s(l.x)} y={s(yBottom - l.y - l.height)}
                 width={s(l.width)} height={s(l.height)}
                 fill="none" stroke={STROKE_COLOR} strokeWidth={1}
               />
               <text
                 x={s(l.x + l.width / 2)}
-                y={s(height - l.y - l.height / 2) + 3}
+                y={s(yBottom - l.y - l.height / 2) + 3}
                 textAnchor="middle" fontSize="8" fill={LABEL_COLOR}
               >
                 Lintel {l.ref}
@@ -367,40 +375,41 @@ export default function EpsElevation({ layout, wallName }) {
 
           {/* ── Spline EPS (120mm EPS inside 146mm splines) ── */}
           {(() => {
-            const splineTop = TOP_PLATE * 2 + 10; // 10mm short of lowest top plate
-            const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2 - 10;
-            const splineEpsX = MAGBOARD; // 10mm magboard inset from each edge in width
-            const splineEpsW = SPLINE_WIDTH - MAGBOARD * 2; // 126mm EPS width in elevation
+            const splineEpsX = MAGBOARD;
+            const splineEpsW = SPLINE_WIDTH - MAGBOARD * 2;
             const splines = [];
 
-            // Joint splines
             for (let i = 0; i < panels.length - 1; i++) {
               const panel = panels[i];
               const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
               const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
               const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
               if (!insideLintel && !insideFooter) {
-                splines.push({ x: gapCentre - HALF_SPLINE, label: `Joint P${panels[i].index + 1}/P${panels[i + 1].index + 1}` });
+                splines.push({ xPos: gapCentre - HALF_SPLINE, cx: gapCentre });
               }
             }
 
-            // Opening splines (only for windows with sills)
             for (const op of openings) {
-              const hasSill = op.y > 0;
-              if (hasSill) {
-                splines.push({ x: op.x - BOTTOM_PLATE - SPLINE_WIDTH, label: `${op.ref} L` });
-                splines.push({ x: op.x + op.drawWidth + BOTTOM_PLATE, label: `${op.ref} R` });
+              if (op.y > 0) {
+                const lx = op.x - BOTTOM_PLATE - SPLINE_WIDTH;
+                splines.push({ xPos: lx, cx: lx + SPLINE_WIDTH / 2 });
+                const rx = op.x + op.drawWidth + BOTTOM_PLATE;
+                splines.push({ xPos: rx, cx: rx + SPLINE_WIDTH / 2 });
               }
             }
 
-            return splines.map((sp, i) => (
-              <rect
-                key={`spline-eps-${i}`}
-                x={s(sp.x + splineEpsX)} y={s(splineTop)}
-                width={s(splineEpsW)} height={s(splineH)}
-                fill={SPLINE_EPS_FILL} stroke={SPLINE_EPS_STROKE} strokeWidth={1}
-              />
-            ));
+            return splines.map((sp, i) => {
+              const spTop = yTopAt(sp.cx) + TOP_PLATE * 2 + 10;
+              const spH = yBottom - BOTTOM_PLATE - spTop;
+              return spH > 0 ? (
+                <rect
+                  key={`spline-eps-${i}`}
+                  x={s(sp.xPos + splineEpsX)} y={s(spTop)}
+                  width={s(splineEpsW)} height={s(spH)}
+                  fill={SPLINE_EPS_FILL} stroke={SPLINE_EPS_STROKE} strokeWidth={1}
+                />
+              ) : null;
+            });
           })()}
 
           {/* ── Running measurement ── */}
@@ -426,7 +435,7 @@ export default function EpsElevation({ layout, wallName }) {
               });
               footers.forEach(f => points.add(Math.round(f.x + f.width)));
               const sorted = [...points].sort((a, b) => a - b);
-              const tickY = s(height) + 22;
+              const tickY = s(yBottom) + 22;
               return sorted.map((pt, j) => (
                 <g key={`rm-${j}`}>
                   <line x1={s(pt)} y1={tickY - 4} x2={s(pt)} y2={tickY + 4} stroke={COLORS.DIMENSION} strokeWidth={1} />
@@ -438,24 +447,54 @@ export default function EpsElevation({ layout, wallName }) {
 
           {/* ── Total width dimension ── */}
           <g>
-            <line x1={0} y1={s(height) + 44} x2={s(grossLength)} y2={s(height) + 44} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={0} y1={s(height) + 39} x2={0} y2={s(height) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={s(grossLength)} y1={s(height) + 39} x2={s(grossLength)} y2={s(height) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <text x={s(grossLength / 2)} y={s(height) + 60} textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold">
+            <line x1={0} y1={s(yBottom) + 44} x2={s(grossLength)} y2={s(yBottom) + 44} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={0} y1={s(yBottom) + 39} x2={0} y2={s(yBottom) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={s(grossLength)} y1={s(yBottom) + 39} x2={s(grossLength)} y2={s(yBottom) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <text x={s(grossLength / 2)} y={s(yBottom) + 60} textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold">
               {grossLength} mm
             </text>
           </g>
 
-          {/* ── Height dimension ── */}
+          {/* ── Height dimension — left ── */}
           <g>
-            <line x1={-20} y1={0} x2={-20} y2={s(height)} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={-25} y1={0} x2={-15} y2={0} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={-25} y1={s(height)} x2={-15} y2={s(height)} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <text x={-35} y={s(height / 2)} textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold"
-              transform={`rotate(-90, -35, ${s(height / 2)})`}>
-              {height} mm
-            </text>
+            {(() => {
+              const hLeftY = yTopAt(0);
+              const midY = (hLeftY + yBottom) / 2;
+              return (
+                <>
+                  <line x1={-20} y1={s(hLeftY)} x2={-20} y2={s(yBottom)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                  <line x1={-25} y1={s(hLeftY)} x2={-15} y2={s(hLeftY)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                  <line x1={-25} y1={s(yBottom)} x2={-15} y2={s(yBottom)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                  <text x={-35} y={s(midY)} textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold"
+                    transform={`rotate(-90, -35, ${s(midY)})`}>
+                    {layout.heightLeft || height} mm
+                  </text>
+                </>
+              );
+            })()}
           </g>
+
+          {/* ── Height dimension — right (for raked/gable) ── */}
+          {isRaked && (
+            <g>
+              {(() => {
+                const hRightY = yTopAt(grossLength);
+                const midY = (hRightY + yBottom) / 2;
+                const rx = s(grossLength) + 20;
+                return (
+                  <>
+                    <line x1={rx} y1={s(hRightY)} x2={rx} y2={s(yBottom)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                    <line x1={rx - 5} y1={s(hRightY)} x2={rx + 5} y2={s(hRightY)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                    <line x1={rx - 5} y1={s(yBottom)} x2={rx + 5} y2={s(yBottom)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                    <text x={rx + 15} y={s(midY)} textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold"
+                      transform={`rotate(-90, ${rx + 15}, ${s(midY)})`}>
+                      {layout.heightRight || height} mm
+                    </text>
+                  </>
+                );
+              })()}
+            </g>
+          )}
 
         </g>
       </svg>

@@ -16,15 +16,19 @@ export default function FramingElevation({ layout, wallName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
-  const { grossLength, height, panels, openings, footers, lintels, deductionLeft, deductionRight } = layout;
+  const { grossLength, height, maxHeight, panels, openings, footers, lintels, deductionLeft, deductionRight, isRaked, heightAt } = layout;
 
   const drawWidth = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
   const scale = drawWidth / grossLength;
-  const drawHeight = height * scale;
+  const useHeight = maxHeight || height;
+  const drawHeight = useHeight * scale;
   const svgWidth = MAX_SVG_WIDTH;
   const svgHeight = drawHeight + MARGIN.top + MARGIN.bottom;
 
   const s = (mm) => mm * scale;
+  // Y coordinate: 0 is top of SVG draw area (maxHeight), bottom of wall is at maxHeight
+  const yTop = (x) => useHeight - (heightAt ? heightAt(x) : height);
+  const yBottom = useHeight;
 
   // Plate lines run full width but skip deduction zones
   const plateLeft = deductionLeft;
@@ -46,56 +50,83 @@ export default function FramingElevation({ layout, wallName }) {
           {wallName || 'Wall'} — Framing Elevation
         </text>
         <text x={svgWidth / 2} y={42} textAnchor="middle" fontSize="12" fill="#666">
-          {grossLength}mm × {height}mm | Bottom plate {BOTTOM_PLATE}mm, 2× top plate {TOP_PLATE}mm
+          {grossLength}mm × {height}mm{isRaked ? ` (max ${useHeight}mm)` : ''} | Bottom plate {BOTTOM_PLATE}mm, 2× top plate {TOP_PLATE}mm
         </text>
 
         <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
 
-          {/* ── Wall outline ── */}
-          <rect
-            x={0}
-            y={0}
-            width={s(grossLength)}
-            height={s(height)}
-            fill="none"
-            stroke={STROKE_COLOR}
-            strokeWidth={1.5}
-          />
+          {/* ── Wall outline (polygon for raked/gable) ── */}
+          {(() => {
+            const pts = [];
+            const steps = isRaked ? Math.max(40, Math.round(grossLength / 50)) : 2;
+            for (let i = 0; i <= steps; i++) {
+              const x = (i / steps) * grossLength;
+              pts.push(`${s(x)},${s(yTop(x))}`);
+            }
+            pts.push(`${s(grossLength)},${s(yBottom)}`);
+            pts.push(`${0},${s(yBottom)}`);
+            return (
+              <polygon
+                points={pts.join(' ')}
+                fill="none"
+                stroke={STROKE_COLOR}
+                strokeWidth={1.5}
+              />
+            );
+          })()}
 
           {/* ── Bottom plate line (45mm from base) ── */}
           <line
-            x1={s(plateLeft)} y1={s(height - BOTTOM_PLATE)}
-            x2={s(plateRight)} y2={s(height - BOTTOM_PLATE)}
+            x1={s(plateLeft)} y1={s(yBottom - BOTTOM_PLATE)}
+            x2={s(plateRight)} y2={s(yBottom - BOTTOM_PLATE)}
             stroke={PLATE_COLOR}
             strokeWidth={1}
             strokeDasharray={DASH}
           />
 
-          {/* ── Top plate 1 (45mm from top) ── */}
-          <line
-            x1={s(plateLeft)} y1={s(TOP_PLATE)}
-            x2={s(plateRight)} y2={s(TOP_PLATE)}
-            stroke={PLATE_COLOR}
-            strokeWidth={1}
-            strokeDasharray={DASH}
-          />
-
-          {/* ── Top plate 2 (90mm from top) ── */}
-          <line
-            x1={s(plateLeft)} y1={s(TOP_PLATE * 2)}
-            x2={s(plateRight)} y2={s(TOP_PLATE * 2)}
-            stroke={PLATE_COLOR}
-            strokeWidth={1}
-            strokeDasharray={DASH}
-          />
+          {/* ── Top plate lines (follow slope for raked/gable) ── */}
+          {(() => {
+            if (!isRaked) {
+              return (
+                <>
+                  <line
+                    x1={s(plateLeft)} y1={s(yTop(plateLeft) + TOP_PLATE)}
+                    x2={s(plateRight)} y2={s(yTop(plateRight) + TOP_PLATE)}
+                    stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                  />
+                  <line
+                    x1={s(plateLeft)} y1={s(yTop(plateLeft) + TOP_PLATE * 2)}
+                    x2={s(plateRight)} y2={s(yTop(plateRight) + TOP_PLATE * 2)}
+                    stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                  />
+                </>
+              );
+            }
+            // For raked/gable, draw plate lines as polylines following the slope
+            const steps = Math.max(20, Math.round(grossLength / 100));
+            const buildPlateLine = (offset) => {
+              const points = [];
+              for (let i = 0; i <= steps; i++) {
+                const x = plateLeft + (i / steps) * (plateRight - plateLeft);
+                points.push(`${s(x)},${s(yTop(x) + offset)}`);
+              }
+              return points.join(' ');
+            };
+            return (
+              <>
+                <polyline points={buildPlateLine(TOP_PLATE)} fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                <polyline points={buildPlateLine(TOP_PLATE * 2)} fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+              </>
+            );
+          })()}
 
           {/* ── Corner deductions ── */}
           {deductionLeft > 0 && (
             <rect
               x={0}
-              y={0}
+              y={s(yTop(0))}
               width={s(deductionLeft)}
-              height={s(height)}
+              height={s(yBottom - yTop(0))}
               fill="none"
               stroke={STROKE_COLOR}
               strokeWidth={1}
@@ -103,17 +134,16 @@ export default function FramingElevation({ layout, wallName }) {
             />
           )}
           {deductionLeft > 0 && (
-            <text x={s(deductionLeft / 2)} y={s(height) + 14} textAnchor="middle" fontSize="9" fill="#999">
+            <text x={s(deductionLeft / 2)} y={s(yBottom) + 14} textAnchor="middle" fontSize="9" fill="#999">
               -{deductionLeft}
             </text>
           )}
-          {/* Vertical plate at left deduction (45mm, between bottom plate and lowest top plate) */}
           {deductionLeft > 0 && (
             <rect
               x={s(deductionLeft)}
-              y={s(TOP_PLATE * 2)}
+              y={s(yTop(deductionLeft) + TOP_PLATE * 2)}
               width={s(BOTTOM_PLATE)}
-              height={s(height - BOTTOM_PLATE - TOP_PLATE * 2)}
+              height={s(yBottom - BOTTOM_PLATE - yTop(deductionLeft) - TOP_PLATE * 2)}
               fill="none"
               stroke={PLATE_COLOR}
               strokeWidth={1}
@@ -123,9 +153,9 @@ export default function FramingElevation({ layout, wallName }) {
           {deductionRight > 0 && (
             <rect
               x={s(grossLength - deductionRight)}
-              y={0}
+              y={s(yTop(grossLength))}
               width={s(deductionRight)}
-              height={s(height)}
+              height={s(yBottom - yTop(grossLength))}
               fill="none"
               stroke={STROKE_COLOR}
               strokeWidth={1}
@@ -133,17 +163,16 @@ export default function FramingElevation({ layout, wallName }) {
             />
           )}
           {deductionRight > 0 && (
-            <text x={s(grossLength - deductionRight / 2)} y={s(height) + 14} textAnchor="middle" fontSize="9" fill="#999">
+            <text x={s(grossLength - deductionRight / 2)} y={s(yBottom) + 14} textAnchor="middle" fontSize="9" fill="#999">
               -{deductionRight}
             </text>
           )}
-          {/* Vertical plate at right deduction (45mm, between bottom plate and lowest top plate) */}
           {deductionRight > 0 && (
             <rect
               x={s(grossLength - deductionRight - BOTTOM_PLATE)}
-              y={s(TOP_PLATE * 2)}
+              y={s(yTop(grossLength - deductionRight) + TOP_PLATE * 2)}
               width={s(BOTTOM_PLATE)}
-              height={s(height - BOTTOM_PLATE - TOP_PLATE * 2)}
+              height={s(yBottom - BOTTOM_PLATE - yTop(grossLength - deductionRight) - TOP_PLATE * 2)}
               fill="none"
               stroke={PLATE_COLOR}
               strokeWidth={1}
@@ -154,45 +183,34 @@ export default function FramingElevation({ layout, wallName }) {
           {/* ── Panels ── */}
           {/* Draw panel edges as individual lines, skipping lintel/footer zones */}
           {panels.map((panel, i) => {
-            // Build exclusion zones (in wall mm from top, as SVG y ranges)
-            // For a vertical edge at xEdge, find lintels/footers that span it
             const getExclusions = (xEdge) => {
               const zones = [];
               for (const l of lintels) {
                 if (l.x < xEdge && xEdge < l.x + l.width) {
-                  // Lintel: top of wall down to bottom of lintel
-                  // l.y is distance from bottom of wall to top of lintel
-                  // l.height is lintel height downward from l.y
-                  const yTop = height - l.y - l.height;
-                  const yBot = height - l.y;
-                  zones.push([yTop, yBot]);
+                  const eTop = yBottom - l.y - l.height;
+                  const eBot = yBottom - l.y;
+                  zones.push([eTop, eBot]);
                 }
               }
               for (const f of footers) {
                 if (f.x < xEdge && xEdge < f.x + f.width) {
-                  // Footer sits at bottom of wall, f.height tall
-                  zones.push([height - f.height, height]);
+                  zones.push([yBottom - f.height, yBottom]);
                 }
               }
-              // Sort by start
               zones.sort((a, b) => a[0] - b[0]);
               return zones;
             };
 
-            // Build vertical line segments that skip exclusion zones
             const vertSegments = (xEdge) => {
               const excl = getExclusions(xEdge);
+              const topY = yTop(xEdge);
               const segs = [];
-              let cursor = 0;
+              let cursor = topY;
               for (const [eTop, eBot] of excl) {
-                if (cursor < eTop) {
-                  segs.push([cursor, eTop]);
-                }
+                if (cursor < eTop) segs.push([cursor, eTop]);
                 cursor = Math.max(cursor, eBot);
               }
-              if (cursor < height) {
-                segs.push([cursor, height]);
-              }
+              if (cursor < yBottom) segs.push([cursor, yBottom]);
               return segs;
             };
 
@@ -200,62 +218,47 @@ export default function FramingElevation({ layout, wallName }) {
             const rightX = panel.x + panel.width;
             const leftSegs = vertSegments(leftX);
             const rightSegs = vertSegments(rightX);
+            const panelMidH = (yTop(leftX) + yTop(rightX)) / 2;
 
             return (
               <g key={`panel-${i}`}>
-                {/* Top horizontal */}
+                {/* Top edge (sloped for raked) */}
                 <line
-                  x1={s(leftX)} y1={0}
-                  x2={s(rightX)} y2={0}
+                  x1={s(leftX)} y1={s(yTop(leftX))}
+                  x2={s(rightX)} y2={s(yTop(rightX))}
                   stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
                 />
                 {/* Bottom horizontal */}
                 <line
-                  x1={s(leftX)} y1={s(height)}
-                  x2={s(rightX)} y2={s(height)}
+                  x1={s(leftX)} y1={s(yBottom)}
+                  x2={s(rightX)} y2={s(yBottom)}
                   stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
                 />
                 {/* Left vertical segments */}
                 {leftSegs.map(([y1, y2], j) => (
-                  <line
-                    key={`l-${j}`}
-                    x1={s(leftX)} y1={s(y1)}
-                    x2={s(leftX)} y2={s(y2)}
-                    stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-                  />
+                  <line key={`l-${j}`} x1={s(leftX)} y1={s(y1)} x2={s(leftX)} y2={s(y2)}
+                    stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
                 ))}
                 {/* Right vertical segments */}
                 {rightSegs.map(([y1, y2], j) => (
-                  <line
-                    key={`r-${j}`}
-                    x1={s(rightX)} y1={s(y1)}
-                    x2={s(rightX)} y2={s(y2)}
-                    stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-                  />
+                  <line key={`r-${j}`} x1={s(rightX)} y1={s(y1)} x2={s(rightX)} y2={s(y2)}
+                    stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
                 ))}
                 {/* Panel number */}
                 <text
                   x={s(panel.x + panel.width / 2)}
-                  y={s(height / 2) + 4}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill={LABEL_COLOR}
+                  y={s((panelMidH + yBottom) / 2) + 4}
+                  textAnchor="middle" fontSize="10" fill={LABEL_COLOR}
                 >
                   P{panel.index + 1}
                 </text>
                 {/* Panel base width */}
                 <text
                   x={s(panel.x + panel.width / 2)}
-                  y={s(height) + 14}
-                  textAnchor="middle"
-                  fontSize="9"
-                  fill="#999"
+                  y={s(yBottom) + 14}
+                  textAnchor="middle" fontSize="9" fill="#999"
                 >
-                  {panel.type === 'lcut'
-                    ? panel.side === 'pier'
-                      ? panel.width - 2 * WINDOW_OVERHANG
-                      : panel.width - WINDOW_OVERHANG
-                    : panel.width}
+                  {panel.width}
                 </text>
               </g>
             );
@@ -265,11 +268,9 @@ export default function FramingElevation({ layout, wallName }) {
           {(() => {
             const plates = [];
             for (const panel of panels) {
-              // End panels always have a plate at their trailing edge
               if (panel.type === 'end') {
                 plates.push(panel.x + panel.width - BOTTOM_PLATE);
               }
-              // Any panel at the wall edge gets a plate (when no deduction on that side)
               if (deductionRight === 0 && Math.abs(panel.x + panel.width - grossLength) < 1) {
                 plates.push(grossLength - BOTTOM_PLATE);
               }
@@ -277,37 +278,38 @@ export default function FramingElevation({ layout, wallName }) {
                 plates.push(0);
               }
             }
-            // Dedupe
             const unique = [...new Set(plates)];
-            return unique.map((plateX, i) => (
-              <rect
-                key={`edge-plate-${i}`}
-                x={s(plateX)}
-                y={s(TOP_PLATE * 2)}
-                width={s(BOTTOM_PLATE)}
-                height={s(height - BOTTOM_PLATE - TOP_PLATE * 2)}
-                fill="none"
-                stroke={PLATE_COLOR}
-                strokeWidth={1}
-                strokeDasharray={DASH}
-              />
-            ));
+            return unique.map((plateX, i) => {
+              const pTop = yTop(plateX) + TOP_PLATE * 2;
+              const pH = yBottom - BOTTOM_PLATE - pTop;
+              return pH > 0 ? (
+                <rect
+                  key={`edge-plate-${i}`}
+                  x={s(plateX)}
+                  y={s(pTop)}
+                  width={s(BOTTOM_PLATE)}
+                  height={s(pH)}
+                  fill="none"
+                  stroke={PLATE_COLOR}
+                  strokeWidth={1}
+                  strokeDasharray={DASH}
+                />
+              ) : null;
+            });
           })()}
 
           {/* ── Panel joint splines (146mm centred on 5mm gap) ── */}
           {/* Skip joints that fall inside a lintel or footer (opening zones) */}
           {panels.slice(0, -1).map((panel, i) => {
             const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-
-            // Skip if gap centre is inside any lintel or footer x-range
             const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
             const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
             if (insideLintel || insideFooter) return null;
 
             const splineX = gapCentre - HALF_SPLINE;
-            const splineY = TOP_PLATE * 2;
-            const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2;
-            return (
+            const splineY = yTop(gapCentre) + TOP_PLATE * 2;
+            const splineH = yBottom - BOTTOM_PLATE - splineY;
+            return splineH > 0 ? (
               <rect
                 key={`joint-spline-${i}`}
                 x={s(splineX)}
@@ -319,7 +321,7 @@ export default function FramingElevation({ layout, wallName }) {
                 strokeWidth={1}
                 strokeDasharray={DASH}
               />
-            );
+            ) : null;
           })}
 
           {/* ── Openings ── */}
@@ -327,7 +329,7 @@ export default function FramingElevation({ layout, wallName }) {
             <g key={`opening-${i}`}>
               <rect
                 x={s(op.x)}
-                y={s(height - op.y - op.drawHeight)}
+                y={s(yBottom - op.y - op.drawHeight)}
                 width={s(op.drawWidth)}
                 height={s(op.drawHeight)}
                 fill="none"
@@ -335,34 +337,27 @@ export default function FramingElevation({ layout, wallName }) {
                 strokeWidth={1.5}
                 strokeDasharray={DASH}
               />
-              {/* Cross lines */}
               <line
-                x1={s(op.x)} y1={s(height - op.y - op.drawHeight)}
-                x2={s(op.x + op.drawWidth)} y2={s(height - op.y)}
+                x1={s(op.x)} y1={s(yBottom - op.y - op.drawHeight)}
+                x2={s(op.x + op.drawWidth)} y2={s(yBottom - op.y)}
                 stroke="#bbb" strokeWidth={0.5} strokeDasharray="4,3"
               />
               <line
-                x1={s(op.x + op.drawWidth)} y1={s(height - op.y - op.drawHeight)}
-                x2={s(op.x)} y2={s(height - op.y)}
+                x1={s(op.x + op.drawWidth)} y1={s(yBottom - op.y - op.drawHeight)}
+                x2={s(op.x)} y2={s(yBottom - op.y)}
                 stroke="#bbb" strokeWidth={0.5} strokeDasharray="4,3"
               />
-              {/* Label */}
               <text
                 x={s(op.x + op.drawWidth / 2)}
-                y={s(height - op.y - op.drawHeight / 2) + 4}
-                textAnchor="middle"
-                fontSize="10"
-                fill={LABEL_COLOR}
-                fontWeight="bold"
+                y={s(yBottom - op.y - op.drawHeight / 2) + 4}
+                textAnchor="middle" fontSize="10" fill={LABEL_COLOR} fontWeight="bold"
               >
                 {op.ref}
               </text>
               <text
                 x={s(op.x + op.drawWidth / 2)}
-                y={s(height - op.y - op.drawHeight / 2) + 16}
-                textAnchor="middle"
-                fontSize="8"
-                fill="#999"
+                y={s(yBottom - op.y - op.drawHeight / 2) + 16}
+                textAnchor="middle" fontSize="8" fill="#999"
               >
                 {op.width_mm}w × {op.height_mm}h
               </text>
@@ -371,70 +366,47 @@ export default function FramingElevation({ layout, wallName }) {
 
           {/* ── Plates around openings ── */}
           {openings.map((op, i) => {
-            const opTopY = s(height - op.y - op.drawHeight);
+            const opTopY = s(yBottom - op.y - op.drawHeight);
             const opH = s(op.drawHeight);
-            const hasSill = op.y > 0; // windows have a sill, doors don't
+            const hasSill = op.y > 0;
+            const opMidX = op.x + op.drawWidth / 2;
+            const splineTopY = yTop(opMidX) + TOP_PLATE * 2;
+            const splineH = yBottom - BOTTOM_PLATE - splineTopY;
             return (
               <g key={`op-plates-${i}`}>
-                {/* Sill plate (bottom of opening, inside footer) */}
                 {hasSill && (
                   <rect
                     x={s(op.x - BOTTOM_PLATE)}
-                    y={s(height - op.y)}
+                    y={s(yBottom - op.y)}
                     width={s(op.drawWidth + BOTTOM_PLATE * 2)}
                     height={s(BOTTOM_PLATE)}
-                    fill="none"
-                    stroke={PLATE_COLOR}
-                    strokeWidth={1}
-                    strokeDasharray={DASH}
+                    fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
                   />
                 )}
-                {/* Left vertical plate (sits on sill plate) */}
                 <rect
-                  x={s(op.x - BOTTOM_PLATE)}
-                  y={opTopY}
-                  width={s(BOTTOM_PLATE)}
-                  height={opH}
-                  fill="none"
-                  stroke={PLATE_COLOR}
-                  strokeWidth={1}
-                  strokeDasharray={DASH}
+                  x={s(op.x - BOTTOM_PLATE)} y={opTopY}
+                  width={s(BOTTOM_PLATE)} height={opH}
+                  fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
                 />
-                {/* Right vertical plate (sits on sill plate) */}
                 <rect
-                  x={s(op.x + op.drawWidth)}
-                  y={opTopY}
-                  width={s(BOTTOM_PLATE)}
-                  height={opH}
-                  fill="none"
-                  stroke={PLATE_COLOR}
-                  strokeWidth={1}
-                  strokeDasharray={DASH}
+                  x={s(op.x + op.drawWidth)} y={opTopY}
+                  width={s(BOTTOM_PLATE)} height={opH}
+                  fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
                 />
-                {/* Left spline (butts up to left vertical plate) */}
-                {hasSill && (
+                {hasSill && splineH > 0 && (
                   <rect
                     x={s(op.x - BOTTOM_PLATE - SPLINE_WIDTH)}
-                    y={s(TOP_PLATE * 2)}
-                    width={s(SPLINE_WIDTH)}
-                    height={s(height - BOTTOM_PLATE - TOP_PLATE * 2)}
-                    fill="none"
-                    stroke={PLATE_COLOR}
-                    strokeWidth={1}
-                    strokeDasharray={DASH}
+                    y={s(splineTopY)}
+                    width={s(SPLINE_WIDTH)} height={s(splineH)}
+                    fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
                   />
                 )}
-                {/* Right spline (butts up to right vertical plate) */}
-                {hasSill && (
+                {hasSill && splineH > 0 && (
                   <rect
                     x={s(op.x + op.drawWidth + BOTTOM_PLATE)}
-                    y={s(TOP_PLATE * 2)}
-                    width={s(SPLINE_WIDTH)}
-                    height={s(height - BOTTOM_PLATE - TOP_PLATE * 2)}
-                    fill="none"
-                    stroke={PLATE_COLOR}
-                    strokeWidth={1}
-                    strokeDasharray={DASH}
+                    y={s(splineTopY)}
+                    width={s(SPLINE_WIDTH)} height={s(splineH)}
+                    fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
                   />
                 )}
               </g>
@@ -446,20 +418,15 @@ export default function FramingElevation({ layout, wallName }) {
             <g key={`footer-${i}`}>
               <rect
                 x={s(f.x)}
-                y={s(height - f.height)}
+                y={s(yBottom - f.height)}
                 width={s(f.width)}
                 height={s(f.height)}
-                fill="none"
-                stroke={STROKE_COLOR}
-                strokeWidth={1}
-                strokeDasharray={DASH}
+                fill="none" stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
               />
               <text
                 x={s(f.x + f.width / 2)}
-                y={s(height - f.height / 2) + 3}
-                textAnchor="middle"
-                fontSize="8"
-                fill={LABEL_COLOR}
+                y={s(yBottom - f.height / 2) + 3}
+                textAnchor="middle" fontSize="8" fill={LABEL_COLOR}
               >
                 Footer {f.ref}
               </text>
@@ -471,20 +438,15 @@ export default function FramingElevation({ layout, wallName }) {
             <g key={`lintel-${i}`}>
               <rect
                 x={s(l.x)}
-                y={s(height - l.y - l.height)}
+                y={s(yBottom - l.y - l.height)}
                 width={s(l.width)}
                 height={s(l.height)}
-                fill="none"
-                stroke={STROKE_COLOR}
-                strokeWidth={1}
-                strokeDasharray={DASH}
+                fill="none" stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
               />
               <text
                 x={s(l.x + l.width / 2)}
-                y={s(height - l.y - l.height / 2) + 3}
-                textAnchor="middle"
-                fontSize="8"
-                fill={LABEL_COLOR}
+                y={s(yBottom - l.y - l.height / 2) + 3}
+                textAnchor="middle" fontSize="8" fill={LABEL_COLOR}
               >
                 Lintel {l.ref}
               </text>
@@ -518,7 +480,7 @@ export default function FramingElevation({ layout, wallName }) {
               footers.forEach(f => points.add(Math.round(f.x + f.width)));
 
               const sorted = [...points].sort((a, b) => a - b);
-              const tickY = s(height) + 22;
+              const tickY = s(yBottom) + 22;
               return sorted.map((pt, i) => (
                 <g key={`rm-${i}`}>
                   <line x1={s(pt)} y1={tickY - 4} x2={s(pt)} y2={tickY + 4} stroke={COLORS.DIMENSION} strokeWidth={1} />
@@ -532,16 +494,13 @@ export default function FramingElevation({ layout, wallName }) {
 
           {/* ── Total width dimension ── */}
           <g>
-            <line x1={0} y1={s(height) + 44} x2={s(grossLength)} y2={s(height) + 44} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={0} y1={s(height) + 39} x2={0} y2={s(height) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={s(grossLength)} y1={s(height) + 39} x2={s(grossLength)} y2={s(height) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={0} y1={s(yBottom) + 44} x2={s(grossLength)} y2={s(yBottom) + 44} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={0} y1={s(yBottom) + 39} x2={0} y2={s(yBottom) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={s(grossLength)} y1={s(yBottom) + 39} x2={s(grossLength)} y2={s(yBottom) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
             <text
               x={s(grossLength / 2)}
-              y={s(height) + 60}
-              textAnchor="middle"
-              fontSize="12"
-              fill={COLORS.DIMENSION}
-              fontWeight="bold"
+              y={s(yBottom) + 60}
+              textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold"
             >
               {grossLength} mm
             </text>
@@ -549,21 +508,50 @@ export default function FramingElevation({ layout, wallName }) {
 
           {/* ── Height dimension — left ── */}
           <g>
-            <line x1={-20} y1={0} x2={-20} y2={s(height)} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={-25} y1={0} x2={-15} y2={0} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={-25} y1={s(height)} x2={-15} y2={s(height)} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <text
-              x={-35}
-              y={s(height / 2)}
-              textAnchor="middle"
-              fontSize="12"
-              fill={COLORS.DIMENSION}
-              fontWeight="bold"
-              transform={`rotate(-90, -35, ${s(height / 2)})`}
-            >
-              {height} mm
-            </text>
+            {(() => {
+              const hLeftY = yTop(0);
+              const midY = (hLeftY + yBottom) / 2;
+              return (
+                <>
+                  <line x1={-20} y1={s(hLeftY)} x2={-20} y2={s(yBottom)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                  <line x1={-25} y1={s(hLeftY)} x2={-15} y2={s(hLeftY)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                  <line x1={-25} y1={s(yBottom)} x2={-15} y2={s(yBottom)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                  <text
+                    x={-35} y={s(midY)}
+                    textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold"
+                    transform={`rotate(-90, -35, ${s(midY)})`}
+                  >
+                    {layout.heightLeft || height} mm
+                  </text>
+                </>
+              );
+            })()}
           </g>
+
+          {/* ── Height dimension — right (for raked/gable) ── */}
+          {isRaked && (
+            <g>
+              {(() => {
+                const hRightY = yTop(grossLength);
+                const midY = (hRightY + yBottom) / 2;
+                const rx = s(grossLength) + 20;
+                return (
+                  <>
+                    <line x1={rx} y1={s(hRightY)} x2={rx} y2={s(yBottom)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                    <line x1={rx - 5} y1={s(hRightY)} x2={rx + 5} y2={s(hRightY)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                    <line x1={rx - 5} y1={s(yBottom)} x2={rx + 5} y2={s(yBottom)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                    <text
+                      x={rx + 15} y={s(midY)}
+                      textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold"
+                      transform={`rotate(-90, ${rx + 15}, ${s(midY)})`}
+                    >
+                      {layout.heightRight || height} mm
+                    </text>
+                  </>
+                );
+              })()}
+            </g>
+          )}
 
         </g>
       </svg>
