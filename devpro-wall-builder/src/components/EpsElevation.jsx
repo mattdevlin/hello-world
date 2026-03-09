@@ -293,7 +293,34 @@ export default function EpsElevation({ layout, wallName }) {
                 {/* EPS core segments */}
                 {segments.map(([segL, segR], j) => {
                   const w = segR - segL;
-                  return w > 0 && pEpsH > 0 ? (
+                  if (w <= 0) return null;
+
+                  // Multi-course: split EPS into separate pieces per course
+                  if (isMultiCourse && courses.length > 1) {
+                    return courses.map((course, ci) => {
+                      const isBottomCourse = ci === 0;
+                      const isTopCourse = ci === courses.length - 1;
+                      const plateBelow = isBottomCourse ? BOTTOM_PLATE : TOP_PLATE;
+                      const plateAbove = isTopCourse ? TOP_PLATE * 2 : TOP_PLATE;
+
+                      const cEpsBot = yBottom - course.y - plateBelow - EPS_INSET;
+                      const cEpsTop = isTopCourse
+                        ? (isRaked ? panelMidH : yTopAt(leftX)) + plateAbove + EPS_INSET
+                        : yBottom - course.y - course.height + plateAbove + EPS_INSET;
+                      const cH = cEpsBot - cEpsTop;
+
+                      return cH > 0 ? (
+                        <rect
+                          key={`eps-${j}-c${ci}`}
+                          x={s(segL)} y={s(cEpsTop)}
+                          width={s(w)} height={s(cH)}
+                          fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1}
+                        />
+                      ) : null;
+                    });
+                  }
+
+                  return pEpsH > 0 ? (
                     <rect
                       key={`eps-${j}`}
                       x={s(segL)} y={s(pEpsTop)}
@@ -410,7 +437,32 @@ export default function EpsElevation({ layout, wallName }) {
             }
 
             return splines.map((sp, i) => {
-              const spTop = yTopAt(sp.cx) + TOP_PLATE * 2 + 10;
+              // Multi-course: split spline EPS per course
+              if (isMultiCourse && courses.length > 1) {
+                return courses.map((course, ci) => {
+                  const isBottomCourse = ci === 0;
+                  const isTopCourse = ci === courses.length - 1;
+                  const plateBelow = isBottomCourse ? BOTTOM_PLATE : TOP_PLATE;
+                  const plateAbove = isTopCourse ? TOP_PLATE * 2 : TOP_PLATE;
+
+                  const cEpsBot = yBottom - course.y - plateBelow - EPS_INSET;
+                  const cEpsTop = isTopCourse
+                    ? yTopAt(sp.cx) + plateAbove + EPS_INSET
+                    : yBottom - course.y - course.height + plateAbove + EPS_INSET;
+                  const cH = cEpsBot - cEpsTop;
+
+                  return cH > 0 ? (
+                    <rect
+                      key={`spline-eps-${i}-c${ci}`}
+                      x={s(sp.xPos + splineEpsX)} y={s(cEpsTop)}
+                      width={s(splineEpsW)} height={s(cH)}
+                      fill={SPLINE_EPS_FILL} stroke={SPLINE_EPS_STROKE} strokeWidth={1}
+                    />
+                  ) : null;
+                });
+              }
+
+              const spTop = yTopAt(sp.cx) + TOP_PLATE * 2 + EPS_INSET;
               const spH = yBottom - BOTTOM_PLATE - spTop;
               return spH > 0 ? (
                 <rect
