@@ -11,6 +11,10 @@ export const ROOF_THICKNESS = 242;      // mm
 // Panel heights available
 export const PANEL_HEIGHTS = [2400, 2700, 3000]; // mm
 
+// Sheet heights imported (stock sizes for vertical stacking)
+export const SHEET_HEIGHTS = [2700, 3000]; // mm
+export const MAX_SHEET_HEIGHT = 3000;      // mm — tallest single sheet
+
 // Plates
 export const BOTTOM_PLATE = 45;         // mm single bottom plate
 export const TOP_PLATE = 45;            // mm each (two top plates)

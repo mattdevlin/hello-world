@@ -437,6 +437,31 @@ function SplineMagboardCard({ label, splineHeight, totalQty }) {
   );
 }
 
+/**
+ * Top course panel card — rectangle cut from sheet for upper course.
+ */
+function TopCourseCard({ panel, courseHeight, sheetHeight }) {
+  const W = panel.width;
+  const H = courseHeight;
+  const verts = [
+    { x: 0, y: H },
+    { x: W, y: H },
+    { x: W, y: 0 },
+    { x: 0, y: 0 },
+  ];
+  return (
+    <ProfileCard
+      vertices={verts}
+      profileWidth={W}
+      profileHeight={H}
+      fill="#E74C3C"
+      title={`P${panel.index + 1} — Top Course`}
+      subtitle={`${W} × ${H}mm (from ${sheetHeight}mm sheet)`}
+      qty={2}
+    />
+  );
+}
+
 const cardStyle = {
   background: '#fff',
   border: '1px solid #ddd',
@@ -452,6 +477,8 @@ export default function PanelPlans({ layout, wallName }) {
 
   const panels = layout.panels || [];
   const isRaked = layout.isRaked;
+  const isMultiCourse = layout.isMultiCourse;
+  const courses = layout.courses || [];
   const lcutPanels = panels.filter(p => p.type === 'lcut');
   const endPanels = panels.filter(p => p.type === 'end');
   // Raked full panels need CNC cuts (angled top), show them in plans
@@ -486,8 +513,15 @@ export default function PanelPlans({ layout, wallName }) {
     }
   }
 
+  // For multi-course walls, collect top course panels that need CNC cuts
+  const topCoursePanels = isMultiCourse && courses.length > 1
+    ? panels.filter(p => p.type === 'full' || p.type === 'end')
+    : [];
+  const topCourse = courses.length > 1 ? courses[1] : null;
+
   const hasContent = lcutPanels.length || endPanels.length || rakedFullPanels.length
-    || lintels.length || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length;
+    || lintels.length || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length
+    || topCoursePanels.length;
   if (!hasContent) return null;
 
   return (
@@ -495,9 +529,20 @@ export default function PanelPlans({ layout, wallName }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <h3 style={{ margin: 0, fontSize: 16, color: '#333' }}>
           CNC Panel Plans {wallName && `— ${wallName}`}
+          {isMultiCourse && ` (${courses.length} courses)`}
         </h3>
         <PrintButton sectionRef={sectionRef} label="Panel Plans" />
       </div>
+
+      {isMultiCourse && (
+        <div style={{ marginBottom: 12, padding: '8px 12px', background: '#FFF5F5', border: '1px solid #FDD', borderRadius: 4, fontSize: 13 }}>
+          <strong style={{ color: '#E74C3C' }}>Multi-course wall:</strong>{' '}
+          {courses.map((c, i) =>
+            `Course ${i + 1}: ${c.height}mm (${c.sheetHeight}mm sheet)`
+          ).join(' + ')}
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {dedLeft > 0 && (
           <DeductionCard side="left" width={dedLeft} height={wallH} />
@@ -524,6 +569,25 @@ export default function PanelPlans({ layout, wallName }) {
           <SplineMagboardCard label="Splines" splineHeight={splineH} totalQty={splinePieces.length * 2} />
         )}
       </div>
+
+      {/* Top course panels (multi-course only) */}
+      {topCoursePanels.length > 0 && topCourse && (
+        <>
+          <h4 style={{ margin: '16px 0 8px', fontSize: 14, color: '#E74C3C' }}>
+            Top Course Panels — cut from {topCourse.sheetHeight}mm sheets
+          </h4>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {topCoursePanels.map((panel, i) => (
+              <TopCourseCard
+                key={`top-course-${i}`}
+                panel={panel}
+                courseHeight={topCourse.height}
+                sheetHeight={topCourse.sheetHeight}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

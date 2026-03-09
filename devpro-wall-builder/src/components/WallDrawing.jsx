@@ -12,6 +12,7 @@ export default function WallDrawing({ layout, wallName }) {
   const {
     grossLength, height, maxHeight, panels, openings, footers, lintels,
     deductionLeft, deductionRight, isRaked, heightAt, profile,
+    courses, isMultiCourse,
   } = layout;
 
   const drawWidth = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
@@ -59,6 +60,7 @@ export default function WallDrawing({ layout, wallName }) {
         <text x={svgWidth / 2} y={42} textAnchor="middle" fontSize="12" fill="#666">
           {grossLength}mm × {isRaked ? `${layout.heightLeft}–${layout.heightRight}mm` : `${height}mm`}
           {' '}| {layout.totalPanels} panels ({layout.fullPanels} full, {layout.lcutPanels} L-cut, {layout.endPanels} end)
+          {isMultiCourse && ` | ${courses.length} courses: ${courses.map(c => `${c.height}mm (${c.sheetHeight}mm sheet)`).join(' + ')}`}
         </text>
 
         <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
@@ -193,6 +195,26 @@ export default function WallDrawing({ layout, wallName }) {
                   textAnchor="middle" fontSize="8" fill="#fff" fontWeight="bold"
                 >
                   Lintel {l.ref}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Course join lines (multi-course walls > 3000mm) */}
+          {isMultiCourse && courses.slice(1).map((course, i) => {
+            const joinY = yBottom - s(course.y);
+            return (
+              <g key={`course-join-${i}`}>
+                <line
+                  x1={s(0)} y1={joinY}
+                  x2={s(grossLength)} y2={joinY}
+                  stroke="#E74C3C" strokeWidth={2} strokeDasharray="8,4"
+                />
+                <text
+                  x={s(grossLength) + 8} y={joinY + 4}
+                  fontSize="9" fill="#E74C3C" fontWeight="bold"
+                >
+                  {course.y}
                 </text>
               </g>
             );

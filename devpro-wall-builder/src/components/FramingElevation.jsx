@@ -16,7 +16,7 @@ export default function FramingElevation({ layout, wallName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
-  const { grossLength, height, maxHeight, panels, openings, footers, lintels, deductionLeft, deductionRight, isRaked, heightAt } = layout;
+  const { grossLength, height, maxHeight, panels, openings, footers, lintels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
 
   const drawWidth = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
   const scale = drawWidth / grossLength;
@@ -83,6 +83,37 @@ export default function FramingElevation({ layout, wallName }) {
             strokeWidth={1}
             strokeDasharray={DASH}
           />
+
+          {/* ── Course join mid-plates (multi-course walls > 3000mm) ── */}
+          {isMultiCourse && courses.slice(1).map((course, i) => {
+            const joinY = yBottom - course.y;
+            return (
+              <g key={`course-join-${i}`}>
+                {/* Mid-plate at course join (2× 45mm plates like top plate) */}
+                <line
+                  x1={s(plateLeft)} y1={s(joinY)}
+                  x2={s(plateRight)} y2={s(joinY)}
+                  stroke="#E74C3C" strokeWidth={1.5} strokeDasharray={DASH}
+                />
+                <line
+                  x1={s(plateLeft)} y1={s(joinY + TOP_PLATE)}
+                  x2={s(plateRight)} y2={s(joinY + TOP_PLATE)}
+                  stroke="#E74C3C" strokeWidth={1} strokeDasharray={DASH}
+                />
+                <line
+                  x1={s(plateLeft)} y1={s(joinY - TOP_PLATE)}
+                  x2={s(plateRight)} y2={s(joinY - TOP_PLATE)}
+                  stroke="#E74C3C" strokeWidth={1} strokeDasharray={DASH}
+                />
+                <text
+                  x={s(plateRight) + 6} y={s(joinY) + 4}
+                  fontSize="8" fill="#E74C3C" fontWeight="bold"
+                >
+                  Mid-plate {course.y}
+                </text>
+              </g>
+            );
+          })}
 
           {/* ── Top plate lines (follow slope for raked/gable) ── */}
           {(() => {

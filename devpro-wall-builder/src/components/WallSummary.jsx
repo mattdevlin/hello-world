@@ -35,7 +35,7 @@ export default function WallSummary({ layout, wallName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
-  const { panels, openings, lintels, footers, height, deductionLeft, deductionRight, grossLength, isRaked } = layout;
+  const { panels, openings, lintels, footers, height, deductionLeft, deductionRight, grossLength, isRaked, courses, isMultiCourse } = layout;
 
   // ── Count splines ──
   const jointSplines = [];
@@ -172,6 +172,7 @@ export default function WallSummary({ layout, wallName }) {
       <div style={styles.statsRow}>
         <StatCard label="Panels" value={layout.totalPanels} unit="total" />
         <StatCard label="Sheets" value={layout.totalPanels * 2} unit="mag boards" />
+        {isMultiCourse && <StatCard label="Courses" value={courses.length} unit="stacked" color="#E74C3C" />}
         <StatCard label="EPS Volume" value={totalEpsM3} unit="m³" color="#2E7D32" />
         <StatCard label="PU Glue Area" value={totalGlueM2} unit="m²" color="#E8A838" />
       </div>
@@ -191,6 +192,14 @@ export default function WallSummary({ layout, wallName }) {
               {layout.peakHeight !== undefined && (
                 <Row label="Peak" value={`${layout.peakHeight} mm at ${layout.peakPosition} mm`} />
               )}
+              {isMultiCourse && courses.map((c, i) => (
+                <Row
+                  key={`course-${i}`}
+                  label={`Course ${i + 1}`}
+                  value={`${c.height}mm (${c.sheetHeight}mm sheet)`}
+                  bold
+                />
+              ))}
             </tbody>
           </table>
         </div>

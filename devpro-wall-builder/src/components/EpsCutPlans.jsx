@@ -89,7 +89,7 @@ export default function EpsCutPlans({ layout, wallName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
-  const { height, panels, openings, footers, lintels, deductionLeft, deductionRight } = layout;
+  const { height, panels, openings, footers, lintels, deductionLeft, deductionRight, courses, isMultiCourse } = layout;
 
   const isRaked = layout.isRaked;
 
@@ -200,15 +200,37 @@ export default function EpsCutPlans({ layout, wallName }) {
     const panelEpsH = isRaked
       ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_INSET * 2)
       : epsHeight;
-    segments.forEach((seg, j) => {
-      const w = Math.round(seg[1] - seg[0]);
-      if (w > 0 && panelEpsH > 0) {
-        const label = segments.length > 1
-          ? `P${panel.index + 1} (${String.fromCharCode(97 + j)})`
-          : `P${panel.index + 1}`;
-        pieces.push({ label, width: w, height: panelEpsH });
-      }
-    });
+
+    if (isMultiCourse && courses.length > 1) {
+      // Split EPS pieces per course (subtract plates at each course boundary)
+      segments.forEach((seg, j) => {
+        const w = Math.round(seg[1] - seg[0]);
+        if (w <= 0) return;
+        courses.forEach((course, ci) => {
+          // EPS height for this course, accounting for plates at boundaries
+          const plateAbove = ci === 0 ? TOP_PLATE * 2 : TOP_PLATE; // top of course: 2× top plate for top, 1× mid plate otherwise
+          const plateBelow = ci === courses.length - 1 ? BOTTOM_PLATE : TOP_PLATE; // bottom: bottom plate or mid plate
+          const courseEpsH = course.height - plateAbove - plateBelow - EPS_INSET * 2;
+          if (courseEpsH <= 0) return;
+          const suffix = segments.length > 1 ? ` (${String.fromCharCode(97 + j)})` : '';
+          pieces.push({
+            label: `P${panel.index + 1}${suffix} C${ci + 1}`,
+            width: w,
+            height: Math.round(courseEpsH),
+          });
+        });
+      });
+    } else {
+      segments.forEach((seg, j) => {
+        const w = Math.round(seg[1] - seg[0]);
+        if (w > 0 && panelEpsH > 0) {
+          const label = segments.length > 1
+            ? `P${panel.index + 1} (${String.fromCharCode(97 + j)})`
+            : `P${panel.index + 1}`;
+          pieces.push({ label, width: w, height: panelEpsH });
+        }
+      });
+    }
   });
 
   footers.forEach((f) => {

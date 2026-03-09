@@ -10,6 +10,8 @@ import {
   LINTEL_DEPTH,
   OPENING_TYPES,
   WALL_PROFILES,
+  SHEET_HEIGHTS,
+  MAX_SHEET_HEIGHT,
 } from './constants.js';
 
 /**
@@ -41,6 +43,64 @@ function buildHeightFn(wall) {
 
   // Standard — constant height
   return () => hLeft;
+}
+
+/**
+ * Compute vertical course layout for walls that exceed the max sheet height.
+ * Each course represents one horizontal row of sheets stacked vertically.
+ *
+ * @param {number} wallHeight - total wall height in mm
+ * @returns {{ courses: Array<{y: number, height: number, sheetHeight: number}>, isMultiCourse: boolean }}
+ */
+export function computeCourses(wallHeight) {
+  if (wallHeight <= MAX_SHEET_HEIGHT) {
+    // Single course — pick smallest sheet that covers the height
+    const sheet = SHEET_HEIGHTS.find(s => s >= wallHeight) || MAX_SHEET_HEIGHT;
+    return {
+      courses: [{ y: 0, height: wallHeight, sheetHeight: sheet }],
+      isMultiCourse: false,
+    };
+  }
+
+  // Try all two-course combinations; pick the one with minimum waste
+  let best = null;
+  let bestWaste = Infinity;
+
+  for (const bottomSheet of SHEET_HEIGHTS) {
+    const topHeight = wallHeight - bottomSheet;
+    if (topHeight <= 0) continue;
+    const topSheet = SHEET_HEIGHTS.find(s => s >= topHeight);
+    if (!topSheet) continue; // top too tall for any single sheet
+    const waste = topSheet - topHeight;
+    // Prefer less waste; on tie prefer taller bottom (structurally stronger)
+    if (waste < bestWaste || (waste === bestWaste && bottomSheet > (best?.bottomSheet || 0))) {
+      bestWaste = waste;
+      best = { bottomSheet, topHeight, topSheet };
+    }
+  }
+
+  if (best) {
+    return {
+      courses: [
+        { y: 0, height: best.bottomSheet, sheetHeight: best.bottomSheet },
+        { y: best.bottomSheet, height: best.topHeight, sheetHeight: best.topSheet },
+      ],
+      isMultiCourse: true,
+    };
+  }
+
+  // Wall > sum of two max sheets (>6000mm) — split into 3000mm courses + remainder
+  const courses = [];
+  let remaining = wallHeight;
+  let y = 0;
+  while (remaining > MAX_SHEET_HEIGHT) {
+    courses.push({ y, height: MAX_SHEET_HEIGHT, sheetHeight: MAX_SHEET_HEIGHT });
+    y += MAX_SHEET_HEIGHT;
+    remaining -= MAX_SHEET_HEIGHT;
+  }
+  const sheet = SHEET_HEIGHTS.find(s => s >= remaining) || MAX_SHEET_HEIGHT;
+  courses.push({ y, height: remaining, sheetHeight: sheet });
+  return { courses, isMultiCourse: true };
 }
 
 /**
@@ -324,6 +384,9 @@ export function calculateWallLayout(wall) {
 
   panels.forEach((p, i) => { p.index = i; });
 
+  // Compute vertical course layout (multi-course for walls > 3000mm)
+  const { courses, isMultiCourse } = computeCourses(height);
+
   return {
     grossLength,
     netLength,
@@ -346,6 +409,8 @@ export function calculateWallLayout(wall) {
     openings: openingDetails,
     footers,
     lintels,
+    courses,
+    isMultiCourse,
     totalPanels: panels.length,
     fullPanels: panels.filter(p => p.type === 'full').length,
     lcutPanels: panels.filter(p => p.type === 'lcut').length,

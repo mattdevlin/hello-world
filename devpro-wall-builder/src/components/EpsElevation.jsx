@@ -20,7 +20,7 @@ export default function EpsElevation({ layout, wallName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
-  const { grossLength, height, maxHeight, panels, openings, footers, lintels, deductionLeft, deductionRight, isRaked, heightAt } = layout;
+  const { grossLength, height, maxHeight, panels, openings, footers, lintels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
 
   const useHeight = maxHeight || height;
   const drawWidth = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
@@ -422,6 +422,26 @@ export default function EpsElevation({ layout, wallName }) {
               ) : null;
             });
           })()}
+
+          {/* ── Course join lines (multi-course walls > 3000mm) ── */}
+          {isMultiCourse && courses.slice(1).map((course, i) => {
+            const joinY = yBottom - course.y;
+            return (
+              <g key={`course-join-${i}`}>
+                <line
+                  x1={s(0)} y1={s(joinY)}
+                  x2={s(grossLength)} y2={s(joinY)}
+                  stroke="#E74C3C" strokeWidth={2} strokeDasharray="8,4"
+                />
+                <text
+                  x={s(grossLength) + 8} y={s(joinY) + 4}
+                  fontSize="8" fill="#E74C3C" fontWeight="bold"
+                >
+                  {course.y}
+                </text>
+              </g>
+            );
+          })}
 
           {/* ── Running measurement ── */}
           <g>
