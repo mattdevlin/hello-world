@@ -1,88 +1,41 @@
-# Multi-Course Red Line Debug Plan
+# Plan: Fix RAKED wall multi-course red join lines
 
-## The Bug Pattern
+## Problem
+RAKED walls with left ≤ 3000 and right > 3000 don't show red dashed course join lines, even though `test-maxheight-raked.mjs` proves the calculator returns correct data.
 
-**Works (red line shows):**
-| Left | Right | maxHeight | > 3000? |
-|------|-------|-----------|---------|
-| 3001 | 4000  | 4000      | YES     |
-| 4000 | 4000  | 4000      | YES     |
-| 4000 | 3000  | 4000      | YES     |
-| 6050 | 2000  | 6050      | YES     |
+## What We Know
+- **Calculator is correct** — `maxHeight`, `isMultiCourse`, `courses`, `heightAt` all verified by tests (19/19 pass)
+- **React setState-during-render bug** — `WallForm.updateWall` calls `onChange()` inside `setWall` updater. Fix committed but not yet verified in browser.
+- **Debug logs not appearing** — User's machine was on wrong branch. Now switched to `claude/review-code-6FROK`. Needs dev server restart.
 
-**Broken (no red line):**
-| Left | Right | maxHeight | > 3000? |
-|------|-------|-----------|---------|
-| 3000 | 3100  | 3100*     | YES*    |
-| 2400 | 6100  | 6100*     | YES*    |
+## Steps
 
-*Only if the wall profile is set to RAKED. If profile is STANDARD, `height_right_mm` is completely ignored.
+### Step 1: Restart dev server and verify debug logs work
+User restarts via desktop icon (`.bat` now auto-detects branch). Confirm:
+- React setState warning is gone (fix is in WallForm.jsx)
+- `[DEBUG]` logs appear in console on Generate or wall load
 
----
+### Step 2: Reproduce and capture console output
+Test with Raked left=2400, right=3639. Check:
+- `[DEBUG handleCalculate] wall:` — Is `height_right_mm` correct?
+- `[DEBUG handleCalculate] layout:` — Is `isMultiCourse: true`?
+- `[DEBUG WallDrawing]` — Does component receive correct data?
 
-## Root Cause Candidates (in order of likelihood)
+### Step 3: Fix based on findings
 
-### 1. Profile is STANDARD — `height_right_mm` is silently ignored
-**File:** `src/utils/calculator.js:22-46`
+**Most likely cause A: `height_right_mm` not in wall state when profile changes**
+- `WallForm.jsx:151` shows `wall.height_right_mm || wall.height_mm` as display value
+- But when switching to RAKED, `height_right_mm` may still be undefined in state
+- Fix: In profile change handler, explicitly set `height_right_mm` to `wall.height_mm` when switching to RAKED
 
-`buildHeightFn()` only uses `height_right_mm` when `profile === WALL_PROFILES.RAKED`. For STANDARD walls, `heightAt()` always returns `wall.height_mm` regardless of any right-side value. So:
+**Most likely cause B: `heightAt` function lost during React state update**
+- `calculateWallLayout` returns `heightAt` as a function in the layout object
+- If React serializes/loses the function reference, WallDrawing falls back to `height` (left height only)
+- Fix: Reconstruct `heightAt` in WallDrawing from `layout.heightLeft`/`heightRight`/`grossLength`
 
-- STANDARD wall, height_mm=3000 → `maxHeight = 3000` → `computeCourses(3000)` → **`3000 <= 3000` → single course, NO red line**
-- STANDARD wall, height_mm=2400 → `maxHeight = 2400` → single course, NO red line
+### Step 4: Remove debug console.logs
+Clean up `[DEBUG]` lines from `WallBuilderPage.jsx` and `WallDrawing.jsx`.
 
-The form only shows the "Height Right" input when profile is RAKED (line 140), so if the user sees two height fields, they must be on RAKED. **But if they're describing desired heights without actually switching to RAKED profile, that's the issue.**
-
-### 2. Boundary condition: `<=` vs `<` in computeCourses
-**File:** `src/utils/calculator.js:56`
-
-```js
-if (wallHeight <= MAX_SHEET_HEIGHT)  // MAX_SHEET_HEIGHT = 3000
-```
-
-A wall at exactly 3000mm is treated as single course. This means:
-- 3000mm → NO multi-course (single 3000mm sheet covers it)
-- 3001mm → YES multi-course
-
-This is actually **correct behavior** — a 3000mm sheet can cover a 3000mm wall. But it explains why 3001 works and 3000 doesn't.
-
-### 3. The `heightAt` x-extent math could clip the line to zero width
-**File:** `src/components/WallDrawing.jsx:210-220`
-
-The interpolation formula:
-```js
-x0 = (course.y - hL) / (hR - hL) * grossLength
-```
-
-If `hR === hL` (division by zero), this would produce NaN. For a "flat" raked wall (3000/3000), this path isn't hit because both sides pass the `>=` check. But edge cases near the boundary could produce a line that's essentially zero-width.
-
----
-
-## Debug Steps
-
-### Step 1: Add console logging to `computeCourses`
-Add temporary logs at the entry of `computeCourses()` and at the return points to see:
-- What `wallHeight` value is actually passed in
-- Whether `isMultiCourse` comes back true/false
-- What `courses` array looks like
-
-### Step 2: Add console logging to `calculateWallLayout`
-Log `maxHeight`, `height`, `heightRight`, `profile`, and `wall.height_right_mm` to confirm:
-- Is the profile actually RAKED?
-- Is `height_right_mm` populated?
-- Does `maxHeight` exceed 3000?
-
-### Step 3: Add console logging to WallDrawing course-join rendering
-At line 204 in WallDrawing.jsx, log:
-- `isMultiCourse` value
-- `courses` array
-- `hL`, `hR`, `course.y` for each course
-- Computed `x0`, `x1` values
-
-### Step 4: Test the exact failing inputs
-With logging in place, enter:
-- left: 3000, right: 3100 (RAKED profile)
-- left: 2400, right: 6100 (RAKED profile)
-Check console output to see where the chain breaks.
-
-### Step 5: Fix based on findings
-Most likely fix: ensure the profile is RAKED when two heights differ, OR add a UI hint that tells the user to switch to RAKED profile when they want different left/right heights.
+### Step 5: Test and verify
+- `node test-maxheight-raked.mjs` — no regressions
+- Visual verification in browser with left=2400/right=3639 and left=3000/right=3100
