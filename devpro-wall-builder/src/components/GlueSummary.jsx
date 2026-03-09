@@ -1,20 +1,15 @@
 import { useState, useMemo } from 'react';
 import { computeProjectGlue } from '../utils/glueCalculator.js';
 
-console.log('[GlueSummary] module loaded');
-
 export default function GlueSummary({ walls }) {
-  console.log('[GlueSummary] render, walls:', walls?.length);
   const [expanded, setExpanded] = useState(false);
 
   const { result, error } = useMemo(() => {
     if (!walls || walls.length === 0) return { result: null, error: null };
     try {
-      const r = computeProjectGlue(walls);
-      console.log('[GlueSummary] computed:', r);
-      return { result: r, error: null };
+      return { result: computeProjectGlue(walls), error: null };
     } catch (e) {
-      console.error('[GlueSummary] error:', e);
+      console.error('GlueSummary error:', e);
       return { result: null, error: e.message };
     }
   }, [walls]);

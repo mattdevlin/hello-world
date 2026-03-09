@@ -104,10 +104,6 @@ export default function ProjectPage() {
         {walls.length > 0 && <EpsBlockSummary walls={walls} />}
         {walls.length > 0 && <MagboardSheetSummary walls={walls} />}
         {walls.length > 0 && <GlueSummary walls={walls} />}
-        {/* DEBUG: remove after confirming glue renders */}
-        <div style={{ padding: 12, background: '#ff0', color: '#000', fontWeight: 700, border: '2px solid red', margin: '8px 0' }}>
-          DEBUG: ProjectPage v2 - GlueSummary should be above this line (walls: {walls.length})
-        </div>
 
         {/* Wall list */}
         {walls.length === 0 ? (
