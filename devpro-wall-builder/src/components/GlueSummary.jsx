@@ -1,7 +1,10 @@
 import { useState, useMemo } from 'react';
 import { computeProjectGlue } from '../utils/glueCalculator.js';
 
+console.log('[GlueSummary] module loaded');
+
 export default function GlueSummary({ walls }) {
+  console.log('[GlueSummary] render, walls:', walls?.length);
   const [expanded, setExpanded] = useState(false);
 
   const { result, error } = useMemo(() => {
