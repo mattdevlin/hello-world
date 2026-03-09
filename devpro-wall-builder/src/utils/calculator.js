@@ -99,13 +99,16 @@ export function calculateWallLayout(wall) {
       });
     }
 
-    // Lintel height uses the minimum wall height across the opening span
+    // Lintel height uses the minimum wall height across the full lintel span
+    // (including overhang), so it never extends above the wall profile
     const lintelOverhang = WINDOW_OVERHANG;
-    const wallHAtOpen = Math.min(heightAt(openLeft), heightAt(openRight));
-    const lintelDepth = wallHAtOpen - openTop;
+    const lintelLeft = openLeft - lintelOverhang;
+    const lintelRight = openRight + lintelOverhang;
+    const wallHAtLintel = Math.min(heightAt(lintelLeft), heightAt(lintelRight));
+    const lintelDepth = wallHAtLintel - openTop;
     lintels.push({
       ref: opening.ref,
-      x: openLeft - lintelOverhang,
+      x: lintelLeft,
       y: openTop,
       width: opening.width_mm + 2 * lintelOverhang,
       height: Math.max(0, lintelDepth),
@@ -283,6 +286,23 @@ export function calculateWallLayout(wall) {
         leftBase = Math.min(maxBase, zoneLen);
       } else {
         rightBase = Math.min(maxBase, zoneLen);
+      }
+
+      // If the fill span between L-cuts would be too small for a panel,
+      // extend the L-cut(s) to absorb the remainder (avoids thin slivers)
+      const fillStart0 = zone.start + (leftBase > 0 ? leftBase + PANEL_GAP : 0);
+      const fillEnd0 = zone.end - (rightBase > 0 ? rightBase + PANEL_GAP : 0);
+      const fillLen0 = fillEnd0 - fillStart0;
+      if (fillLen0 > 0 && fillLen0 < MIN_PANEL) {
+        // Distribute remainder to whichever L-cut exists
+        if (leftBase > 0 && rightBase > 0) {
+          leftBase += Math.ceil(fillLen0 / 2);
+          rightBase = zoneLen - leftBase;
+        } else if (leftBase > 0) {
+          leftBase = zoneLen;
+        } else {
+          rightBase = zoneLen;
+        }
       }
 
       if (needLeft && leftBase >= MIN_PANEL) {
