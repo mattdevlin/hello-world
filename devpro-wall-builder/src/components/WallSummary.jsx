@@ -1,9 +1,23 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
+import { PANEL_GAP } from '../utils/constants.js';
 
 export default function WallSummary({ layout, wallName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
+
+  // Count splines — same logic as PanelPlans
+  const { panels, openings, lintels, footers } = layout;
+  let splineCount = 0;
+  for (let i = 0; i < panels.length - 1; i++) {
+    const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
+    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintel && !insideFooter) splineCount++;
+  }
+  for (const op of openings) {
+    if (op.y > 0) splineCount += 2; // left + right spline for windows with sills
+  }
 
   return (
     <div ref={sectionRef} data-print-section style={styles.container}>
@@ -35,6 +49,7 @@ export default function WallSummary({ layout, wallName }) {
           <tr><td style={styles.labelCell}>Openings</td><td style={styles.valueCell}>{layout.openings.length}</td></tr>
           <tr><td style={styles.labelCell}>Footer Panels</td><td style={styles.valueCell}>{layout.footers.length}</td></tr>
           <tr><td style={styles.labelCell}>Lintels</td><td style={styles.valueCell}>{layout.lintels.length}</td></tr>
+          <tr><td style={styles.labelCell}>Splines</td><td style={styles.valueCell}>{splineCount}</td></tr>
         </tbody>
       </table>
 
