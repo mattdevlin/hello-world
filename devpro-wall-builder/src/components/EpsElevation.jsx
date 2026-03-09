@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
 
@@ -18,6 +18,7 @@ const MAGBOARD = 10; // mm each face
 
 export default function EpsElevation({ layout, wallName }) {
   const sectionRef = useRef(null);
+  const clipId = useId();
   if (!layout) return null;
 
   const { grossLength, height, maxHeight, panels, openings, footers, lintels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
@@ -212,7 +213,18 @@ export default function EpsElevation({ layout, wallName }) {
             }
             pts.push(`${s(grossLength)},${s(yBottom)}`);
             pts.push(`${0},${s(yBottom)}`);
-            return <polygon points={pts.join(' ')} fill="none" stroke={STROKE_COLOR} strokeWidth={1.5} />;
+            const pointsStr = pts.join(' ');
+            return (
+              <>
+                {/* Clip path to contain EPS within wall outline on raked/gable walls */}
+                <defs>
+                  <clipPath id={clipId}>
+                    <polygon points={pointsStr} />
+                  </clipPath>
+                </defs>
+                <polygon points={pointsStr} fill="none" stroke={STROKE_COLOR} strokeWidth={1.5} />
+              </>
+            );
           })()}
 
           {/* ── Corner deductions ── */}
@@ -230,6 +242,9 @@ export default function EpsElevation({ layout, wallName }) {
               fill="none" stroke={STROKE_COLOR} strokeWidth={1}
             />
           )}
+
+          {/* Clip EPS fills to wall outline (prevents overflow on raked/gable walls) */}
+          <g clipPath={`url(#${clipId})`}>
 
           {/* ── Panels with EPS cores ── */}
           {panels.map((panel, i) => {
@@ -492,6 +507,8 @@ export default function EpsElevation({ layout, wallName }) {
               ) : null;
             });
           })()}
+
+          </g>{/* end wall-clip */}
 
           {/* ── Course join lines (multi-course walls > 3000mm) ── */}
           {isMultiCourse && courses.slice(1).map((course, i) => {
