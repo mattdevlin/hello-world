@@ -49,9 +49,21 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
     updateWall(prev => {
       const openings = [...prev.openings];
       openings[index] = { ...openings[index], [field]: value };
-      // Auto-set sill to 0 for doors
-      if (field === 'type' && (value === OPENING_TYPES.DOOR || value === OPENING_TYPES.GARAGE_DOOR)) {
-        openings[index].sill_mm = 0;
+      // Auto-set defaults when switching type
+      if (field === 'type') {
+        if (value === OPENING_TYPES.DOOR) {
+          openings[index].sill_mm = 0;
+          openings[index].height_mm = 2150;
+          openings[index].width_mm = 900;
+        } else if (value === OPENING_TYPES.GARAGE_DOOR) {
+          openings[index].sill_mm = 0;
+          openings[index].height_mm = 2400;
+          openings[index].width_mm = 2400;
+        } else if (value === OPENING_TYPES.WINDOW) {
+          openings[index].height_mm = 1200;
+          openings[index].width_mm = 1200;
+          openings[index].sill_mm = 900;
+        }
       }
       return { ...prev, openings };
     });
