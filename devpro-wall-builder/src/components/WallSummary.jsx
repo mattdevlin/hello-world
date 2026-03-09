@@ -8,6 +8,29 @@ const EPS_INSET = 10;
 const PANEL_EPS_DEPTH = 142;   // 162mm panel minus 2×10mm magboard
 const SPLINE_EPS_DEPTH = 120;  // 146mm spline minus 2×13mm mag (user: 140mm deep, 2×10mm mag = 120mm)
 
+function StatCard({ label, value, unit, color }) {
+  return (
+    <div style={styles.statCard}>
+      <div style={{ ...styles.statValue, color: color || '#2C5F8A' }}>{value}</div>
+      <div style={styles.statUnit}>{unit}</div>
+      <div style={styles.statLabel}>{label}</div>
+    </div>
+  );
+}
+
+function SectionLabel({ children }) {
+  return <div style={styles.sectionLabel}>{children}</div>;
+}
+
+function Row({ label, value, bold }) {
+  return (
+    <tr>
+      <td style={styles.rowLabel}>{label}</td>
+      <td style={styles.rowValue}>{bold ? <strong>{value}</strong> : value}</td>
+    </tr>
+  );
+}
+
 export default function WallSummary({ layout, wallName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
@@ -29,7 +52,6 @@ export default function WallSummary({ layout, wallName }) {
   const splineCount = jointSplines.length + openingSplineCount;
 
   // ── EPS volume calculation ──
-  // Panel EPS: build exclusion zones, compute segments per panel
   const exclusions = [];
   if (deductionLeft > 0) exclusions.push([deductionLeft, deductionLeft + BOTTOM_PLATE]);
   if (deductionRight > 0) exclusions.push([grossLength - deductionRight - BOTTOM_PLATE, grossLength - deductionRight]);
@@ -88,7 +110,6 @@ export default function WallSummary({ layout, wallName }) {
   const epsBottom = height - BOTTOM_PLATE - EPS_INSET;
   const stdEpsH = epsBottom - epsTop;
 
-  // Panel EPS volume & surface area
   let panelEpsVol = 0;
   let panelEpsSA = 0;
   for (const panel of panels) {
@@ -105,12 +126,10 @@ export default function WallSummary({ layout, wallName }) {
     }
   }
 
-  // Spline EPS volume & surface area
   const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2 - 10;
   const splineEpsVol = splineCount * SPLINE_WIDTH * splineH * SPLINE_EPS_DEPTH;
   const splineEpsSA = splineCount * SPLINE_WIDTH * splineH;
 
-  // Footer EPS volume & surface area
   let footerEpsVol = 0;
   let footerEpsSA = 0;
   for (const f of footers) {
@@ -133,81 +152,103 @@ export default function WallSummary({ layout, wallName }) {
   const totalEpsVol = panelEpsVol + splineEpsVol + footerEpsVol;
   const totalEpsM3 = (totalEpsVol / 1e9).toFixed(3);
 
-  // PU adhesive glue area: each EPS face is glued to magboard on both sides
   const totalGlueArea = (panelEpsSA + splineEpsSA + footerEpsSA) * 2;
   const totalGlueM2 = (totalGlueArea / 1e6).toFixed(2);
 
+  const profileLabel = layout.profile === 'raked' ? 'Raked' : layout.profile === 'gable' ? 'Gable' : 'Standard';
+  const heightLabel = isRaked
+    ? `${layout.heightLeft} (L) → ${layout.heightRight} (R)`
+    : `${layout.height}`;
+
   return (
     <div ref={sectionRef} data-print-section style={styles.container}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h3 style={{ ...styles.heading, margin: 0 }}>Panel Summary — {wallName}</h3>
+      {/* Header */}
+      <div style={styles.header}>
+        <h3 style={styles.title}>Wall Summary — {wallName}</h3>
         <PrintButton sectionRef={sectionRef} label="Summary" />
       </div>
-      <table style={styles.table}>
-        <tbody>
-          <tr><td style={styles.labelCell}>Gross Length</td><td style={styles.valueCell}>{layout.grossLength} mm</td></tr>
-          <tr><td style={styles.labelCell}>Deductions</td><td style={styles.valueCell}>L: {layout.deductionLeft}mm, R: {layout.deductionRight}mm</td></tr>
-          <tr><td style={styles.labelCell}>Net Length</td><td style={styles.valueCell}>{layout.netLength} mm</td></tr>
-          <tr><td style={styles.labelCell}>Profile</td><td style={styles.valueCell}>{layout.profile === 'raked' ? 'Raked' : layout.profile === 'gable' ? 'Gable' : 'Standard'}</td></tr>
-          <tr><td style={styles.labelCell}>Height</td><td style={styles.valueCell}>
-            {layout.isRaked
-              ? `${layout.heightLeft}mm (L) → ${layout.heightRight}mm (R)`
-              : `${layout.height} mm`}
-          </td></tr>
-          {layout.peakHeight !== undefined && (
-            <tr><td style={styles.labelCell}>Peak</td><td style={styles.valueCell}>{layout.peakHeight}mm at {layout.peakPosition}mm from left</td></tr>
-          )}
-          <tr style={styles.dividerRow}><td colSpan={2}></td></tr>
-          <tr><td style={styles.labelCell}>Total Panels</td><td style={styles.valueCell}><strong>{layout.totalPanels}</strong></td></tr>
-          <tr><td style={styles.labelCell}>Sheets</td><td style={styles.valueCell}><strong>{layout.totalPanels * 2}</strong></td></tr>
-          <tr><td style={styles.labelCell}>Full Panels</td><td style={styles.valueCell}>{layout.fullPanels}</td></tr>
-          <tr><td style={styles.labelCell}>L-Cut Panels</td><td style={styles.valueCell}>{layout.lcutPanels}</td></tr>
-          <tr><td style={styles.labelCell}>End Panels</td><td style={styles.valueCell}>{layout.endPanels}</td></tr>
-          <tr style={styles.dividerRow}><td colSpan={2}></td></tr>
-          <tr><td style={styles.labelCell}>Openings</td><td style={styles.valueCell}>{layout.openings.length}</td></tr>
-          <tr><td style={styles.labelCell}>Footer Panels</td><td style={styles.valueCell}>{layout.footers.length}</td></tr>
-          <tr><td style={styles.labelCell}>Lintels</td><td style={styles.valueCell}>{layout.lintels.length}</td></tr>
-          <tr><td style={styles.labelCell}>Splines</td><td style={styles.valueCell}>{splineCount}</td></tr>
-          <tr style={styles.dividerRow}><td colSpan={2}></td></tr>
-          <tr><td style={styles.labelCell}>Total EPS Volume</td><td style={styles.valueCell}><strong>{totalEpsM3} m³</strong></td></tr>
-          <tr><td style={styles.labelCell}>PU Glue Area</td><td style={styles.valueCell}><strong>{totalGlueM2} m²</strong></td></tr>
-        </tbody>
-      </table>
 
-      {layout.panels.length > 0 && (
-        <>
-          <h4 style={styles.subHeading}>Panel Details</h4>
-          <table style={styles.detailTable}>
-            <thead>
-              <tr>
-                <th style={styles.th}>#</th>
-                <th style={styles.th}>Type</th>
-                <th style={styles.th}>Width (mm)</th>
-                <th style={styles.th}>Position (mm)</th>
-                {layout.isRaked && <th style={styles.th}>H Left (mm)</th>}
-                {layout.isRaked && <th style={styles.th}>H Right (mm)</th>}
-                <th style={styles.th}>Notes</th>
-              </tr>
-            </thead>
+      {/* Key metrics */}
+      <div style={styles.statsRow}>
+        <StatCard label="Panels" value={layout.totalPanels} unit="total" />
+        <StatCard label="Sheets" value={layout.totalPanels * 2} unit="mag boards" />
+        <StatCard label="EPS Volume" value={totalEpsM3} unit="m³" color="#2E7D32" />
+        <StatCard label="PU Glue Area" value={totalGlueM2} unit="m²" color="#E8A838" />
+      </div>
+
+      {/* Detail sections in two columns */}
+      <div style={styles.columns}>
+        {/* Left column: Wall dimensions */}
+        <div style={styles.column}>
+          <SectionLabel>Wall Dimensions</SectionLabel>
+          <table style={styles.table}>
             <tbody>
-              {layout.panels.map((p, i) => (
-                <tr key={i} style={i % 2 === 0 ? styles.evenRow : {}}>
-                  <td style={styles.td}>P{p.index + 1}</td>
-                  <td style={styles.td}>
-                    <span style={{ ...styles.badge, background: badgeColor(p.type) }}>
-                      {p.type}
-                    </span>
-                  </td>
-                  <td style={styles.td}>{p.width}</td>
-                  <td style={styles.td}>{p.x}</td>
-                  {layout.isRaked && <td style={styles.td}>{p.heightLeft}</td>}
-                  {layout.isRaked && <td style={styles.td}>{p.heightRight}</td>}
-                  <td style={styles.td}>{p.openingRefs ? `Opens: ${p.openingRefs.join(', ')}` : '—'}</td>
-                </tr>
-              ))}
+              <Row label="Gross Length" value={`${layout.grossLength} mm`} />
+              <Row label="Net Length" value={`${layout.netLength} mm`} />
+              <Row label="Deductions" value={`L: ${deductionLeft} / R: ${deductionRight} mm`} />
+              <Row label="Profile" value={profileLabel} />
+              <Row label="Height" value={`${heightLabel} mm`} />
+              {layout.peakHeight !== undefined && (
+                <Row label="Peak" value={`${layout.peakHeight} mm at ${layout.peakPosition} mm`} />
+              )}
             </tbody>
           </table>
-        </>
+        </div>
+
+        {/* Right column: Components */}
+        <div style={styles.column}>
+          <SectionLabel>Components</SectionLabel>
+          <table style={styles.table}>
+            <tbody>
+              <Row label="Full Panels" value={layout.fullPanels} />
+              <Row label="L-Cut Panels" value={layout.lcutPanels} />
+              <Row label="End Panels" value={layout.endPanels} />
+              <Row label="Openings" value={openings.length} />
+              <Row label="Footers" value={footers.length} />
+              <Row label="Lintels" value={lintels.length} />
+              <Row label="Splines" value={splineCount} />
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Panel details table */}
+      {panels.length > 0 && (
+        <div style={styles.detailSection}>
+          <SectionLabel>Panel Details</SectionLabel>
+          <div style={styles.tableWrap}>
+            <table style={styles.detailTable}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>#</th>
+                  <th style={styles.th}>Type</th>
+                  <th style={{ ...styles.th, textAlign: 'right' }}>Width</th>
+                  <th style={{ ...styles.th, textAlign: 'right' }}>Position</th>
+                  {isRaked && <th style={{ ...styles.th, textAlign: 'right' }}>H Left</th>}
+                  {isRaked && <th style={{ ...styles.th, textAlign: 'right' }}>H Right</th>}
+                  <th style={styles.th}>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {panels.map((p, i) => (
+                  <tr key={i} style={i % 2 === 0 ? styles.evenRow : undefined}>
+                    <td style={styles.td}>P{p.index + 1}</td>
+                    <td style={styles.td}>
+                      <span style={{ ...styles.badge, background: badgeColor(p.type) }}>
+                        {p.type}
+                      </span>
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.width}</td>
+                    <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.x}</td>
+                    {isRaked && <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.heightLeft}</td>}
+                    {isRaked && <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.heightRight}</td>}
+                    <td style={{ ...styles.td, color: '#888' }}>{p.openingRefs ? `Opens: ${p.openingRefs.join(', ')}` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -227,37 +268,102 @@ const styles = {
     background: '#fff',
     borderRadius: 8,
     padding: 24,
-    border: '1px solid #ddd',
+    border: '1px solid #e0e0e0',
     marginTop: 16,
   },
-  heading: {
-    margin: '0 0 16px 0',
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  title: {
+    margin: 0,
     fontSize: 16,
-    color: '#333',
+    fontWeight: 600,
+    color: '#1a1a1a',
   },
-  subHeading: {
-    margin: '20px 0 8px 0',
-    fontSize: 14,
-    color: '#555',
+
+  // Stat cards row
+  statsRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+    gap: 12,
+    marginBottom: 24,
   },
+  statCard: {
+    background: '#f8f9fa',
+    borderRadius: 6,
+    padding: '16px 12px',
+    textAlign: 'center',
+    border: '1px solid #eee',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 700,
+    lineHeight: 1.1,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  statUnit: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 6,
+    fontWeight: 500,
+  },
+
+  // Two-column layout
+  columns: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gap: 24,
+    marginBottom: 24,
+  },
+  column: {},
+
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.8px',
+    color: '#999',
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottom: '1px solid #eee',
+  },
+
+  // Key-value rows
   table: {
     borderCollapse: 'collapse',
     width: '100%',
-    maxWidth: 400,
   },
-  labelCell: {
-    padding: '6px 12px 6px 0',
+  rowLabel: {
+    padding: '5px 8px 5px 0',
     fontSize: 13,
     color: '#666',
+    whiteSpace: 'nowrap',
   },
-  valueCell: {
-    padding: '6px 0',
+  rowValue: {
+    padding: '5px 0',
     fontSize: 13,
     color: '#333',
     textAlign: 'right',
+    fontVariantNumeric: 'tabular-nums',
   },
-  dividerRow: {
-    height: 8,
+
+  // Panel details
+  detailSection: {
+    borderTop: '1px solid #eee',
+    paddingTop: 20,
+  },
+  tableWrap: {
+    overflowX: 'auto',
   },
   detailTable: {
     borderCollapse: 'collapse',
@@ -267,17 +373,21 @@ const styles = {
   th: {
     textAlign: 'left',
     padding: '8px 12px',
-    borderBottom: '2px solid #ddd',
-    color: '#555',
-    fontSize: 12,
+    borderBottom: '2px solid #e0e0e0',
+    color: '#666',
+    fontSize: 11,
     fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.3px',
+    whiteSpace: 'nowrap',
   },
   td: {
-    padding: '6px 12px',
-    borderBottom: '1px solid #eee',
+    padding: '7px 12px',
+    borderBottom: '1px solid #f0f0f0',
+    color: '#333',
   },
   evenRow: {
-    background: '#f9f9f9',
+    background: '#fafafa',
   },
   badge: {
     display: 'inline-block',
