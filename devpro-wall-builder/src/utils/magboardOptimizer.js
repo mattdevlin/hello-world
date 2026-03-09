@@ -39,11 +39,12 @@ export function extractMagboardPieces(layout, wallName = '') {
   } = layout;
 
   // ── Panel face sheets ──
-  // Each panel needs 2 sheets (front + back) per course
-  if (isMultiCourse && courses.length > 1) {
-    for (const panel of panels) {
+  // Each panel uses its own sheetHeight (per-panel assignment from calculator).
+  // Multi-course panels need 2 sheets per course; single-course panels need 2 sheets total.
+  for (const panel of panels) {
+    if (panel.isMultiCourse && courses.length > 1) {
       for (const course of courses) {
-        // 2 sheets per panel per course
+        // 2 sheets per panel per course (front + back)
         panelSheets.push({
           sheetHeight: course.sheetHeight,
           label: `P${panel.index + 1} C${courses.indexOf(course) + 1}`,
@@ -55,11 +56,9 @@ export function extractMagboardPieces(layout, wallName = '') {
           wallName,
         });
       }
-    }
-  } else {
-    const sheetH = courses?.[0]?.sheetHeight || height;
-    for (const panel of panels) {
-      // 2 sheets per panel (front + back)
+    } else {
+      // Single-course panel: use per-panel sheetHeight (front + back)
+      const sheetH = panel.sheetHeight || courses?.[0]?.sheetHeight || height;
       panelSheets.push({ sheetHeight: sheetH, label: `P${panel.index + 1}`, wallName });
       panelSheets.push({ sheetHeight: sheetH, label: `P${panel.index + 1}`, wallName });
     }

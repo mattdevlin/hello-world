@@ -392,6 +392,16 @@ export function calculateWallLayout(wall) {
   // Use maxHeight so raked/gable walls trigger multi-course when any part exceeds sheet height
   const { courses, isMultiCourse } = computeCourses(maxHeight);
 
+  // Per-panel sheet height assignment
+  // Each panel gets its own sheetHeight based on its individual max height.
+  // On raked/gable walls, panels have varying heights and may need different sheets.
+  const maxStockSheet = Math.max(...STOCK_SHEET_HEIGHTS);
+  panels.forEach(panel => {
+    const panelMaxH = Math.max(panel.heightLeft, panel.heightRight);
+    panel.sheetHeight = STOCK_SHEET_HEIGHTS.find(s => s >= panelMaxH) || maxStockSheet;
+    panel.isMultiCourse = panelMaxH > maxStockSheet;
+  });
+
   return {
     grossLength,
     netLength,

@@ -286,12 +286,14 @@ function LcutPlanCard({ panel, courseLineY }) {
   const panelLabel = `P${panel.index + 1}`;
   const isPier = panel.side === 'pier';
   const sideLabel = isPier ? 'pier' : panel.side === 'left' ? 'left' : 'right';
+  const openingInfo = `${panel.openingRefs.join(', ')} | ${isPier ? 'pier' : panel.openingType}`;
+  const sheetInfo = panel.sheetHeight ? ` | ${panel.sheetHeight}mm sheet` : '';
   return (
     <ProfileCard
       {...profile}
       fill={COLORS.LCUT}
       title={`${panelLabel} — ${isPier ? 'Pier' : 'L-Cut'} (${sideLabel})`}
-      subtitle={`${panel.openingRefs.join(', ')} | ${isPier ? 'pier' : panel.openingType}`}
+      subtitle={`${openingInfo}${sheetInfo}`}
       qty={2}
       courseLineY={courseLineY}
     />
@@ -360,6 +362,9 @@ function EndPanelCard({ panel, courseLineY }) {
     { x: W, y: 0 },
     { x: 0, y: 0 },
   ];
+  const heightInfo = hL !== hR ? `${hL}mm → ${hR}mm` : undefined;
+  const sheetInfo = panel.sheetHeight ? `${panel.sheetHeight}mm sheet` : undefined;
+  const subtitle = [heightInfo, sheetInfo].filter(Boolean).join(' | ');
   return (
     <ProfileCard
       vertices={verts}
@@ -367,7 +372,7 @@ function EndPanelCard({ panel, courseLineY }) {
       profileHeight={maxH}
       fill={COLORS.END_CAP}
       title={`P${panel.index + 1} — End`}
-      subtitle={hL !== hR ? `${hL}mm → ${hR}mm` : undefined}
+      subtitle={subtitle || undefined}
       qty={2}
       courseLineY={courseLineY}
     />
@@ -389,6 +394,8 @@ function FullPanelCard({ panel, courseLineY }) {
     { x: W, y: 0 },
     { x: 0, y: 0 },
   ];
+  const heightInfo = `${hL}mm → ${hR}mm`;
+  const sheetInfo = panel.sheetHeight ? `${panel.sheetHeight}mm sheet` : '';
   return (
     <ProfileCard
       vertices={verts}
@@ -396,7 +403,7 @@ function FullPanelCard({ panel, courseLineY }) {
       profileHeight={maxH}
       fill={COLORS.PANEL}
       title={`P${panel.index + 1} — Full (raked)`}
-      subtitle={`${hL}mm → ${hR}mm`}
+      subtitle={sheetInfo ? `${heightInfo} | ${sheetInfo}` : heightInfo}
       qty={2}
       courseLineY={courseLineY}
     />
@@ -526,10 +533,8 @@ export default function PanelPlans({ layout, wallName }) {
     }
   }
 
-  // For multi-course walls, collect top course panels that need CNC cuts
-  const topCoursePanels = isMultiCourse && courses.length > 1
-    ? panels.filter(p => p.type === 'full' || p.type === 'end' || p.type === 'lcut')
-    : [];
+  // For multi-course walls, collect panels that individually need multi-course cuts
+  const topCoursePanels = panels.filter(p => p.isMultiCourse);
   const upperCourses = courses.length > 1 ? courses.slice(1) : [];
 
   const hasContent = lcutPanels.length || endPanels.length || rakedFullPanels.length
@@ -550,9 +555,16 @@ export default function PanelPlans({ layout, wallName }) {
       {isMultiCourse && (
         <div style={{ marginBottom: 12, padding: '8px 12px', background: '#FFF5F5', border: '1px solid #FDD', borderRadius: 4, fontSize: 13 }}>
           <strong style={{ color: '#E74C3C' }}>Multi-course wall:</strong>{' '}
-          {courses.map((c, i) =>
-            `Course ${i + 1}: ${c.height}mm (${c.sheetHeight}mm sheet)`
-          ).join(' + ')}
+          {(() => {
+            const on2745 = panels.filter(p => !p.isMultiCourse && p.sheetHeight === 2745).length;
+            const on3050 = panels.filter(p => !p.isMultiCourse && p.sheetHeight === 3050).length;
+            const multiCount = topCoursePanels.length;
+            const parts = [];
+            if (on2745 > 0) parts.push(`${on2745} panel${on2745 !== 1 ? 's' : ''} on 2745mm sheets`);
+            if (on3050 > 0) parts.push(`${on3050} panel${on3050 !== 1 ? 's' : ''} on 3050mm sheets`);
+            if (multiCount > 0) parts.push(`${multiCount} panel${multiCount !== 1 ? 's' : ''} split at ${courses[1]?.y}mm (2 courses)`);
+            return parts.join(', ');
+          })()}
         </div>
       )}
 
@@ -561,13 +573,13 @@ export default function PanelPlans({ layout, wallName }) {
           <DeductionCard side="left" width={dedLeft} height={wallH} />
         )}
         {rakedFullPanels.map((panel, i) => (
-          <FullPanelCard key={`full-raked-${i}`} panel={panel} courseLineY={isMultiCourse && courses.length > 1 ? courses[1].y : undefined} />
+          <FullPanelCard key={`full-raked-${i}`} panel={panel} courseLineY={panel.isMultiCourse ? courses[1]?.y : undefined} />
         ))}
         {lcutPanels.map((panel, i) => (
-          <LcutPlanCard key={`lcut-${i}`} panel={panel} courseLineY={isMultiCourse && courses.length > 1 ? courses[1].y : undefined} />
+          <LcutPlanCard key={`lcut-${i}`} panel={panel} courseLineY={panel.isMultiCourse ? courses[1]?.y : undefined} />
         ))}
         {endPanels.map((panel, i) => (
-          <EndPanelCard key={`end-${i}`} panel={panel} courseLineY={isMultiCourse && courses.length > 1 ? courses[1].y : undefined} />
+          <EndPanelCard key={`end-${i}`} panel={panel} courseLineY={panel.isMultiCourse ? courses[1]?.y : undefined} />
         ))}
         {dedRight > 0 && (
           <DeductionCard side="right" width={dedRight} height={wallH} />
