@@ -99,19 +99,20 @@ export function calculateWallLayout(wall) {
       });
     }
 
-    // Lintel height uses the minimum wall height across the full lintel span
-    // (including overhang), so it never extends above the wall profile
+    // Lintel follows the wall slope — trapezoid for raked/gable (cut from magboard)
     const lintelOverhang = WINDOW_OVERHANG;
     const lintelLeft = openLeft - lintelOverhang;
     const lintelRight = openRight + lintelOverhang;
-    const wallHAtLintel = Math.min(heightAt(lintelLeft), heightAt(lintelRight));
-    const lintelDepth = wallHAtLintel - openTop;
+    const lHeightLeft = Math.max(0, heightAt(lintelLeft) - openTop);
+    const lHeightRight = Math.max(0, heightAt(lintelRight) - openTop);
     lintels.push({
       ref: opening.ref,
       x: lintelLeft,
       y: openTop,
       width: opening.width_mm + 2 * lintelOverhang,
-      height: Math.max(0, lintelDepth),
+      height: Math.max(lHeightLeft, lHeightRight),
+      heightLeft: lHeightLeft,
+      heightRight: lHeightRight,
       type: 'lintel',
     });
   }

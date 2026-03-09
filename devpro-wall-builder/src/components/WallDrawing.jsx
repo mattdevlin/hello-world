@@ -174,22 +174,29 @@ export default function WallDrawing({ layout, wallName }) {
             </g>
           ))}
 
-          {/* Lintels */}
-          {lintels.map((l, i) => (
-            <g key={`lintel-${i}`}>
-              <rect
-                x={s(l.x)} y={yBottom - s(l.y + l.height)}
-                width={s(l.width)} height={s(l.height)}
-                fill={COLORS.LINTEL} stroke={COLORS.LINTEL_STROKE} strokeWidth={1.5}
-              />
-              <text
-                x={s(l.x + l.width / 2)} y={yBottom - s(l.y + l.height / 2) + 4}
-                textAnchor="middle" fontSize="8" fill="#fff" fontWeight="bold"
-              >
-                Lintel {l.ref}
-              </text>
-            </g>
-          ))}
+          {/* Lintels (trapezoid for raked/gable) */}
+          {lintels.map((l, i) => {
+            const hL = l.heightLeft != null ? l.heightLeft : l.height;
+            const hR = l.heightRight != null ? l.heightRight : l.height;
+            const x1 = s(l.x);
+            const x2 = s(l.x + l.width);
+            const yBase = yBottom - s(l.y);
+            const yTopL = yBottom - s(l.y + hL);
+            const yTopR = yBottom - s(l.y + hR);
+            const pts = `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
+            const midH = (hL + hR) / 2;
+            return (
+              <g key={`lintel-${i}`}>
+                <polygon points={pts} fill={COLORS.LINTEL} stroke={COLORS.LINTEL_STROKE} strokeWidth={1.5} />
+                <text
+                  x={s(l.x + l.width / 2)} y={yBottom - s(l.y + midH / 2) + 4}
+                  textAnchor="middle" fontSize="8" fill="#fff" fontWeight="bold"
+                >
+                  Lintel {l.ref}
+                </text>
+              </g>
+            );
+          })}
 
           {/* Running measurement */}
           <g>

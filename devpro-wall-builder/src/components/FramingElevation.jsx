@@ -187,7 +187,12 @@ export default function FramingElevation({ layout, wallName }) {
               const zones = [];
               for (const l of lintels) {
                 if (l.x < xEdge && xEdge < l.x + l.width) {
-                  const eTop = yBottom - l.y - l.height;
+                  // Interpolate lintel height at this x position (trapezoid)
+                  const hL = l.heightLeft != null ? l.heightLeft : l.height;
+                  const hR = l.heightRight != null ? l.heightRight : l.height;
+                  const t = l.width > 0 ? (xEdge - l.x) / l.width : 0;
+                  const hAtX = hL + (hR - hL) * t;
+                  const eTop = yBottom - l.y - hAtX;
                   const eBot = yBottom - l.y;
                   zones.push([eTop, eBot]);
                 }
@@ -433,25 +438,30 @@ export default function FramingElevation({ layout, wallName }) {
             </g>
           ))}
 
-          {/* ── Lintels ── */}
-          {lintels.map((l, i) => (
-            <g key={`lintel-${i}`}>
-              <rect
-                x={s(l.x)}
-                y={s(yBottom - l.y - l.height)}
-                width={s(l.width)}
-                height={s(l.height)}
-                fill="none" stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-              />
-              <text
-                x={s(l.x + l.width / 2)}
-                y={s(yBottom - l.y - l.height / 2) + 3}
-                textAnchor="middle" fontSize="8" fill={LABEL_COLOR}
-              >
-                Lintel {l.ref}
-              </text>
-            </g>
-          ))}
+          {/* ── Lintels (trapezoid for raked/gable) ── */}
+          {lintels.map((l, i) => {
+            const hL = l.heightLeft != null ? l.heightLeft : l.height;
+            const hR = l.heightRight != null ? l.heightRight : l.height;
+            const x1 = s(l.x);
+            const x2 = s(l.x + l.width);
+            const yBase = s(yBottom - l.y);
+            const yTopL = s(yBottom - l.y - hL);
+            const yTopR = s(yBottom - l.y - hR);
+            const pts = `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
+            const midH = (hL + hR) / 2;
+            return (
+              <g key={`lintel-${i}`}>
+                <polygon points={pts} fill="none" stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                <text
+                  x={s(l.x + l.width / 2)}
+                  y={s(yBottom - l.y - midH / 2) + 3}
+                  textAnchor="middle" fontSize="8" fill={LABEL_COLOR}
+                >
+                  Lintel {l.ref}
+                </text>
+              </g>
+            );
+          })}
 
           {/* ── Running measurement ── */}
           <g>
