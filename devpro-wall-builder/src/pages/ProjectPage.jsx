@@ -7,6 +7,7 @@ import {
 import EpsBlockSummary from '../components/EpsBlockSummary.jsx';
 import MagboardSheetSummary from '../components/MagboardSheetSummary.jsx';
 import GlueSummary from '../components/GlueSummary.jsx';
+import ModelViewer3D from '../components/ModelViewer3D.jsx';
 
 export default function ProjectPage() {
   const { projectId } = useParams();
@@ -99,6 +100,9 @@ export default function ProjectPage() {
             + New Wall
           </button>
         </div>
+
+        {/* 3D Model Viewer */}
+        {walls.length > 0 && <ModelViewer3D walls={walls} />}
 
         {/* Material Summaries */}
         {walls.length > 0 && <EpsBlockSummary walls={walls} />}
