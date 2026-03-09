@@ -27,6 +27,7 @@ export default function WallSummary({ layout, wallName }) {
           )}
           <tr style={styles.dividerRow}><td colSpan={2}></td></tr>
           <tr><td style={styles.labelCell}>Total Panels</td><td style={styles.valueCell}><strong>{layout.totalPanels}</strong></td></tr>
+          <tr><td style={styles.labelCell}>Sheets</td><td style={styles.valueCell}><strong>{layout.totalPanels * 2}</strong></td></tr>
           <tr><td style={styles.labelCell}>Full Panels</td><td style={styles.valueCell}>{layout.fullPanels}</td></tr>
           <tr><td style={styles.labelCell}>L-Cut Panels</td><td style={styles.valueCell}>{layout.lcutPanels}</td></tr>
           <tr><td style={styles.labelCell}>End Panels</td><td style={styles.valueCell}>{layout.endPanels}</td></tr>
