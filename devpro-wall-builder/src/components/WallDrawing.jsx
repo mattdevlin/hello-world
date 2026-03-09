@@ -142,11 +142,7 @@ export default function WallDrawing({ layout, wallName }) {
                   fontSize="9"
                   fill="#999"
                 >
-                  {panel.type === 'lcut'
-                    ? panel.side === 'pier'
-                      ? panel.width - 2 * WINDOW_OVERHANG
-                      : panel.width - WINDOW_OVERHANG
-                    : panel.width}
+                  {panel.width}
                 </text>
               </g>
             );
