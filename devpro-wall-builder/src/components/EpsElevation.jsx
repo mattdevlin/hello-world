@@ -426,8 +426,10 @@ export default function EpsElevation({ layout, wallName }) {
             const yBase = s(yBottom - l.y);
             const yTopL = s(yBottom - l.y - hL);
             const yTopR = s(yBottom - l.y - hR);
-            const pts = `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
-            const midH = (hL + hR) / 2;
+            const pts = l.peakHeight
+              ? `${x1},${yBase} ${x1},${yTopL} ${s(l.x + l.peakXLocal)},${s(yBottom - l.y - l.peakHeight)} ${x2},${yTopR} ${x2},${yBase}`
+              : `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
+            const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
             return (
               <g key={`lintel-${i}`}>
                 <polygon points={pts} fill="none" stroke={STROKE_COLOR} strokeWidth={1} />

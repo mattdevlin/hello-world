@@ -12,13 +12,48 @@ const DIM_FONT = 10;
 const LABEL_FONT = 12;
 
 /**
+ * Compute the panel height at a local x position, following the gable slope
+ * through the peak if this panel straddles it.
+ */
+function panelHeightAtLocal(panel, localX) {
+  const hL = panel.heightLeft || panel.height;
+  const hR = panel.heightRight || panel.height;
+  const W = panel.width;
+  if (panel.peakHeight && panel.peakXLocal != null) {
+    if (localX <= panel.peakXLocal) {
+      return panel.peakXLocal > 0
+        ? hL + (panel.peakHeight - hL) * (localX / panel.peakXLocal)
+        : panel.peakHeight;
+    }
+    const remaining = W - panel.peakXLocal;
+    return remaining > 0
+      ? panel.peakHeight + (hR - panel.peakHeight) * ((localX - panel.peakXLocal) / remaining)
+      : panel.peakHeight;
+  }
+  return W > 0 ? hL + (hR - hL) * (localX / W) : hL;
+}
+
+/**
+ * Generate top-edge vertices between two local x positions, inserting the
+ * peak vertex if the gable peak falls within that range.
+ */
+function topEdgeVertices(panel, x1, x2) {
+  const verts = [{ x: x1, y: panelHeightAtLocal(panel, x1) }];
+  if (panel.peakHeight && panel.peakXLocal != null && panel.peakXLocal > x1 && panel.peakXLocal < x2) {
+    verts.push({ x: panel.peakXLocal, y: panel.peakHeight });
+  }
+  verts.push({ x: x2, y: panelHeightAtLocal(panel, x2) });
+  return verts;
+}
+
+/**
  * Compute the profile vertices for an L-cut panel plan view.
  * Origin is bottom-left of bounding box. Y increases upward.
  */
 function computeLcutProfile(panel) {
   const hL = panel.heightLeft || panel.height;
   const hR = panel.heightRight || panel.height;
-  const H = Math.max(hL, hR);
+  const H = Math.max(hL, hR, panel.peakHeight || 0);
   const ovh = WINDOW_OVERHANG;
   const gap = PANEL_GAP;
 
@@ -34,14 +69,11 @@ function computeLcutProfile(panel) {
   if (isLeft) {
     const totalW = panel.width;
     const base = totalW - ovh;
-    // Interpolate top edge heights
-    const topAtZero = hL;
-    const topAtBase = hL + (hR - hL) * (base / totalW);
+    const topEdge = topEdgeVertices(panel, 0, base);
 
     if (isWindow && sill > 0) {
       const verts = [
-        { x: 0, y: topAtZero },
-        { x: base, y: topAtBase },
+        ...topEdge,
         { x: base, y: lintelStep },
         { x: totalW, y: lintelStep },
         { x: totalW, y: sill },
@@ -52,8 +84,7 @@ function computeLcutProfile(panel) {
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     } else {
       const verts = [
-        { x: 0, y: topAtZero },
-        { x: base, y: topAtBase },
+        ...topEdge,
         { x: base, y: lintelStep },
         { x: totalW, y: lintelStep },
         { x: totalW, y: 0 },
@@ -63,13 +94,11 @@ function computeLcutProfile(panel) {
     }
   } else {
     const totalW = panel.width;
-    const topAtOvh = hL + (hR - hL) * (ovh / totalW);
-    const topAtTotalW = hR;
+    const topEdge = topEdgeVertices(panel, ovh, totalW);
 
     if (isWindow && sill > 0) {
       const verts = [
-        { x: ovh, y: topAtOvh },
-        { x: totalW, y: topAtTotalW },
+        ...topEdge,
         { x: totalW, y: 0 },
         { x: ovh, y: 0 },
         { x: ovh, y: sill },
@@ -80,8 +109,7 @@ function computeLcutProfile(panel) {
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     } else {
       const verts = [
-        { x: ovh, y: topAtOvh },
-        { x: totalW, y: topAtTotalW },
+        ...topEdge,
         { x: totalW, y: 0 },
         { x: 0, y: 0 },
         { x: 0, y: lintelStep },
@@ -100,7 +128,7 @@ function computeLcutProfile(panel) {
 function computePierProfile(panel) {
   const hL = panel.heightLeft || panel.height;
   const hR = panel.heightRight || panel.height;
-  const H = Math.max(hL, hR);
+  const H = Math.max(hL, hR, panel.peakHeight || 0);
   const ovh = WINDOW_OVERHANG;
   const gap = PANEL_GAP;
   const totalW = panel.width;
@@ -121,11 +149,9 @@ function computePierProfile(panel) {
   // Legs only reach up to their respective lintel heights, not full H.
   const verts = [];
 
-  // ── Top of base, then step down to right leg ──
-  const topAtOvh = hL + (hR - hL) * (ovh / totalW);
-  const topAtOvhBase = hL + (hR - hL) * ((ovh + base) / totalW);
-  verts.push({ x: ovh, y: topAtOvh });
-  verts.push({ x: ovh + base, y: topAtOvhBase });
+  // ── Top of base, inserting peak vertex if gable peak falls in this range ──
+  const topEdge = topEdgeVertices(panel, ovh, ovh + base);
+  topEdge.forEach(v => verts.push(v));
   verts.push({ x: ovh + base, y: rLintel });
 
   // ── Right leg: descend with right opening cutout ──
@@ -221,7 +247,7 @@ function buildDimLabels(vertices, profileWidth, profileHeight, scale, drawH, tx)
 /**
  * Shared SVG card renderer for any profile shape.
  */
-function ProfileCard({ vertices, profileWidth, profileHeight, fill, title, subtitle, qty, courseLineY }) {
+function ProfileCard({ vertices, profileWidth, profileHeight, fill, title, subtitle, qty, courseLineY, peakXLocal, peakHeight }) {
   const availW = 220;
   const availH = PLAN_MAX_H - PLAN_MARGIN.top - PLAN_MARGIN.bottom;
   const sx = availW / profileWidth;
@@ -265,6 +291,21 @@ function ProfileCard({ vertices, profileWidth, profileHeight, fill, title, subti
             />
           );
         })()}
+        {peakXLocal != null && peakHeight != null && (() => {
+          const px = PLAN_MARGIN.left + peakXLocal * scale;
+          const pyTop = PLAN_MARGIN.top + (profileHeight - peakHeight) * scale;
+          const pyBot = PLAN_MARGIN.top + profileHeight * scale;
+          return (
+            <>
+              <line x1={px} y1={pyTop} x2={px} y2={pyBot}
+                stroke="#999" strokeWidth={1} strokeDasharray="4,3" />
+              <text x={px + 4} y={(pyTop + pyBot) / 2 + 3}
+                fontSize={DIM_FONT} fill="#999" transform={`rotate(-90, ${px + 4}, ${(pyTop + pyBot) / 2 + 3})`}>
+                {peakHeight}
+              </text>
+            </>
+          );
+        })()}
         {qty > 1 && (
           <>
             <rect x={svgW - 36} y={4} width={32} height={18} rx={9} fill={fill} fillOpacity={0.85} />
@@ -296,22 +337,35 @@ function LcutPlanCard({ panel, courseLineY }) {
       subtitle={`${openingInfo}${sheetInfo}`}
       qty={2}
       courseLineY={courseLineY}
+      peakXLocal={panel.peakHeight ? panel.peakXLocal : undefined}
+      peakHeight={panel.peakHeight}
     />
   );
 }
 
 /**
- * Lintel plan card — simple rectangle.
+ * Lintel plan card — trapezoid for raked/gable, pentagon if straddling gable peak.
  */
 function LintelPlanCard({ lintel }) {
   const W = lintel.width;
-  const H = lintel.height;
-  const verts = [
-    { x: 0, y: H },
-    { x: W, y: H },
-    { x: W, y: 0 },
-    { x: 0, y: 0 },
-  ];
+  const hL = lintel.heightLeft != null ? lintel.heightLeft : lintel.height;
+  const hR = lintel.heightRight != null ? lintel.heightRight : lintel.height;
+  const peakH = lintel.peakHeight || 0;
+  const H = Math.max(hL, hR, peakH);
+  const verts = lintel.peakHeight
+    ? [
+        { x: 0, y: hL },
+        { x: lintel.peakXLocal, y: lintel.peakHeight },
+        { x: W, y: hR },
+        { x: W, y: 0 },
+        { x: 0, y: 0 },
+      ]
+    : [
+        { x: 0, y: hL },
+        { x: W, y: hR },
+        { x: W, y: 0 },
+        { x: 0, y: 0 },
+      ];
   return (
     <ProfileCard
       vertices={verts}
@@ -320,6 +374,8 @@ function LintelPlanCard({ lintel }) {
       fill={COLORS.LINTEL}
       title={`${lintel.ref} — Lintel`}
       qty={2}
+      peakXLocal={lintel.peakHeight ? lintel.peakXLocal : undefined}
+      peakHeight={lintel.peakHeight}
     />
   );
 }
@@ -355,13 +411,22 @@ function EndPanelCard({ panel, courseLineY }) {
   const W = panel.width;
   const hL = panel.heightLeft || panel.height;
   const hR = panel.heightRight || panel.height;
-  const maxH = Math.max(hL, hR);
-  const verts = [
-    { x: 0, y: hL },
-    { x: W, y: hR },
-    { x: W, y: 0 },
-    { x: 0, y: 0 },
-  ];
+  const peakH = panel.peakHeight || 0;
+  const maxH = Math.max(hL, hR, peakH);
+  const verts = panel.peakHeight
+    ? [
+        { x: 0, y: hL },
+        { x: panel.peakXLocal, y: panel.peakHeight },
+        { x: W, y: hR },
+        { x: W, y: 0 },
+        { x: 0, y: 0 },
+      ]
+    : [
+        { x: 0, y: hL },
+        { x: W, y: hR },
+        { x: W, y: 0 },
+        { x: 0, y: 0 },
+      ];
   const heightInfo = hL !== hR ? `${hL}mm → ${hR}mm` : undefined;
   const sheetInfo = panel.sheetHeight ? `${panel.sheetHeight}mm sheet` : undefined;
   const subtitle = [heightInfo, sheetInfo].filter(Boolean).join(' | ');
@@ -375,25 +440,36 @@ function EndPanelCard({ panel, courseLineY }) {
       subtitle={subtitle || undefined}
       qty={2}
       courseLineY={courseLineY}
+      peakXLocal={panel.peakHeight ? panel.peakXLocal : undefined}
+      peakHeight={panel.peakHeight}
     />
   );
 }
 
 /**
- * Full panel plan card — rectangle or trapezoid for raked.
- * Only shown when raked (standard full panels are stock sheets).
+ * Full panel plan card — rectangle or trapezoid for raked/gable.
+ * Only shown when raked/gable (standard full panels are stock sheets).
  */
 function FullPanelCard({ panel, courseLineY }) {
   const W = panel.width;
   const hL = panel.heightLeft || panel.height;
   const hR = panel.heightRight || panel.height;
-  const maxH = Math.max(hL, hR);
-  const verts = [
-    { x: 0, y: hL },
-    { x: W, y: hR },
-    { x: W, y: 0 },
-    { x: 0, y: 0 },
-  ];
+  const peakH = panel.peakHeight || 0;
+  const maxH = Math.max(hL, hR, peakH);
+  const verts = panel.peakHeight
+    ? [
+        { x: 0, y: hL },
+        { x: panel.peakXLocal, y: panel.peakHeight },
+        { x: W, y: hR },
+        { x: W, y: 0 },
+        { x: 0, y: 0 },
+      ]
+    : [
+        { x: 0, y: hL },
+        { x: W, y: hR },
+        { x: W, y: 0 },
+        { x: 0, y: 0 },
+      ];
   const heightInfo = `${hL}mm → ${hR}mm`;
   const sheetInfo = panel.sheetHeight ? `${panel.sheetHeight}mm sheet` : '';
   return (
@@ -402,10 +478,12 @@ function FullPanelCard({ panel, courseLineY }) {
       profileWidth={W}
       profileHeight={maxH}
       fill={COLORS.PANEL}
-      title={`P${panel.index + 1} — Full (raked)`}
+      title={`P${panel.index + 1} — Full${panel.peakHeight ? ' (gable)' : ' (raked)'}`}
       subtitle={sheetInfo ? `${heightInfo} | ${sheetInfo}` : heightInfo}
       qty={2}
       courseLineY={courseLineY}
+      peakXLocal={panel.peakHeight ? panel.peakXLocal : undefined}
+      peakHeight={panel.peakHeight}
     />
   );
 }
@@ -501,8 +579,10 @@ export default function PanelPlans({ layout, wallName }) {
   const courses = layout.courses || [];
   const lcutPanels = panels.filter(p => p.type === 'lcut');
   const endPanels = panels.filter(p => p.type === 'end');
-  // Raked full panels need CNC cuts (angled top), show them in plans
-  const rakedFullPanels = isRaked ? panels.filter(p => p.type === 'full' && p.heightLeft !== p.heightRight) : [];
+  // Raked/gable full panels need CNC cuts (angled/peaked top), show them in plans
+  const rakedFullPanels = isRaked
+    ? panels.filter(p => p.type === 'full' && (p.heightLeft !== p.heightRight || p.peakHeight))
+    : [];
   const lintels = layout.lintels || [];
   const footers = layout.footers || [];
   const openings = layout.openings || [];
