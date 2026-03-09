@@ -10,7 +10,10 @@ cd /d "%~dp0"
 cd ..
 
 echo Pulling latest code from GitHub...
-git pull origin claude/review-code-6FROK
+:: Auto-detect the current branch
+for /f "tokens=*" %%b in ('git rev-parse --abbrev-ref HEAD') do set BRANCH=%%b
+echo Current branch: %BRANCH%
+git pull origin %BRANCH%
 echo.
 
 echo Installing dependencies...
