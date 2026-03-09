@@ -4,6 +4,7 @@ import {
   getProjects, getProjectWalls, deleteWall, renameProject,
   copyWallToProject,
 } from '../utils/storage.js';
+import EpsBlockSummary from '../components/EpsBlockSummary.jsx';
 
 export default function ProjectPage() {
   const { projectId } = useParams();
@@ -96,6 +97,9 @@ export default function ProjectPage() {
             + New Wall
           </button>
         </div>
+
+        {/* EPS Block Summary */}
+        {walls.length > 0 && <EpsBlockSummary walls={walls} />}
 
         {/* Wall list */}
         {walls.length === 0 ? (
