@@ -84,37 +84,6 @@ export default function FramingElevation({ layout, wallName }) {
             strokeDasharray={DASH}
           />
 
-          {/* ── Course join mid-plates (multi-course walls > 3000mm) ── */}
-          {isMultiCourse && courses.slice(1).map((course, i) => {
-            const joinY = yBottom - course.y;
-            return (
-              <g key={`course-join-${i}`}>
-                {/* Mid-plate at course join (2× 45mm plates like top plate) */}
-                <line
-                  x1={s(plateLeft)} y1={s(joinY)}
-                  x2={s(plateRight)} y2={s(joinY)}
-                  stroke="#E74C3C" strokeWidth={1.5} strokeDasharray={DASH}
-                />
-                <line
-                  x1={s(plateLeft)} y1={s(joinY + TOP_PLATE)}
-                  x2={s(plateRight)} y2={s(joinY + TOP_PLATE)}
-                  stroke="#E74C3C" strokeWidth={1} strokeDasharray={DASH}
-                />
-                <line
-                  x1={s(plateLeft)} y1={s(joinY - TOP_PLATE)}
-                  x2={s(plateRight)} y2={s(joinY - TOP_PLATE)}
-                  stroke="#E74C3C" strokeWidth={1} strokeDasharray={DASH}
-                />
-                <text
-                  x={s(plateRight) + 6} y={s(joinY) + 4}
-                  fontSize="8" fill="#E74C3C" fontWeight="bold"
-                >
-                  Mid-plate {course.y}
-                </text>
-              </g>
-            );
-          })}
-
           {/* ── Top plate lines (follow slope for raked/gable) ── */}
           {(() => {
             if (!isRaked) {
@@ -593,6 +562,52 @@ export default function FramingElevation({ layout, wallName }) {
               })()}
             </g>
           )}
+
+          {/* ── Course join mid-plates (multi-course walls > 3000mm) ── */}
+          {/* Rendered last so lines are visible on top of all framing detail */}
+          {isMultiCourse && courses.slice(1).map((course, i) => {
+            const joinY = yBottom - course.y;
+            // Compute x-extent where wall height >= course.y
+            const hL = heightAt ? heightAt(0) : height;
+            const hR = heightAt ? heightAt(grossLength) : height;
+            let x0, x1;
+            if (hL >= course.y && hR >= course.y) {
+              x0 = plateLeft; x1 = plateRight;
+            } else if (hL >= course.y) {
+              x0 = plateLeft;
+              x1 = Math.min(plateRight, (course.y - hL) / (hR - hL) * grossLength);
+            } else if (hR >= course.y) {
+              x0 = Math.max(plateLeft, (course.y - hL) / (hR - hL) * grossLength);
+              x1 = plateRight;
+            } else {
+              return null;
+            }
+            return (
+              <g key={`course-join-${i}`}>
+                <line
+                  x1={s(x0)} y1={s(joinY)}
+                  x2={s(x1)} y2={s(joinY)}
+                  stroke="#E74C3C" strokeWidth={1.5} strokeDasharray={DASH}
+                />
+                <line
+                  x1={s(x0)} y1={s(joinY + TOP_PLATE)}
+                  x2={s(x1)} y2={s(joinY + TOP_PLATE)}
+                  stroke="#E74C3C" strokeWidth={1} strokeDasharray={DASH}
+                />
+                <line
+                  x1={s(x0)} y1={s(joinY - TOP_PLATE)}
+                  x2={s(x1)} y2={s(joinY - TOP_PLATE)}
+                  stroke="#E74C3C" strokeWidth={1} strokeDasharray={DASH}
+                />
+                <text
+                  x={s(x1) + 6} y={s(joinY) + 4}
+                  fontSize="8" fill="#E74C3C" fontWeight="bold"
+                >
+                  Mid-plate {course.y}
+                </text>
+              </g>
+            );
+          })}
 
         </g>
       </svg>

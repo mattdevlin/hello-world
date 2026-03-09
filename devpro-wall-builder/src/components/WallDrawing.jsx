@@ -203,15 +203,30 @@ export default function WallDrawing({ layout, wallName }) {
           {/* Course join lines (multi-course walls > 3000mm) */}
           {isMultiCourse && courses.slice(1).map((course, i) => {
             const joinY = yBottom - s(course.y);
+            // Compute x-extent where wall height >= course.y
+            const hL = heightAt ? heightAt(0) : height;
+            const hR = heightAt ? heightAt(grossLength) : height;
+            let x0, x1;
+            if (hL >= course.y && hR >= course.y) {
+              x0 = 0; x1 = grossLength;
+            } else if (hL >= course.y) {
+              x0 = 0;
+              x1 = (course.y - hL) / (hR - hL) * grossLength;
+            } else if (hR >= course.y) {
+              x0 = (course.y - hL) / (hR - hL) * grossLength;
+              x1 = grossLength;
+            } else {
+              return null;
+            }
             return (
               <g key={`course-join-${i}`}>
                 <line
-                  x1={s(0)} y1={joinY}
-                  x2={s(grossLength)} y2={joinY}
+                  x1={s(x0)} y1={joinY}
+                  x2={s(x1)} y2={joinY}
                   stroke="#E74C3C" strokeWidth={2} strokeDasharray="8,4"
                 />
                 <text
-                  x={s(grossLength) + 8} y={joinY + 4}
+                  x={s(x1) + 8} y={joinY + 4}
                   fontSize="9" fill="#E74C3C" fontWeight="bold"
                 >
                   {course.y}

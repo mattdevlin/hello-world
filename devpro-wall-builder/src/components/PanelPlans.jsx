@@ -221,7 +221,7 @@ function buildDimLabels(vertices, profileWidth, profileHeight, scale, drawH, tx)
 /**
  * Shared SVG card renderer for any profile shape.
  */
-function ProfileCard({ vertices, profileWidth, profileHeight, fill, title, subtitle, qty }) {
+function ProfileCard({ vertices, profileWidth, profileHeight, fill, title, subtitle, qty, courseLineY }) {
   const availW = 220;
   const availH = PLAN_MAX_H - PLAN_MARGIN.top - PLAN_MARGIN.bottom;
   const sx = availW / profileWidth;
@@ -255,6 +255,16 @@ function ProfileCard({ vertices, profileWidth, profileHeight, fill, title, subti
         )}
         <path d={pathD} fill={fill} fillOpacity={0.15} stroke={fill} strokeWidth={2} />
         {dims}
+        {courseLineY != null && courseLineY > 0 && courseLineY < profileHeight && (() => {
+          const ly = PLAN_MARGIN.top + (profileHeight - courseLineY) * scale;
+          return (
+            <line
+              x1={PLAN_MARGIN.left} y1={ly}
+              x2={PLAN_MARGIN.left + drawW} y2={ly}
+              stroke="#E74C3C" strokeWidth={1.5} strokeDasharray="6,3"
+            />
+          );
+        })()}
         {qty > 1 && (
           <>
             <rect x={svgW - 36} y={4} width={32} height={18} rx={9} fill={fill} fillOpacity={0.85} />
@@ -271,7 +281,7 @@ function ProfileCard({ vertices, profileWidth, profileHeight, fill, title, subti
 /**
  * L-cut panel plan card.
  */
-function LcutPlanCard({ panel }) {
+function LcutPlanCard({ panel, courseLineY }) {
   const profile = computeLcutProfile(panel);
   const panelLabel = `P${panel.index + 1}`;
   const isPier = panel.side === 'pier';
@@ -283,6 +293,7 @@ function LcutPlanCard({ panel }) {
       title={`${panelLabel} — ${isPier ? 'Pier' : 'L-Cut'} (${sideLabel})`}
       subtitle={`${panel.openingRefs.join(', ')} | ${isPier ? 'pier' : panel.openingType}`}
       qty={2}
+      courseLineY={courseLineY}
     />
   );
 }
@@ -338,7 +349,7 @@ function FooterPlanCard({ footer }) {
 /**
  * End panel plan card — rectangle or trapezoid for raked.
  */
-function EndPanelCard({ panel }) {
+function EndPanelCard({ panel, courseLineY }) {
   const W = panel.width;
   const hL = panel.heightLeft || panel.height;
   const hR = panel.heightRight || panel.height;
@@ -358,6 +369,7 @@ function EndPanelCard({ panel }) {
       title={`P${panel.index + 1} — End`}
       subtitle={hL !== hR ? `${hL}mm → ${hR}mm` : undefined}
       qty={2}
+      courseLineY={courseLineY}
     />
   );
 }
@@ -366,7 +378,7 @@ function EndPanelCard({ panel }) {
  * Full panel plan card — rectangle or trapezoid for raked.
  * Only shown when raked (standard full panels are stock sheets).
  */
-function FullPanelCard({ panel }) {
+function FullPanelCard({ panel, courseLineY }) {
   const W = panel.width;
   const hL = panel.heightLeft || panel.height;
   const hR = panel.heightRight || panel.height;
@@ -386,6 +398,7 @@ function FullPanelCard({ panel }) {
       title={`P${panel.index + 1} — Full (raked)`}
       subtitle={`${hL}mm → ${hR}mm`}
       qty={2}
+      courseLineY={courseLineY}
     />
   );
 }
@@ -515,9 +528,9 @@ export default function PanelPlans({ layout, wallName }) {
 
   // For multi-course walls, collect top course panels that need CNC cuts
   const topCoursePanels = isMultiCourse && courses.length > 1
-    ? panels.filter(p => p.type === 'full' || p.type === 'end')
+    ? panels.filter(p => p.type === 'full' || p.type === 'end' || p.type === 'lcut')
     : [];
-  const topCourse = courses.length > 1 ? courses[1] : null;
+  const upperCourses = courses.length > 1 ? courses.slice(1) : [];
 
   const hasContent = lcutPanels.length || endPanels.length || rakedFullPanels.length
     || lintels.length || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length
@@ -548,13 +561,13 @@ export default function PanelPlans({ layout, wallName }) {
           <DeductionCard side="left" width={dedLeft} height={wallH} />
         )}
         {rakedFullPanels.map((panel, i) => (
-          <FullPanelCard key={`full-raked-${i}`} panel={panel} />
+          <FullPanelCard key={`full-raked-${i}`} panel={panel} courseLineY={isMultiCourse && courses.length > 1 ? courses[1].y : undefined} />
         ))}
         {lcutPanels.map((panel, i) => (
-          <LcutPlanCard key={`lcut-${i}`} panel={panel} />
+          <LcutPlanCard key={`lcut-${i}`} panel={panel} courseLineY={isMultiCourse && courses.length > 1 ? courses[1].y : undefined} />
         ))}
         {endPanels.map((panel, i) => (
-          <EndPanelCard key={`end-${i}`} panel={panel} />
+          <EndPanelCard key={`end-${i}`} panel={panel} courseLineY={isMultiCourse && courses.length > 1 ? courses[1].y : undefined} />
         ))}
         {dedRight > 0 && (
           <DeductionCard side="right" width={dedRight} height={wallH} />
@@ -571,23 +584,23 @@ export default function PanelPlans({ layout, wallName }) {
       </div>
 
       {/* Top course panels (multi-course only) */}
-      {topCoursePanels.length > 0 && topCourse && (
-        <>
+      {topCoursePanels.length > 0 && upperCourses.map((course, ci) => (
+        <div key={`upper-course-${ci}`}>
           <h4 style={{ margin: '16px 0 8px', fontSize: 14, color: '#E74C3C' }}>
-            Top Course Panels — cut from {topCourse.sheetHeight}mm sheets
+            Course {ci + 2} Panels — cut from {course.sheetHeight}mm sheets ({course.height}mm tall)
           </h4>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {topCoursePanels.map((panel, i) => (
               <TopCourseCard
-                key={`top-course-${i}`}
+                key={`top-course-${ci}-${i}`}
                 panel={panel}
-                courseHeight={topCourse.height}
-                sheetHeight={topCourse.sheetHeight}
+                courseHeight={course.height}
+                sheetHeight={course.sheetHeight}
               />
             ))}
           </div>
-        </>
-      )}
+        </div>
+      ))}
     </div>
   );
 }
