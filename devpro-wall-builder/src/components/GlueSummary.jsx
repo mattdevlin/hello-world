@@ -7,9 +7,11 @@ export default function GlueSummary({ walls }) {
   const { result, error } = useMemo(() => {
     if (!walls || walls.length === 0) return { result: null, error: null };
     try {
-      return { result: computeProjectGlue(walls), error: null };
+      const r = computeProjectGlue(walls);
+      console.log('[GlueSummary] computed:', r);
+      return { result: r, error: null };
     } catch (e) {
-      console.error('GlueSummary error:', e);
+      console.error('[GlueSummary] error:', e);
       return { result: null, error: e.message };
     }
   }, [walls]);

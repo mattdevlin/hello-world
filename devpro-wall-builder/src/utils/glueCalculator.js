@@ -27,9 +27,13 @@ const DRUM_LITRES = 200;
 
 export function computeWallGlueArea(layout) {
   const {
-    panels, openings, lintels, footers, height,
-    deductionLeft, deductionRight, grossLength, isRaked,
-  } = layout;
+    panels = [], openings = [], lintels = [], footers = [], height = 0,
+    deductionLeft = 0, deductionRight = 0, grossLength = 0, isRaked = false,
+  } = layout || {};
+
+  if (panels.length === 0 || height <= 0 || grossLength <= 0) {
+    return { panelAreaMm2: 0, splineAreaMm2: 0, footerAreaMm2: 0, totalAreaMm2: 0 };
+  }
 
   const HALF_SPLINE = SPLINE_WIDTH / 2;
 
@@ -126,7 +130,7 @@ export function computeWallGlueArea(layout) {
   let footerEpsSA = 0;
   for (const f of footers) {
     const op = openings.find(o => o.ref === f.ref);
-    if (!op) continue;
+    if (!op || op.x == null || f.x == null) continue;
     const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_INSET;
     const fEpsBot = height - BOTTOM_PLATE - EPS_INSET;
     if (fEpsBot <= fEpsTop) continue;
@@ -137,7 +141,7 @@ export function computeWallGlueArea(layout) {
     if (fEpsRight <= fEpsLeft) continue;
     const fW = Math.round(fEpsRight - fEpsLeft);
     const fH = Math.round(fEpsBot - fEpsTop);
-    footerEpsSA += fW * fH;
+    if (fW > 0 && fH > 0) footerEpsSA += fW * fH;
   }
 
   // Both faces of every EPS piece
@@ -183,8 +187,8 @@ export function computeProjectGlue(walls) {
   const totalM2 = totalAreaMm2 / 1e6;
   const totalKg = totalM2 * GLUE_RATE_KG_M2;
   const totalLitres = totalKg / GLUE_SPECIFIC_GRAVITY;
-  const drumsNeeded = Math.ceil(totalLitres / DRUM_LITRES);
-  const drumCapacityUsed = totalLitres / (drumsNeeded * DRUM_LITRES);
+  const drumsNeeded = totalLitres > 0 ? Math.ceil(totalLitres / DRUM_LITRES) : 0;
+  const drumCapacityUsed = drumsNeeded > 0 ? totalLitres / (drumsNeeded * DRUM_LITRES) : 0;
 
   return {
     // Areas
