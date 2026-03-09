@@ -30,9 +30,11 @@ export default function WallBuilderPage() {
       const walls = getProjectWalls(projectId);
       const wall = walls.find(w => w.id === wallId);
       if (wall) {
+        console.log('[DEBUG loadWall] wall:', JSON.stringify({ profile: wall.profile, height_mm: wall.height_mm, height_right_mm: wall.height_right_mm, peak_height_mm: wall.peak_height_mm }));
         setWallInput(wall);
         setLoadKey(k => k + 1);
         const result = calculateWallLayout(wall);
+        console.log('[DEBUG loadWall] layout:', JSON.stringify({ maxHeight: result.maxHeight, isMultiCourse: result.isMultiCourse, courses: result.courses, heightAt0: result.heightAt?.(0), heightAtEnd: result.heightAt?.(wall.length_mm) }));
         setLayout(result);
         setWallName(wall.name);
       }
