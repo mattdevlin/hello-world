@@ -251,6 +251,13 @@ export default function EpsElevation({ layout, wallName }) {
                   zones.push([yBottom - f.height, yBottom]);
                 }
               }
+              // Multi-course: exclude the plate zone at each course join
+              if (isMultiCourse && courses.length > 1) {
+                for (let ci = 1; ci < courses.length; ci++) {
+                  const joinY = yBottom - courses[ci].y;
+                  zones.push([joinY - TOP_PLATE, joinY + TOP_PLATE]);
+                }
+              }
               zones.sort((a, b) => a[0] - b[0]);
               return zones;
             };
