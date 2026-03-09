@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PANEL_HEIGHTS, OPENING_TYPES, WALL_PROFILES } from '../utils/constants.js';
 
 const defaultOpening = {
@@ -25,11 +25,17 @@ const defaultWall = {
 
 export default function WallForm({ onCalculate, onChange, initialWall }) {
   const [wall, setWall] = useState(initialWall || defaultWall);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Notify parent of wall changes outside of render (fixes React warning)
+  useEffect(() => {
+    if (onChangeRef.current) onChangeRef.current(wall);
+  }, [wall]);
 
   const updateWall = (updater) => {
     setWall(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      if (onChange) onChange(next);
       return next;
     });
   };
