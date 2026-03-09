@@ -198,7 +198,7 @@ export default function EpsElevation({ layout, wallName }) {
           {wallName || 'Wall'} — EPS Elevation
         </text>
         <text x={svgWidth / 2} y={42} textAnchor="middle" fontSize="12" fill="#666">
-          {grossLength}mm × {height}mm{isRaked ? ` (max ${useHeight}mm)` : ''} | EPS inset {EPS_INSET}mm from framing
+          {grossLength}mm × {height}mm{isRaked ? ` (max ${useHeight}mm)` : ''} | EPS inset {EPS_INSET}mm from framing{isMultiCourse ? ` | ${courses.length} courses` : ''}
         </text>
 
         <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
