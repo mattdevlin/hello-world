@@ -297,11 +297,11 @@ export default function EpsElevation({ layout, wallName }) {
             const leftSegs = vertSegments(leftX);
             const rightSegs = vertSegments(rightX);
             const panelMidH = (yTopAt(leftX) + yTopAt(rightX)) / 2;
-            // Use tallest point of panel for EPS bounds — clipPath handles overflow on shorter side
-            const panelTopY = Math.min(yTopAt(leftX), yTopAt(rightX));
+            // Shortest side (highest yTopAt) — EPS rectangle must stay below top plates at every point
+            const panelShortTopY = Math.max(yTopAt(leftX), yTopAt(rightX));
 
-            // Per-panel EPS bounds for raked walls
-            const pEpsTop = (isRaked ? panelTopY : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_INSET;
+            // Per-panel EPS bounds for raked walls — use shortest side so EPS stays under lowest top plate
+            const pEpsTop = (isRaked ? panelShortTopY : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_INSET;
             const pEpsBot = yBottom - BOTTOM_PLATE - EPS_INSET;
             const pEpsH = pEpsBot - pEpsTop;
 
@@ -329,8 +329,8 @@ export default function EpsElevation({ layout, wallName }) {
                       const plateBelow = isBottomCourse ? BOTTOM_PLATE : TOP_PLATE;
                       const plateAbove = isTopCourse ? TOP_PLATE * 2 : TOP_PLATE;
 
-                      // Use tallest point — clipPath clips overflow on shorter side
-                      const wallTopHere = isRaked ? panelTopY : yTopAt(leftX);
+                      // Use shortest side — EPS rect must stay below top plates at every point
+                      const wallTopHere = isRaked ? panelShortTopY : yTopAt(leftX);
                       const cEpsBot = yBottom - course.y - plateBelow - EPS_INSET;
                       const cEpsTop = isTopCourse
                         ? wallTopHere + plateAbove + EPS_INSET
