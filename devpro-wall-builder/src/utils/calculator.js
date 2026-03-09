@@ -120,10 +120,11 @@ export function calculateWallLayout(wall) {
   const heightAt = buildHeightFn(wall);
 
   // Max height across wall (for layout bounds)
-  const maxHeight = isRaked
-    ? Math.max(heightAt(0), heightAt(grossLength),
-        profile === WALL_PROFILES.GABLE ? heightAt(wall.peak_position_mm ?? grossLength / 2) : 0)
-    : height;
+  // Always check both sides — even if heightAt is unavailable, fall back to height
+  const heightRight = heightAt ? heightAt(grossLength) : height;
+  const peakHeight = profile === WALL_PROFILES.GABLE && heightAt
+    ? heightAt(wall.peak_position_mm ?? grossLength / 2) : 0;
+  const maxHeight = Math.max(height, heightRight, peakHeight);
 
   // Process openings
   const openingDetails = [];
