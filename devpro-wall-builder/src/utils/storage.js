@@ -102,6 +102,20 @@ export function deleteWall(projectId, wallId) {
   syncWallCount(projectId);
 }
 
+export function copyWallToProject(wall, targetProjectId) {
+  const copy = {
+    ...wall,
+    id: crypto.randomUUID(),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  const walls = getProjectWalls(targetProjectId);
+  walls.push(copy);
+  localStorage.setItem(projectWallsKey(targetProjectId), JSON.stringify(walls));
+  syncWallCount(targetProjectId);
+  return copy;
+}
+
 // ── Archive (export/import as JSON zip) ──
 
 export async function exportProject(projectId) {

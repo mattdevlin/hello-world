@@ -4,12 +4,14 @@ export default function ProjectManager({
   projects,
   activeProjectId,
   activeWalls,
+  getWallsForProject,
   onSelectProject,
   onCreateProject,
   onRenameProject,
   onDeleteProject,
   onLoadWall,
   onDeleteWall,
+  onCopyWall,
   onExportProject,
   onImportProject,
 }) {
@@ -17,6 +19,7 @@ export default function ProjectManager({
   const [expandedId, setExpandedId] = useState(activeProjectId);
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+  const [copyingWall, setCopyingWall] = useState(null); // { wallData, sourceProjectId }
   const fileRef = useRef(null);
 
   const handleCreate = (e) => {
@@ -93,7 +96,9 @@ export default function ProjectManager({
         {projects.map(p => {
           const isExpanded = expandedId === p.id;
           const isActive = p.id === activeProjectId;
-          const walls = isExpanded ? activeWalls : [];
+          const walls = isExpanded
+            ? (isActive ? activeWalls : getWallsForProject(p.id))
+            : [];
 
           return (
             <div key={p.id} style={{ ...styles.projectCard, ...(isActive ? styles.activeCard : {}) }}>
@@ -140,29 +145,63 @@ export default function ProjectManager({
                     <p style={styles.emptyWalls}>No walls in this project yet.</p>
                   ) : (
                     walls.map(w => (
-                      <div
-                        key={w.id}
-                        style={styles.wallItem}
-                        onClick={() => onLoadWall(w)}
-                      >
-                        <div style={styles.wallInfo}>
-                          <span style={styles.wallName}>{w.name}</span>
-                          <span style={styles.wallMeta}>
-                            {w.length_mm}mm x {w.height_mm}mm
-                            {w.openings?.length > 0 && ` · ${w.openings.length} opening${w.openings.length > 1 ? 's' : ''}`}
-                          </span>
+                      <div key={w.id}>
+                        <div
+                          style={styles.wallItem}
+                          onClick={() => onLoadWall(w)}
+                        >
+                          <div style={styles.wallInfo}>
+                            <span style={styles.wallName}>{w.name}</span>
+                            <span style={styles.wallMeta}>
+                              {w.length_mm}mm x {w.height_mm}mm
+                              {w.openings?.length > 0 && ` · ${w.openings.length} opening${w.openings.length > 1 ? 's' : ''}`}
+                            </span>
+                          </div>
+                          <div style={styles.wallActions}>
+                            <span style={styles.wallDate}>
+                              {new Date(w.updatedAt).toLocaleDateString()}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCopyingWall(
+                                  copyingWall?.wallData.id === w.id ? null : { wallData: w, sourceProjectId: p.id }
+                                );
+                              }}
+                              style={styles.copyBtn}
+                            >
+                              Copy to...
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onDeleteWall(p.id, w.id); }}
+                              style={styles.deleteBtnSmall}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                        <div style={styles.wallActions}>
-                          <span style={styles.wallDate}>
-                            {new Date(w.updatedAt).toLocaleDateString()}
-                          </span>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onDeleteWall(p.id, w.id); }}
-                            style={styles.deleteBtnSmall}
-                          >
-                            Delete
-                          </button>
-                        </div>
+                        {copyingWall?.wallData.id === w.id && (
+                          <div style={styles.copyTargets}>
+                            <span style={styles.copyLabel}>Copy to:</span>
+                            {projects
+                              .filter(tp => tp.id !== p.id)
+                              .map(tp => (
+                                <button
+                                  key={tp.id}
+                                  onClick={() => {
+                                    onCopyWall(w, tp.id);
+                                    setCopyingWall(null);
+                                  }}
+                                  style={styles.copyTargetBtn}
+                                >
+                                  {tp.name}
+                                </button>
+                              ))}
+                            {projects.filter(tp => tp.id !== p.id).length === 0 && (
+                              <span style={styles.noCopyTargets}>No other projects</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
@@ -351,5 +390,44 @@ const styles = {
   wallDate: {
     color: '#999',
     fontSize: 11,
+  },
+  copyBtn: {
+    padding: '3px 10px',
+    background: '#8e44ad',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 3,
+    cursor: 'pointer',
+    fontSize: 11,
+  },
+  copyTargets: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '6px 10px',
+    background: '#f0ecf5',
+    borderRadius: '0 0 4px 4px',
+    borderTop: '1px dashed #c9b8de',
+    flexWrap: 'wrap',
+  },
+  copyLabel: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: 600,
+  },
+  copyTargetBtn: {
+    padding: '3px 10px',
+    background: '#27ae60',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 3,
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 600,
+  },
+  noCopyTargets: {
+    fontSize: 11,
+    color: '#999',
+    fontStyle: 'italic',
   },
 };

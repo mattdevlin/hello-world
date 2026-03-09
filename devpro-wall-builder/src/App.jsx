@@ -11,7 +11,7 @@ import ProjectManager from './components/ProjectManager.jsx';
 import { calculateWallLayout } from './utils/calculator.js';
 import {
   getProjects, createProject, renameProject, deleteProject,
-  getProjectWalls, saveWall, deleteWall,
+  getProjectWalls, saveWall, deleteWall, copyWallToProject,
   exportProject, importProject, migrateLegacyWalls,
 } from './utils/storage.js';
 
@@ -112,6 +112,15 @@ function App() {
     refreshWalls();
   };
 
+  const handleCopyWall = (wall, targetProjectId) => {
+    copyWallToProject(wall, targetProjectId);
+    refreshProjects();
+    // If the target is the active project, refresh its wall list too
+    if (targetProjectId === activeProjectId) {
+      setActiveWalls(getProjectWalls(activeProjectId));
+    }
+  };
+
   const handleExport = async (id) => {
     try {
       await exportProject(id);
@@ -166,12 +175,14 @@ function App() {
           projects={projects}
           activeProjectId={activeProjectId}
           activeWalls={activeWalls}
+          getWallsForProject={getProjectWalls}
           onSelectProject={handleSelectProject}
           onCreateProject={handleCreateProject}
           onRenameProject={handleRenameProject}
           onDeleteProject={handleDeleteProject}
           onLoadWall={handleLoadWall}
           onDeleteWall={handleDeleteWall}
+          onCopyWall={handleCopyWall}
           onExportProject={handleExport}
           onImportProject={handleImport}
         />
