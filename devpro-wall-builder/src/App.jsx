@@ -7,20 +7,59 @@ import FramingElevation from './components/FramingElevation.jsx';
 import EpsElevation from './components/EpsElevation.jsx';
 import EpsCutPlans from './components/EpsCutPlans.jsx';
 import Offcuts from './components/Offcuts.jsx';
+import ProjectManager from './components/ProjectManager.jsx';
 import { calculateWallLayout } from './utils/calculator.js';
-import { saveWall, loadWalls, deleteWall } from './utils/storage.js';
+import {
+  getProjects, createProject, renameProject, deleteProject,
+  getProjectWalls, saveWall, deleteWall,
+  exportProject, importProject, migrateLegacyWalls,
+} from './utils/storage.js';
 
 function App() {
+  const [projects, setProjects] = useState([]);
+  const [activeProjectId, setActiveProjectId] = useState(null);
+  const [activeWalls, setActiveWalls] = useState([]);
+  const [showProjects, setShowProjects] = useState(false);
+
   const [layout, setLayout] = useState(null);
   const [wallName, setWallName] = useState('');
   const [wallInput, setWallInput] = useState(null);
-  const [savedWalls, setSavedWalls] = useState([]);
-  const [showSaved, setShowSaved] = useState(false);
   const [loadKey, setLoadKey] = useState(0);
 
   useEffect(() => {
-    setSavedWalls(loadWalls());
+    // Migrate any legacy flat walls into a project
+    const migrated = migrateLegacyWalls();
+    if (migrated) {
+      setActiveProjectId(migrated.id);
+    }
+    refreshProjects();
   }, []);
+
+  // Load walls whenever the active project changes
+  useEffect(() => {
+    if (activeProjectId) {
+      setActiveWalls(getProjectWalls(activeProjectId));
+    } else {
+      setActiveWalls([]);
+    }
+  }, [activeProjectId]);
+
+  const refreshProjects = () => {
+    const ps = getProjects();
+    setProjects(ps);
+    // If no active project, select the first one
+    setActiveProjectId(prev => {
+      if (prev && ps.find(p => p.id === prev)) return prev;
+      return ps.length > 0 ? ps[0].id : null;
+    });
+  };
+
+  const refreshWalls = () => {
+    if (activeProjectId) {
+      setActiveWalls(getProjectWalls(activeProjectId));
+    }
+    setProjects(getProjects());
+  };
 
   const handleCalculate = (wall) => {
     const result = calculateWallLayout(wall);
@@ -30,26 +69,68 @@ function App() {
   };
 
   const handleSave = () => {
-    if (!wallInput) return;
-    const saved = saveWall(wallInput);
+    if (!wallInput || !activeProjectId) return;
+    const saved = saveWall(activeProjectId, wallInput);
     setWallInput(saved);
-    setSavedWalls(loadWalls());
+    refreshWalls();
   };
 
-  const handleLoad = (wall) => {
+  const handleLoadWall = (wall) => {
     setWallInput(wall);
     setLoadKey(k => k + 1);
     const result = calculateWallLayout(wall);
     setLayout(result);
     setWallName(wall.name);
-    setShowSaved(false);
   };
 
-  const handleDelete = (id, e) => {
-    e.stopPropagation();
-    deleteWall(id);
-    setSavedWalls(loadWalls());
+  const handleCreateProject = (name) => {
+    const p = createProject(name);
+    setActiveProjectId(p.id);
+    refreshProjects();
   };
+
+  const handleSelectProject = (id) => {
+    setActiveProjectId(id);
+  };
+
+  const handleRenameProject = (id, name) => {
+    renameProject(id, name);
+    refreshProjects();
+  };
+
+  const handleDeleteProject = (id) => {
+    deleteProject(id);
+    if (activeProjectId === id) {
+      setActiveProjectId(null);
+      setActiveWalls([]);
+    }
+    refreshProjects();
+  };
+
+  const handleDeleteWall = (projectId, wallId) => {
+    deleteWall(projectId, wallId);
+    refreshWalls();
+  };
+
+  const handleExport = async (id) => {
+    try {
+      await exportProject(id);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
+  };
+
+  const handleImport = async (file) => {
+    try {
+      const p = await importProject(file);
+      setActiveProjectId(p.id);
+      refreshProjects();
+    } catch (err) {
+      console.error('Import failed:', err);
+    }
+  };
+
+  const activeProject = projects.find(p => p.id === activeProjectId);
 
   return (
     <div style={styles.app}>
@@ -58,65 +139,54 @@ function App() {
           <div>
             <h1 style={styles.title}>DEVPRO Wall Builder</h1>
             <p style={styles.subtitle}>
-              Single wall manufacturing drawing generator — SIP panel layout tool
+              {activeProject
+                ? `Project: ${activeProject.name} — ${activeProject.wallCount} wall${activeProject.wallCount !== 1 ? 's' : ''}`
+                : 'SIP panel layout tool'}
             </p>
           </div>
           <div style={styles.headerActions}>
-            {wallInput && (
+            {wallInput && activeProjectId && (
               <button onClick={handleSave} style={styles.saveBtn}>
                 Save Wall
               </button>
             )}
             <button
-              onClick={() => setShowSaved(!showSaved)}
+              onClick={() => setShowProjects(!showProjects)}
               style={styles.loadBtn}
             >
-              {showSaved ? 'Close' : 'Saved Walls'}{' '}
-              {savedWalls.length > 0 && `(${savedWalls.length})`}
+              {showProjects ? 'Close' : 'Projects'}{' '}
+              {projects.length > 0 && `(${projects.length})`}
             </button>
           </div>
         </div>
       </header>
 
-      {showSaved && (
-        <div style={styles.savedPanel} data-no-print>
-          <h3 style={styles.savedTitle}>Saved Walls</h3>
-          {savedWalls.length === 0 ? (
-            <p style={styles.emptyText}>No saved walls yet.</p>
-          ) : (
-            <div style={styles.savedList}>
-              {savedWalls.map(w => (
-                <div
-                  key={w.id}
-                  style={styles.savedItem}
-                  onClick={() => handleLoad(w)}
-                >
-                  <div>
-                    <strong>{w.name}</strong>
-                    <span style={styles.savedMeta}>
-                      {' '}{w.length_mm}mm × {w.height_mm}mm
-                      {w.openings?.length > 0 && ` · ${w.openings.length} opening${w.openings.length > 1 ? 's' : ''}`}
-                    </span>
-                  </div>
-                  <div style={styles.savedRight}>
-                    <span style={styles.savedDate}>
-                      {new Date(w.updatedAt).toLocaleDateString()}
-                    </span>
-                    <button
-                      onClick={(e) => handleDelete(w.id, e)}
-                      style={styles.deleteBtn}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {showProjects && (
+        <ProjectManager
+          projects={projects}
+          activeProjectId={activeProjectId}
+          activeWalls={activeWalls}
+          onSelectProject={handleSelectProject}
+          onCreateProject={handleCreateProject}
+          onRenameProject={handleRenameProject}
+          onDeleteProject={handleDeleteProject}
+          onLoadWall={handleLoadWall}
+          onDeleteWall={handleDeleteWall}
+          onExportProject={handleExport}
+          onImportProject={handleImport}
+        />
       )}
 
       <main style={styles.main}>
+        {!activeProjectId && !showProjects && (
+          <div style={styles.noProject}>
+            <p>No project selected.</p>
+            <button onClick={() => setShowProjects(true)} style={styles.openProjectsBtn}>
+              Open Projects
+            </button>
+          </div>
+        )}
+
         <WallForm
           key={loadKey}
           onCalculate={handleCalculate}
@@ -191,61 +261,21 @@ const styles = {
     fontSize: 13,
     fontWeight: 600,
   },
-  savedPanel: {
-    maxWidth: 1280,
-    margin: '0 auto',
-    padding: '16px 24px',
-    background: '#fff',
-    borderBottom: '1px solid #ddd',
+  noProject: {
+    textAlign: 'center',
+    padding: '40px 20px',
+    color: '#888',
   },
-  savedTitle: {
-    margin: '0 0 12px 0',
-    fontSize: 16,
-    color: '#333',
-  },
-  savedList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
-  },
-  savedItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '10px 14px',
-    background: '#f9f9f9',
-    border: '1px solid #e0e0e0',
+  openProjectsBtn: {
+    marginTop: 12,
+    padding: '10px 24px',
+    background: '#2C5F8A',
+    color: '#fff',
+    border: 'none',
     borderRadius: 4,
     cursor: 'pointer',
     fontSize: 14,
-  },
-  savedMeta: {
-    color: '#888',
-    fontSize: 12,
-    marginLeft: 8,
-  },
-  savedRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-  },
-  savedDate: {
-    color: '#999',
-    fontSize: 12,
-  },
-  deleteBtn: {
-    padding: '4px 10px',
-    background: '#e74c3c',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 3,
-    cursor: 'pointer',
-    fontSize: 11,
-  },
-  emptyText: {
-    color: '#999',
-    fontStyle: 'italic',
-    fontSize: 14,
+    fontWeight: 600,
   },
   main: {
     maxWidth: 1280,
