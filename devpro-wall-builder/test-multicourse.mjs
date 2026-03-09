@@ -8,7 +8,7 @@
  */
 
 import { computeCourses, calculateWallLayout } from './src/utils/calculator.js';
-import { SHEET_HEIGHTS, MAX_SHEET_HEIGHT, WALL_PROFILES, OPENING_TYPES } from './src/utils/constants.js';
+import { STOCK_SHEET_HEIGHTS, MAX_SHEET_HEIGHT, WALL_PROFILES, OPENING_TYPES } from './src/utils/constants.js';
 
 let pass = 0;
 let fail = 0;
@@ -64,12 +64,12 @@ section('Test 2: Flat wall 3000mm — no multi-course');
 }
 
 // ──────────────────────────────────────────────────────────────
-// TEST 3: Flat wall 3001mm — barely multi-course
+// TEST 3: Flat wall 3051mm — barely multi-course (exceeds 3050mm max sheet)
 // ──────────────────────────────────────────────────────────────
-section('Test 3: Flat wall 3001mm — barely multi-course');
+section('Test 3: Flat wall 3051mm — barely multi-course');
 {
-  const { courses, isMultiCourse } = computeCourses(3001);
-  assert(isMultiCourse === true, 'isMultiCourse should be true for 3001mm');
+  const { courses, isMultiCourse } = computeCourses(3051);
+  assert(isMultiCourse === true, 'isMultiCourse should be true for 3051mm');
   assert(courses.length === 2, `should have 2 courses, got ${courses.length}`);
   assert(courses[1].y > 0, `course[1].y should be > 0, got ${courses[1].y}`);
   console.log(`  → Course split: bottom=${courses[0].height}mm, top=${courses[1].height}mm at y=${courses[1].y}mm`);
@@ -90,7 +90,7 @@ section('Test 4: Raked wall 2400L / 3600R');
   const layout = calculateWallLayout(wall);
   assert(layout.isRaked === true, 'should be raked');
   assert(layout.maxHeight === 3600, `maxHeight should be 3600, got ${layout.maxHeight}`);
-  assert(layout.isMultiCourse === true, 'isMultiCourse should be true (maxHeight=3600 > 3000)');
+  assert(layout.isMultiCourse === true, 'isMultiCourse should be true (maxHeight=3600 > 3050)');
   assert(layout.courses.length === 2, `should have 2 courses, got ${layout.courses.length}`);
 
   const joinY = layout.courses[1].y;

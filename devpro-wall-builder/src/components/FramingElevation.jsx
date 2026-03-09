@@ -563,7 +563,7 @@ export default function FramingElevation({ layout, wallName }) {
             </g>
           )}
 
-          {/* ── Course join mid-plates (multi-course walls > 3000mm) ── */}
+          {/* ── Course join mid-plates (multi-course walls > 3050mm) ── */}
           {/* Rendered last so lines are visible on top of all framing detail */}
           {isMultiCourse && courses.slice(1).map((course, i) => {
             const joinY = yBottom - course.y;

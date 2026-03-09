@@ -9,11 +9,11 @@ export const FLOOR_THICKNESS = 192;     // mm
 export const ROOF_THICKNESS = 242;      // mm
 
 // Panel heights available
-export const PANEL_HEIGHTS = [2400, 2700, 3000]; // mm
+export const PANEL_HEIGHTS = [2440, 2745, 3050]; // mm
 
-// Sheet heights imported (stock sizes for vertical stacking)
-export const SHEET_HEIGHTS = [2700, 3000]; // mm
-export const MAX_SHEET_HEIGHT = 3000;      // mm — tallest single sheet
+// Stock sheet heights for CNC cutting (2440mm not stocked — use 2745 or 3050)
+export const STOCK_SHEET_HEIGHTS = [2745, 3050]; // mm
+export const MAX_SHEET_HEIGHT = 3050;             // mm — tallest single sheet
 
 // Plates
 export const BOTTOM_PLATE = 45;         // mm single bottom plate

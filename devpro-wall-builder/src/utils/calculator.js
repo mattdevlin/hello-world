@@ -10,8 +10,7 @@ import {
   LINTEL_DEPTH,
   OPENING_TYPES,
   WALL_PROFILES,
-  SHEET_HEIGHTS,
-  MAX_SHEET_HEIGHT,
+  STOCK_SHEET_HEIGHTS,
 } from './constants.js';
 
 /**
@@ -46,16 +45,20 @@ function buildHeightFn(wall) {
 }
 
 /**
- * Compute vertical course layout for walls that exceed the max sheet height.
+ * Compute vertical course layout for walls that exceed the max stock sheet height.
  * Each course represents one horizontal row of sheets stacked vertically.
  *
  * @param {number} wallHeight - total wall height in mm
+ * @param {number[]} [availableSheets=STOCK_SHEET_HEIGHTS] - stock sheet sizes to choose from
+ *        (future project-level optimizer can pass a custom subset)
  * @returns {{ courses: Array<{y: number, height: number, sheetHeight: number}>, isMultiCourse: boolean }}
  */
-export function computeCourses(wallHeight) {
-  if (wallHeight <= MAX_SHEET_HEIGHT) {
-    // Single course — pick smallest sheet that covers the height
-    const sheet = SHEET_HEIGHTS.find(s => s >= wallHeight) || MAX_SHEET_HEIGHT;
+export function computeCourses(wallHeight, availableSheets = STOCK_SHEET_HEIGHTS) {
+  const maxSheet = Math.max(...availableSheets);
+
+  if (wallHeight <= maxSheet) {
+    // Single course — pick smallest stock sheet that covers the height
+    const sheet = availableSheets.find(s => s >= wallHeight) || maxSheet;
     return {
       courses: [{ y: 0, height: wallHeight, sheetHeight: sheet }],
       isMultiCourse: false,
@@ -66,10 +69,10 @@ export function computeCourses(wallHeight) {
   let best = null;
   let bestWaste = Infinity;
 
-  for (const bottomSheet of SHEET_HEIGHTS) {
+  for (const bottomSheet of availableSheets) {
     const topHeight = wallHeight - bottomSheet;
     if (topHeight <= 0) continue;
-    const topSheet = SHEET_HEIGHTS.find(s => s >= topHeight);
+    const topSheet = availableSheets.find(s => s >= topHeight);
     if (!topSheet) continue; // top too tall for any single sheet
     const waste = topSheet - topHeight;
     // Prefer less waste; on tie prefer taller bottom (structurally stronger)
@@ -89,16 +92,16 @@ export function computeCourses(wallHeight) {
     };
   }
 
-  // Wall > sum of two max sheets (>6000mm) — split into 3000mm courses + remainder
+  // Wall > sum of two max sheets — split into maxSheet courses + remainder
   const courses = [];
   let remaining = wallHeight;
   let y = 0;
-  while (remaining > MAX_SHEET_HEIGHT) {
-    courses.push({ y, height: MAX_SHEET_HEIGHT, sheetHeight: MAX_SHEET_HEIGHT });
-    y += MAX_SHEET_HEIGHT;
-    remaining -= MAX_SHEET_HEIGHT;
+  while (remaining > maxSheet) {
+    courses.push({ y, height: maxSheet, sheetHeight: maxSheet });
+    y += maxSheet;
+    remaining -= maxSheet;
   }
-  const sheet = SHEET_HEIGHTS.find(s => s >= remaining) || MAX_SHEET_HEIGHT;
+  const sheet = availableSheets.find(s => s >= remaining) || maxSheet;
   courses.push({ y, height: remaining, sheetHeight: sheet });
   return { courses, isMultiCourse: true };
 }
@@ -385,7 +388,7 @@ export function calculateWallLayout(wall) {
 
   panels.forEach((p, i) => { p.index = i; });
 
-  // Compute vertical course layout (multi-course for walls > 3000mm)
+  // Compute vertical course layout (multi-course for walls > 3050mm)
   // Use maxHeight so raked/gable walls trigger multi-course when any part exceeds sheet height
   const { courses, isMultiCourse } = computeCourses(maxHeight);
 
@@ -424,9 +427,8 @@ export function calculateWallLayout(wall) {
  * Choose the best panel height for a given wall height.
  */
 export function recommendPanelHeight(wallHeight) {
-  const available = [2400, 2700, 3000];
-  for (const h of available) {
+  for (const h of STOCK_SHEET_HEIGHTS) {
     if (h >= wallHeight) return h;
   }
-  return available[available.length - 1];
+  return STOCK_SHEET_HEIGHTS[STOCK_SHEET_HEIGHTS.length - 1];
 }

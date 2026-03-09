@@ -512,7 +512,7 @@ export default function EpsElevation({ layout, wallName }) {
 
           </g>{/* end wall-clip */}
 
-          {/* ── Course join lines (multi-course walls > 3000mm) ── */}
+          {/* ── Course join lines (multi-course walls > 3050mm) ── */}
           {isMultiCourse && courses.slice(1).map((course, i) => {
             const joinY = yBottom - course.y;
             // Compute x-extent where wall height >= course.y analytically

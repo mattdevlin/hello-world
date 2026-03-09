@@ -12,9 +12,9 @@ export default function MagboardSheetSummary({ walls }) {
   if (!result) return null;
 
   const {
-    panelSheetCount, panelSheets2700, panelSheets3000,
-    cutPieceCount, cutSheets2700, cutSheets3000, cutUtilization,
-    total2700, total3000, totalSheets,
+    panelSheetCount, panelSheets2745, panelSheets3050,
+    cutPieceCount, cutSheets2745, cutSheets3050, cutUtilization,
+    total2745, total3050, totalSheets,
     totalLintels, totalFooters, totalSplines, totalDeductions,
     perWall,
   } = result;
@@ -25,7 +25,7 @@ export default function MagboardSheetSummary({ walls }) {
         <div style={styles.headerLeft}>
           <h3 style={styles.title}>Magboard Sheet Requirements</h3>
           <span style={styles.subtitle}>
-            {panelSheetCount} panel + {cutSheets2700 + cutSheets3000} cut-piece sheet{cutSheets2700 + cutSheets3000 !== 1 ? 's' : ''}
+            {panelSheetCount} panel + {cutSheets2745 + cutSheets3050} cut-piece sheet{cutSheets2745 + cutSheets3050 !== 1 ? 's' : ''}
           </span>
         </div>
         <div style={styles.headerRight}>
@@ -45,17 +45,17 @@ export default function MagboardSheetSummary({ walls }) {
               <div style={styles.cardDetail}>1200mm wide × 10mm thick</div>
             </div>
             <div style={styles.card}>
-              <div style={{ ...styles.cardValue, color: '#2C5F8A' }}>{total2700}</div>
-              <div style={styles.cardUnit}>× 2700mm</div>
+              <div style={{ ...styles.cardValue, color: '#2C5F8A' }}>{total2745}</div>
+              <div style={styles.cardUnit}>× 2745mm</div>
               <div style={styles.cardDetail}>
-                {panelSheets2700} panel + {cutSheets2700} cut
+                {panelSheets2745} panel + {cutSheets2745} cut
               </div>
             </div>
             <div style={styles.card}>
-              <div style={{ ...styles.cardValue, color: '#6AACE6' }}>{total3000}</div>
-              <div style={styles.cardUnit}>× 3000mm</div>
+              <div style={{ ...styles.cardValue, color: '#6AACE6' }}>{total3050}</div>
+              <div style={styles.cardUnit}>× 3050mm</div>
               <div style={styles.cardDetail}>
-                {panelSheets3000} panel + {cutSheets3000} cut
+                {panelSheets3050} panel + {cutSheets3050} cut
               </div>
             </div>
             <div style={styles.card}>
@@ -86,7 +86,7 @@ export default function MagboardSheetSummary({ walls }) {
                         [totalSplines, totalLintels, totalFooters, totalDeductions].filter(Boolean).length
                       }>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                          {cutSheets2700 + cutSheets3000}
+                          {cutSheets2745 + cutSheets3050}
                           <UtilBar pct={cutUtilization} />
                         </div>
                       </td>
@@ -143,7 +143,7 @@ export default function MagboardSheetSummary({ walls }) {
           </div>
 
           <div style={styles.sheetInfo}>
-            Sheets: 1200 × 2700mm or 1200 × 3000mm (10mm thick).
+            Sheets: 1200 × 2745mm or 3050mm (10mm thick).
             Each panel uses 2 full sheets (front + back face).
             Splines, lintels, footers, and deductions are bin-packed onto additional sheets.
           </div>

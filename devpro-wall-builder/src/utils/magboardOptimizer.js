@@ -1,7 +1,8 @@
 /**
  * Magboard Sheet Optimizer
  *
- * Magboard sheets: 1200 × 2700mm or 1200 × 3000mm (10mm thick).
+ * Magboard sheets: 1200 × 2745mm or 1200 × 3050mm (10mm thick).
+ * (2440mm sheets not stocked — panels use 2745 or 3050 stock sheets.)
  *
  * Each panel face requires one full sheet (2 per panel, front + back).
  * Additional pieces (lintels, footers, splines, deductions) are smaller
@@ -12,8 +13,8 @@ import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_WIDTH } from './constants.js'
 import { calculateWallLayout } from './calculator.js';
 
 export const MAGBOARD_SHEETS = {
-  small: { width: 1200, height: 2700 },
-  large: { width: 1200, height: 3000 },
+  medium: { width: 1200, height: 2745 },
+  large:  { width: 1200, height: 3050 },
 };
 
 const SPLINE_WIDTH = 146;
@@ -241,53 +242,51 @@ export function computeProjectMagboardSheets(walls) {
     });
   }
 
-  // Count panel sheets by size
-  const sheets2700 = allPanelSheets.filter(s => s.sheetHeight === 2700).length;
-  const sheets3000 = allPanelSheets.filter(s => s.sheetHeight === 3000).length;
+  // Count panel sheets by size (only 2745 and 3050 stocked)
+  const sheets2745 = allPanelSheets.filter(s => s.sheetHeight === 2745).length;
+  const sheets3050 = allPanelSheets.filter(s => s.sheetHeight === 3050).length;
 
-  // Pack cut pieces onto sheets — try 2700 first, overflow to 3000
-  // Separate pieces by whether they fit on 2700mm sheets
-  const fitsSmall = allCutPieces.filter(p =>
-    (p.width <= 1200 && p.height <= 2700) || (p.height <= 1200 && p.width <= 2700)
-  );
-  const needsLarge = allCutPieces.filter(p =>
-    !(p.width <= 1200 && p.height <= 2700) && !(p.height <= 1200 && p.width <= 2700)
-  );
+  // Pack cut pieces onto sheets — try 2745 first, overflow to 3050
+  const fitsOnSheet = (p, maxH) =>
+    (p.width <= 1200 && p.height <= maxH) || (p.height <= 1200 && p.width <= maxH);
 
-  // Pack small-fitting pieces onto 2700 sheets
-  const packedSmall = shelfPack(fitsSmall, 1200, 2700);
-  // Pack large pieces onto 3000 sheets
-  const packedLarge = shelfPack(needsLarge, 1200, 3000);
+  const fitsMedium = allCutPieces.filter(p => fitsOnSheet(p, 2745));
+  const needsLarge = allCutPieces.filter(p => !fitsOnSheet(p, 2745));
 
-  const extraSheets2700 = packedSmall.length;
-  const extraSheets3000 = packedLarge.length;
+  const packedMedium = shelfPack(fitsMedium, 1200, 2745);
+  const packedLarge = shelfPack(needsLarge, 1200, 3050);
 
-  const total2700 = sheets2700 + extraSheets2700;
-  const total3000 = sheets3000 + extraSheets3000;
-  const totalSheets = total2700 + total3000;
+  const extraSheets2745 = packedMedium.length;
+  const extraSheets3050 = packedLarge.length;
+
+  const total2745 = sheets2745 + extraSheets2745;
+  const total3050 = sheets3050 + extraSheets3050;
+  const totalSheets = total2745 + total3050;
 
   // Utilization for cut piece sheets
-  const sheetArea2700 = 1200 * 2700;
-  const sheetArea3000 = 1200 * 3000;
+  const sheetArea2745 = 1200 * 2745;
+  const sheetArea3050 = 1200 * 3050;
   const cutPieceArea = allCutPieces.reduce((s, p) => s + p.width * p.height, 0);
-  const cutSheetTotalArea = extraSheets2700 * sheetArea2700 + extraSheets3000 * sheetArea3000;
+  const cutSheetTotalArea =
+    extraSheets2745 * sheetArea2745 +
+    extraSheets3050 * sheetArea3050;
   const cutUtilization = cutSheetTotalArea > 0 ? cutPieceArea / cutSheetTotalArea : 0;
 
   return {
     // Panel sheets (full sheets, 1:1 with panel faces)
     panelSheetCount: allPanelSheets.length,
-    panelSheets2700: sheets2700,
-    panelSheets3000: sheets3000,
+    panelSheets2745: sheets2745,
+    panelSheets3050: sheets3050,
 
     // Cut piece sheets (bin-packed)
     cutPieceCount: allCutPieces.length,
-    cutSheets2700: extraSheets2700,
-    cutSheets3000: extraSheets3000,
+    cutSheets2745: extraSheets2745,
+    cutSheets3050: extraSheets3050,
     cutUtilization,
 
     // Totals
-    total2700,
-    total3000,
+    total2745,
+    total3050,
     totalSheets,
 
     // Breakdown
