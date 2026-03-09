@@ -75,6 +75,13 @@ function App() {
     refreshWalls();
   };
 
+  const handleNewWall = () => {
+    setWallInput(null);
+    setLayout(null);
+    setWallName('');
+    setLoadKey(k => k + 1);
+  };
+
   const handleLoadWall = (wall) => {
     setWallInput(wall);
     setLoadKey(k => k + 1);
@@ -154,6 +161,11 @@ function App() {
             </p>
           </div>
           <div style={styles.headerActions}>
+            {activeProjectId && (
+              <button onClick={handleNewWall} style={styles.newBtn}>
+                + New Wall
+              </button>
+            )}
             {wallInput && activeProjectId && (
               <button onClick={handleSave} style={styles.saveBtn}>
                 Save Wall
@@ -252,6 +264,16 @@ const styles = {
   headerActions: {
     display: 'flex',
     gap: 8,
+  },
+  newBtn: {
+    padding: '8px 20px',
+    background: '#e67e22',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 4,
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 600,
   },
   saveBtn: {
     padding: '8px 20px',
