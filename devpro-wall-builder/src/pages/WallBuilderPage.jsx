@@ -45,7 +45,9 @@ export default function WallBuilderPage() {
   }, [projectId, wallId, navigate]);
 
   const handleCalculate = (wall) => {
+    console.log('[DEBUG handleCalculate] wall:', JSON.stringify({ profile: wall.profile, height_mm: wall.height_mm, height_right_mm: wall.height_right_mm, peak_height_mm: wall.peak_height_mm }));
     const result = calculateWallLayout(wall);
+    console.log('[DEBUG handleCalculate] layout:', JSON.stringify({ maxHeight: result.maxHeight, isMultiCourse: result.isMultiCourse, courses: result.courses, heightAt0: result.heightAt?.(0), heightAtEnd: result.heightAt?.(wall.length_mm) }));
     setLayout(result);
     setWallName(wall.name);
     setWallInput(wall);

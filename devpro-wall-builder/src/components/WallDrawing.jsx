@@ -201,6 +201,7 @@ export default function WallDrawing({ layout, wallName }) {
           })}
 
           {/* Course join lines (multi-course walls > 3000mm) */}
+          {console.log('[DEBUG WallDrawing] isMultiCourse:', isMultiCourse, 'courses:', JSON.stringify(courses), 'heightAt(0):', heightAt?.(0), 'heightAt(end):', heightAt?.(grossLength))}
           {isMultiCourse && courses.slice(1).map((course, i) => {
             const joinY = yBottom - s(course.y);
             // Compute x-extent where wall height >= course.y
