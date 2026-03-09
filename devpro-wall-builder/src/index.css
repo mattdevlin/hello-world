@@ -1,0 +1,75 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f0f2f5;
+  color: #333;
+  min-width: 320px;
+}
+
+#root {
+  width: 100%;
+}
+
+/* ── Print styles: A3 landscape ── */
+@media print {
+  @page {
+    size: A3 landscape;
+    margin: 10mm;
+  }
+
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide everything by default */
+  header, form, .no-print {
+    display: none !important;
+  }
+
+  /* All printable sections hidden unless active */
+  [data-print-section] {
+    display: none !important;
+  }
+
+  /* Only the active section prints */
+  [data-print-active="true"] {
+    display: block !important;
+    margin: 0;
+    padding: 8px;
+    border: none;
+    background: #fff;
+    width: 100%;
+  }
+
+  /* SVGs inside active section scale to fit A3 */
+  [data-print-active="true"] svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Card grids inside active section */
+  [data-print-active="true"] > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Tables inside active section */
+  [data-print-active="true"] table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  [data-print-active="true"] th,
+  [data-print-active="true"] td {
+    border: 1px solid #999;
+    padding: 4px 8px;
+    font-size: 10pt;
+  }
+}
