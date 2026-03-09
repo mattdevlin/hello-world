@@ -10,7 +10,7 @@ cd /d "%~dp0"
 cd ..
 
 echo Pulling latest code from GitHub...
-git pull origin claude/view-claude-md-SJlg4
+git pull origin claude/review-code-6FROK
 echo.
 
 echo Installing dependencies...
