@@ -88,8 +88,9 @@ export default function WallSummary({ layout, wallName }) {
   const epsBottom = height - BOTTOM_PLATE - EPS_INSET;
   const stdEpsH = epsBottom - epsTop;
 
-  // Panel EPS volume
+  // Panel EPS volume & surface area
   let panelEpsVol = 0;
+  let panelEpsSA = 0;
   for (const panel of panels) {
     const segments = getEpsSegments(panel.x, panel.x + panel.width);
     const panelEpsH = isRaked
@@ -99,16 +100,19 @@ export default function WallSummary({ layout, wallName }) {
       const w = Math.round(seg[1] - seg[0]);
       if (w > 0 && panelEpsH > 0) {
         panelEpsVol += w * panelEpsH * PANEL_EPS_DEPTH;
+        panelEpsSA += w * panelEpsH;
       }
     }
   }
 
-  // Spline EPS volume
+  // Spline EPS volume & surface area
   const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2 - 10;
   const splineEpsVol = splineCount * SPLINE_WIDTH * splineH * SPLINE_EPS_DEPTH;
+  const splineEpsSA = splineCount * SPLINE_WIDTH * splineH;
 
-  // Footer EPS volume
+  // Footer EPS volume & surface area
   let footerEpsVol = 0;
+  let footerEpsSA = 0;
   for (const f of footers) {
     const op = openings.find(o => o.ref === f.ref);
     if (!op) continue;
@@ -120,11 +124,18 @@ export default function WallSummary({ layout, wallName }) {
     const rightSplineLeft = op.x + op.drawWidth + BOTTOM_PLATE;
     let fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_INSET : f.x + f.width - EPS_INSET;
     if (fEpsRight <= fEpsLeft) continue;
-    footerEpsVol += Math.round(fEpsRight - fEpsLeft) * Math.round(fEpsBot - fEpsTop) * PANEL_EPS_DEPTH;
+    const fW = Math.round(fEpsRight - fEpsLeft);
+    const fH = Math.round(fEpsBot - fEpsTop);
+    footerEpsVol += fW * fH * PANEL_EPS_DEPTH;
+    footerEpsSA += fW * fH;
   }
 
   const totalEpsVol = panelEpsVol + splineEpsVol + footerEpsVol;
   const totalEpsM3 = (totalEpsVol / 1e9).toFixed(3);
+
+  // PU adhesive glue area: each EPS face is glued to magboard on both sides
+  const totalGlueArea = (panelEpsSA + splineEpsSA + footerEpsSA) * 2;
+  const totalGlueM2 = (totalGlueArea / 1e6).toFixed(2);
 
   return (
     <div ref={sectionRef} data-print-section style={styles.container}>
@@ -159,6 +170,7 @@ export default function WallSummary({ layout, wallName }) {
           <tr><td style={styles.labelCell}>Splines</td><td style={styles.valueCell}>{splineCount}</td></tr>
           <tr style={styles.dividerRow}><td colSpan={2}></td></tr>
           <tr><td style={styles.labelCell}>Total EPS Volume</td><td style={styles.valueCell}><strong>{totalEpsM3} m³</strong></td></tr>
+          <tr><td style={styles.labelCell}>PU Glue Area</td><td style={styles.valueCell}><strong>{totalGlueM2} m²</strong></td></tr>
         </tbody>
       </table>
 
