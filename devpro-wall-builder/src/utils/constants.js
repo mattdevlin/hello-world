@@ -32,6 +32,13 @@ export const MAX_TRANSPORT_W = 3000;    // mm
 export const DECK_HEIGHT = 1200;        // mm
 export const MAX_PANEL_HEIGHT = 3800;   // mm
 
+// Wall profile types
+export const WALL_PROFILES = {
+  STANDARD: 'standard',
+  RAKED: 'raked',
+  GABLE: 'gable',
+};
+
 // Opening types
 export const OPENING_TYPES = {
   WINDOW: 'window',

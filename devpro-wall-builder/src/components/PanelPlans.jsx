@@ -16,7 +16,9 @@ const LABEL_FONT = 12;
  * Origin is bottom-left of bounding box. Y increases upward.
  */
 function computeLcutProfile(panel) {
-  const H = panel.height;
+  const hL = panel.heightLeft || panel.height;
+  const hR = panel.heightRight || panel.height;
+  const H = Math.max(hL, hR);
   const ovh = WINDOW_OVERHANG;
   const gap = PANEL_GAP;
 
@@ -30,15 +32,16 @@ function computeLcutProfile(panel) {
   const lintelStep = panel.openTop - gap;
 
   if (isLeft) {
-    // totalW = CNC sheet width (base + overhang)
-    // base = full-height portion; ovh = leg extending towards opening
     const totalW = panel.width;
     const base = totalW - ovh;
+    // Interpolate top edge heights
+    const topAtZero = hL;
+    const topAtBase = hL + (hR - hL) * (base / totalW);
 
     if (isWindow && sill > 0) {
       const verts = [
-        { x: 0, y: H },
-        { x: base, y: H },
+        { x: 0, y: topAtZero },
+        { x: base, y: topAtBase },
         { x: base, y: lintelStep },
         { x: totalW, y: lintelStep },
         { x: totalW, y: sill },
@@ -49,8 +52,8 @@ function computeLcutProfile(panel) {
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     } else {
       const verts = [
-        { x: 0, y: H },
-        { x: base, y: H },
+        { x: 0, y: topAtZero },
+        { x: base, y: topAtBase },
         { x: base, y: lintelStep },
         { x: totalW, y: lintelStep },
         { x: totalW, y: 0 },
@@ -59,14 +62,14 @@ function computeLcutProfile(panel) {
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     }
   } else {
-    // totalW = CNC sheet width (base + overhang)
-    // ovh = leg width on left side (towards opening)
     const totalW = panel.width;
+    const topAtOvh = hL + (hR - hL) * (ovh / totalW);
+    const topAtTotalW = hR;
 
     if (isWindow && sill > 0) {
       const verts = [
-        { x: ovh, y: H },
-        { x: totalW, y: H },
+        { x: ovh, y: topAtOvh },
+        { x: totalW, y: topAtTotalW },
         { x: totalW, y: 0 },
         { x: ovh, y: 0 },
         { x: ovh, y: sill },
@@ -77,8 +80,8 @@ function computeLcutProfile(panel) {
       return { vertices: verts, profileWidth: totalW, profileHeight: H };
     } else {
       const verts = [
-        { x: ovh, y: H },
-        { x: totalW, y: H },
+        { x: ovh, y: topAtOvh },
+        { x: totalW, y: topAtTotalW },
         { x: totalW, y: 0 },
         { x: 0, y: 0 },
         { x: 0, y: lintelStep },
@@ -95,11 +98,13 @@ function computeLcutProfile(panel) {
  * Right side has left-L-cut (leg extends right over right opening).
  */
 function computePierProfile(panel) {
-  const H = panel.height;
+  const hL = panel.heightLeft || panel.height;
+  const hR = panel.heightRight || panel.height;
+  const H = Math.max(hL, hR);
   const ovh = WINDOW_OVERHANG;
   const gap = PANEL_GAP;
-  const totalW = panel.width;                     // clear-zone width = CNC sheet width
-  const base = totalW - 2 * ovh;                 // full-height centre section
+  const totalW = panel.width;
+  const base = totalW - 2 * ovh;
 
   // Left opening (right L-cut side)
   const lIsWindow = panel.openingType === OPENING_TYPES.WINDOW;
@@ -117,8 +122,10 @@ function computePierProfile(panel) {
   const verts = [];
 
   // ── Top of base, then step down to right leg ──
-  verts.push({ x: ovh, y: H });
-  verts.push({ x: ovh + base, y: H });
+  const topAtOvh = hL + (hR - hL) * (ovh / totalW);
+  const topAtOvhBase = hL + (hR - hL) * ((ovh + base) / totalW);
+  verts.push({ x: ovh, y: topAtOvh });
+  verts.push({ x: ovh + base, y: topAtOvhBase });
   verts.push({ x: ovh + base, y: rLintel });
 
   // ── Right leg: descend with right opening cutout ──
@@ -329,14 +336,16 @@ function FooterPlanCard({ footer }) {
 }
 
 /**
- * End panel plan card — simple rectangle (cut from stock).
+ * End panel plan card — rectangle or trapezoid for raked.
  */
 function EndPanelCard({ panel }) {
   const W = panel.width;
-  const H = panel.height;
+  const hL = panel.heightLeft || panel.height;
+  const hR = panel.heightRight || panel.height;
+  const maxH = Math.max(hL, hR);
   const verts = [
-    { x: 0, y: H },
-    { x: W, y: H },
+    { x: 0, y: hL },
+    { x: W, y: hR },
     { x: W, y: 0 },
     { x: 0, y: 0 },
   ];
@@ -344,9 +353,38 @@ function EndPanelCard({ panel }) {
     <ProfileCard
       vertices={verts}
       profileWidth={W}
-      profileHeight={H}
+      profileHeight={maxH}
       fill={COLORS.END_CAP}
       title={`P${panel.index + 1} — End`}
+      subtitle={hL !== hR ? `${hL}mm → ${hR}mm` : undefined}
+      qty={2}
+    />
+  );
+}
+
+/**
+ * Full panel plan card — rectangle or trapezoid for raked.
+ * Only shown when raked (standard full panels are stock sheets).
+ */
+function FullPanelCard({ panel }) {
+  const W = panel.width;
+  const hL = panel.heightLeft || panel.height;
+  const hR = panel.heightRight || panel.height;
+  const maxH = Math.max(hL, hR);
+  const verts = [
+    { x: 0, y: hL },
+    { x: W, y: hR },
+    { x: W, y: 0 },
+    { x: 0, y: 0 },
+  ];
+  return (
+    <ProfileCard
+      vertices={verts}
+      profileWidth={W}
+      profileHeight={maxH}
+      fill={COLORS.PANEL}
+      title={`P${panel.index + 1} — Full (raked)`}
+      subtitle={`${hL}mm → ${hR}mm`}
       qty={2}
     />
   );
@@ -413,8 +451,11 @@ export default function PanelPlans({ layout, wallName }) {
   if (!layout) return null;
 
   const panels = layout.panels || [];
+  const isRaked = layout.isRaked;
   const lcutPanels = panels.filter(p => p.type === 'lcut');
   const endPanels = panels.filter(p => p.type === 'end');
+  // Raked full panels need CNC cuts (angled top), show them in plans
+  const rakedFullPanels = isRaked ? panels.filter(p => p.type === 'full' && p.heightLeft !== p.heightRight) : [];
   const lintels = layout.lintels || [];
   const footers = layout.footers || [];
   const openings = layout.openings || [];
@@ -445,8 +486,8 @@ export default function PanelPlans({ layout, wallName }) {
     }
   }
 
-  const hasContent = lcutPanels.length || endPanels.length || lintels.length
-    || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length;
+  const hasContent = lcutPanels.length || endPanels.length || rakedFullPanels.length
+    || lintels.length || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length;
   if (!hasContent) return null;
 
   return (
@@ -461,6 +502,9 @@ export default function PanelPlans({ layout, wallName }) {
         {dedLeft > 0 && (
           <DeductionCard side="left" width={dedLeft} height={wallH} />
         )}
+        {rakedFullPanels.map((panel, i) => (
+          <FullPanelCard key={`full-raked-${i}`} panel={panel} />
+        ))}
         {lcutPanels.map((panel, i) => (
           <LcutPlanCard key={`lcut-${i}`} panel={panel} />
         ))}

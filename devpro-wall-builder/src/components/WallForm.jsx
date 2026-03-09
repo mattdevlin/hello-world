@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PANEL_HEIGHTS, OPENING_TYPES, WALL_THICKNESS } from '../utils/constants.js';
+import { PANEL_HEIGHTS, OPENING_TYPES, WALL_PROFILES } from '../utils/constants.js';
 
 const defaultOpening = {
   ref: '',
@@ -14,6 +14,10 @@ const defaultWall = {
   name: 'N-W1',
   length_mm: 9740,
   height_mm: 2440,
+  profile: WALL_PROFILES.STANDARD,
+  height_right_mm: 2440,
+  peak_height_mm: 4000,
+  peak_position_mm: 4870,
   deduction_left_mm: 162,
   deduction_right_mm: 0,
   openings: [],
@@ -65,6 +69,8 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
     onCalculate(wall);
   };
 
+  const profile = wall.profile || WALL_PROFILES.STANDARD;
+
   return (
     <form onSubmit={handleSubmit} style={styles.form}>
       <h2 style={styles.heading}>Wall Dimensions</h2>
@@ -90,18 +96,73 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
           />
         </div>
         <div style={styles.field}>
-          <label style={styles.label}>Height (mm)</label>
+          <label style={styles.label}>Wall Profile</label>
           <select
-            value={wall.height_mm}
-            onChange={e => updateField('height_mm', parseInt(e.target.value))}
+            value={profile}
+            onChange={e => updateField('profile', e.target.value)}
             style={styles.input}
           >
-            {PANEL_HEIGHTS.map(h => (
-              <option key={h} value={h}>{h}</option>
-            ))}
-            <option value={2440}>2440 (common NZ)</option>
+            <option value={WALL_PROFILES.STANDARD}>Standard (rectangular)</option>
+            <option value={WALL_PROFILES.RAKED}>Raked (mono-pitch slope)</option>
+            <option value={WALL_PROFILES.GABLE}>Gable (peaked)</option>
           </select>
         </div>
+      </div>
+
+      <div style={styles.row}>
+        <div style={styles.field}>
+          <label style={styles.label}>
+            {profile === WALL_PROFILES.RAKED ? 'Height Left (mm)' :
+             profile === WALL_PROFILES.GABLE ? 'Eave Height (mm)' :
+             'Height (mm)'}
+          </label>
+          <input
+            type="number"
+            value={wall.height_mm}
+            onChange={e => updateField('height_mm', parseInt(e.target.value) || 0)}
+            style={styles.input}
+            min={300}
+          />
+        </div>
+
+        {profile === WALL_PROFILES.RAKED && (
+          <div style={styles.field}>
+            <label style={styles.label}>Height Right (mm)</label>
+            <input
+              type="number"
+              value={wall.height_right_mm || wall.height_mm}
+              onChange={e => updateField('height_right_mm', parseInt(e.target.value) || 0)}
+              style={styles.input}
+              min={300}
+            />
+          </div>
+        )}
+
+        {profile === WALL_PROFILES.GABLE && (
+          <>
+            <div style={styles.field}>
+              <label style={styles.label}>Peak Height (mm)</label>
+              <input
+                type="number"
+                value={wall.peak_height_mm || 4000}
+                onChange={e => updateField('peak_height_mm', parseInt(e.target.value) || 0)}
+                style={styles.input}
+                min={wall.height_mm || 300}
+              />
+            </div>
+            <div style={styles.field}>
+              <label style={styles.label}>Peak Position from Left (mm)</label>
+              <input
+                type="number"
+                value={wall.peak_position_mm || Math.round(wall.length_mm / 2)}
+                onChange={e => updateField('peak_position_mm', parseInt(e.target.value) || 0)}
+                style={styles.input}
+                min={0}
+                max={wall.length_mm}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       <div style={styles.row}>

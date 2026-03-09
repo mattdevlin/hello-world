@@ -9,16 +9,36 @@ export default function WallDrawing({ layout, wallName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
-  const { grossLength, height, panels, openings, footers, lintels, deductionLeft, deductionRight } = layout;
+  const {
+    grossLength, height, maxHeight, panels, openings, footers, lintels,
+    deductionLeft, deductionRight, isRaked, heightAt, profile,
+  } = layout;
 
-  // Scale to fit SVG
   const drawWidth = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
   const scale = drawWidth / grossLength;
-  const drawHeight = height * scale;
+  const drawMaxH = (maxHeight || height) * scale;
   const svgWidth = MAX_SVG_WIDTH;
-  const svgHeight = drawHeight + MARGIN.top + MARGIN.bottom;
+  const svgHeight = drawMaxH + MARGIN.top + MARGIN.bottom;
 
-  const s = (mm) => mm * scale; // scale helper
+  const s = (mm) => mm * scale;
+  // Y coordinate: 0 is at bottom of wall, SVG Y increases downward
+  // So wall bottom is at drawMaxH, wall top at drawMaxH - wallHeight
+  const yBottom = drawMaxH;
+  const yTop = (x) => drawMaxH - (heightAt ? heightAt(x) : height) * scale;
+
+  // Wall outline as polygon (bottom-left, top-left, ... top-right, bottom-right)
+  function wallOutlinePoints() {
+    const pts = [];
+    pts.push(`${s(0)},${yBottom}`); // bottom-left
+    // Top edge: sample points for smooth line
+    const steps = Math.max(2, Math.ceil(grossLength / 50));
+    for (let i = 0; i <= steps; i++) {
+      const x = (grossLength * i) / steps;
+      pts.push(`${s(x)},${yTop(x)}`);
+    }
+    pts.push(`${s(grossLength)},${yBottom}`); // bottom-right
+    return pts.join(' ');
+  }
 
   return (
     <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
@@ -34,18 +54,17 @@ export default function WallDrawing({ layout, wallName }) {
         {/* Title */}
         <text x={svgWidth / 2} y={24} textAnchor="middle" fontSize="16" fontWeight="bold" fill="#333">
           {wallName || 'Wall'} — External Elevation View
+          {isRaked ? ` (${profile})` : ''}
         </text>
         <text x={svgWidth / 2} y={42} textAnchor="middle" fontSize="12" fill="#666">
-          {grossLength}mm × {height}mm | {layout.totalPanels} panels ({layout.fullPanels} full, {layout.lcutPanels} L-cut, {layout.endPanels} end)
+          {grossLength}mm × {isRaked ? `${layout.heightLeft}–${layout.heightRight}mm` : `${height}mm`}
+          {' '}| {layout.totalPanels} panels ({layout.fullPanels} full, {layout.lcutPanels} L-cut, {layout.endPanels} end)
         </text>
 
         <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
           {/* Wall outline */}
-          <rect
-            x={0}
-            y={0}
-            width={s(grossLength)}
-            height={s(height)}
+          <polygon
+            points={wallOutlinePoints()}
             fill={COLORS.BACKGROUND}
             stroke={COLORS.WALL_OUTLINE}
             strokeWidth={2}
@@ -53,95 +72,57 @@ export default function WallDrawing({ layout, wallName }) {
 
           {/* Corner deductions */}
           {deductionLeft > 0 && (
-            <rect
-              x={0}
-              y={0}
-              width={s(deductionLeft)}
-              height={s(height)}
-              fill="#ddd"
-              stroke="#999"
-              strokeWidth={1}
-              strokeDasharray="4,2"
-            />
-          )}
-          {deductionLeft > 0 && (
-            <text x={s(deductionLeft / 2)} y={s(height) + 14} textAnchor="middle" fontSize="9" fill="#999">
-              -{deductionLeft}
-            </text>
+            <>
+              <polygon
+                points={`${s(0)},${yBottom} ${s(0)},${yTop(0)} ${s(deductionLeft)},${yTop(deductionLeft)} ${s(deductionLeft)},${yBottom}`}
+                fill="#ddd" stroke="#999" strokeWidth={1} strokeDasharray="4,2"
+              />
+              <text x={s(deductionLeft / 2)} y={yBottom + 14} textAnchor="middle" fontSize="9" fill="#999">
+                -{deductionLeft}
+              </text>
+            </>
           )}
           {deductionRight > 0 && (
-            <rect
-              x={s(grossLength - deductionRight)}
-              y={0}
-              width={s(deductionRight)}
-              height={s(height)}
-              fill="#ddd"
-              stroke="#999"
-              strokeWidth={1}
-              strokeDasharray="4,2"
-            />
-          )}
-          {deductionRight > 0 && (
-            <text x={s(grossLength - deductionRight / 2)} y={s(height) + 14} textAnchor="middle" fontSize="9" fill="#999">
-              -{deductionRight}
-            </text>
+            <>
+              <polygon
+                points={`${s(grossLength - deductionRight)},${yBottom} ${s(grossLength - deductionRight)},${yTop(grossLength - deductionRight)} ${s(grossLength)},${yTop(grossLength)} ${s(grossLength)},${yBottom}`}
+                fill="#ddd" stroke="#999" strokeWidth={1} strokeDasharray="4,2"
+              />
+              <text x={s(grossLength - deductionRight / 2)} y={yBottom + 14} textAnchor="middle" fontSize="9" fill="#999">
+                -{deductionRight}
+              </text>
+            </>
           )}
 
           {/* Panels */}
           {panels.map((panel, i) => {
             let fill = COLORS.PANEL;
             let stroke = COLORS.PANEL_STROKE;
-            if (panel.type === 'lcut') {
-              fill = COLORS.LCUT;
-              stroke = COLORS.LCUT_STROKE;
-            } else if (panel.type === 'end') {
-              fill = COLORS.END_CAP;
-              stroke = COLORS.END_CAP_STROKE;
-            }
+            if (panel.type === 'lcut') { fill = COLORS.LCUT; stroke = COLORS.LCUT_STROKE; }
+            else if (panel.type === 'end') { fill = COLORS.END_CAP; stroke = COLORS.END_CAP_STROKE; }
+
+            const pLeft = panel.x;
+            const pRight = panel.x + panel.width;
+            const pts = `${s(pLeft)},${yBottom} ${s(pLeft)},${yTop(pLeft)} ${s(pRight)},${yTop(pRight)} ${s(pRight)},${yBottom}`;
 
             return (
               <g key={`panel-${i}`}>
-                <rect
-                  x={s(panel.x)}
-                  y={0}
-                  width={s(panel.width)}
-                  height={s(height)}
-                  fill={fill}
-                  stroke={stroke}
-                  strokeWidth={1}
-                  opacity={0.7}
-                />
-                {/* Panel gap line */}
+                <polygon points={pts} fill={fill} stroke={stroke} strokeWidth={1} opacity={0.7} />
                 {i < panels.length - 1 && (
                   <line
-                    x1={s(panel.x + panel.width)}
-                    y1={0}
-                    x2={s(panel.x + panel.width)}
-                    y2={s(height)}
-                    stroke="#aaa"
-                    strokeWidth={1}
-                    strokeDasharray="2,2"
+                    x1={s(pRight)} y1={yTop(pRight)}
+                    x2={s(pRight)} y2={yBottom}
+                    stroke="#aaa" strokeWidth={1} strokeDasharray="2,2"
                   />
                 )}
-                {/* Panel number */}
                 <text
-                  x={s(panel.x + panel.width / 2)}
-                  y={s(height / 2) + 4}
-                  textAnchor="middle"
-                  fontSize="11"
-                  fill={COLORS.PANEL_LABEL}
-                  fontWeight="bold"
+                  x={s(pLeft + panel.width / 2)}
+                  y={yBottom - s((panel.heightLeft || height) / 2) + 4}
+                  textAnchor="middle" fontSize="11" fill={COLORS.PANEL_LABEL} fontWeight="bold"
                 >
                   P{panel.index + 1}
                 </text>
-                {/* Panel base width */}
-                <text
-                  x={s(panel.x + panel.width / 2)}
-                  y={s(height) + 14}
-                  textAnchor="middle"
-                  fontSize="9"
-                  fill="#999"
-                >
+                <text x={s(pLeft + panel.width / 2)} y={yBottom + 14} textAnchor="middle" fontSize="9" fill="#999">
                   {panel.width}
                 </text>
               </g>
@@ -152,78 +133,42 @@ export default function WallDrawing({ layout, wallName }) {
           {openings.map((op, i) => (
             <g key={`opening-${i}`}>
               <rect
-                x={s(op.x)}
-                y={s(height - op.y - op.drawHeight)}
-                width={s(op.drawWidth)}
-                height={s(op.drawHeight)}
-                fill={COLORS.OPENING}
-                stroke={COLORS.OPENING_STROKE}
-                strokeWidth={2}
+                x={s(op.x)} y={yBottom - s(op.y + op.drawHeight)}
+                width={s(op.drawWidth)} height={s(op.drawHeight)}
+                fill={COLORS.OPENING} stroke={COLORS.OPENING_STROKE} strokeWidth={2}
               />
-              {/* Opening label */}
               <text
-                x={s(op.x + op.drawWidth / 2)}
-                y={s(height - op.y - op.drawHeight / 2) + 4}
-                textAnchor="middle"
-                fontSize="11"
-                fill="#333"
-                fontWeight="bold"
+                x={s(op.x + op.drawWidth / 2)} y={yBottom - s(op.y + op.drawHeight / 2) + 4}
+                textAnchor="middle" fontSize="11" fill="#333" fontWeight="bold"
               >
                 {op.ref}
               </text>
               <text
-                x={s(op.x + op.drawWidth / 2)}
-                y={s(height - op.y - op.drawHeight / 2) + 18}
-                textAnchor="middle"
-                fontSize="9"
-                fill="#666"
+                x={s(op.x + op.drawWidth / 2)} y={yBottom - s(op.y + op.drawHeight / 2) + 18}
+                textAnchor="middle" fontSize="9" fill="#666"
               >
                 {op.width_mm}w × {op.height_mm}h
               </text>
-              {/* Cross lines for opening */}
-              <line
-                x1={s(op.x)} y1={s(height - op.y - op.drawHeight)}
-                x2={s(op.x + op.drawWidth)} y2={s(height - op.y)}
-                stroke="#ccc" strokeWidth={1}
-              />
-              <line
-                x1={s(op.x + op.drawWidth)} y1={s(height - op.y - op.drawHeight)}
-                x2={s(op.x)} y2={s(height - op.y)}
-                stroke="#ccc" strokeWidth={1}
-              />
+              <line x1={s(op.x)} y1={yBottom - s(op.y + op.drawHeight)} x2={s(op.x + op.drawWidth)} y2={yBottom - s(op.y)} stroke="#ccc" strokeWidth={1} />
+              <line x1={s(op.x + op.drawWidth)} y1={yBottom - s(op.y + op.drawHeight)} x2={s(op.x)} y2={yBottom - s(op.y)} stroke="#ccc" strokeWidth={1} />
             </g>
           ))}
 
-          {/* Footer panels */}
+          {/* Footers */}
           {footers.map((f, i) => (
             <g key={`footer-${i}`}>
               <rect
-                x={s(f.x)}
-                y={s(height - f.height)}
-                width={s(f.width)}
-                height={s(f.height)}
-                fill={COLORS.FOOTER}
-                stroke={COLORS.FOOTER_STROKE}
-                strokeWidth={1.5}
-                opacity={1}
+                x={s(f.x)} y={yBottom - s(f.height)}
+                width={s(f.width)} height={s(f.height)}
+                fill={COLORS.FOOTER} stroke={COLORS.FOOTER_STROKE} strokeWidth={1.5}
               />
               <text
-                x={s(f.x + f.width / 2)}
-                y={s(height - f.height / 2) + 4}
-                textAnchor="middle"
-                fontSize="8"
-                fill="#2a5f2a"
-                fontWeight="bold"
+                x={s(f.x + f.width / 2)} y={yBottom - s(f.height / 2) + 4}
+                textAnchor="middle" fontSize="8" fill="#2a5f2a" fontWeight="bold"
               >
                 Footer {f.ref}
               </text>
-              <text
-                x={s(f.x + f.width / 2)}
-                y={s(height) + 14}
-                textAnchor="middle"
-                fontSize="9"
-                fill="#999"
-              >
+              <text x={s(f.x + f.width / 2)} y={yBottom + 14} textAnchor="middle" fontSize="9" fill="#999">
                 {f.width}
               </text>
             </g>
@@ -233,75 +178,33 @@ export default function WallDrawing({ layout, wallName }) {
           {lintels.map((l, i) => (
             <g key={`lintel-${i}`}>
               <rect
-                x={s(l.x)}
-                y={s(height - l.y - l.height)}
-                width={s(l.width)}
-                height={s(l.height)}
-                fill={COLORS.LINTEL}
-                stroke={COLORS.LINTEL_STROKE}
-                strokeWidth={1.5}
-                opacity={1}
+                x={s(l.x)} y={yBottom - s(l.y + l.height)}
+                width={s(l.width)} height={s(l.height)}
+                fill={COLORS.LINTEL} stroke={COLORS.LINTEL_STROKE} strokeWidth={1.5}
               />
               <text
-                x={s(l.x + l.width / 2)}
-                y={s(height - l.y - l.height / 2) + 4}
-                textAnchor="middle"
-                fontSize="8"
-                fill="#fff"
-                fontWeight="bold"
+                x={s(l.x + l.width / 2)} y={yBottom - s(l.y + l.height / 2) + 4}
+                textAnchor="middle" fontSize="8" fill="#fff" fontWeight="bold"
               >
                 Lintel {l.ref}
               </text>
             </g>
           ))}
 
-          {/* Running measurement — right-edge of each base-width element */}
+          {/* Running measurement */}
           <g>
             {(() => {
-              // Collect right-edge position of each base-width element directly
               const points = new Set([0, grossLength]);
-
-              if (deductionLeft > 0) {
-                points.add(deductionLeft);
-              }
-              if (deductionRight > 0) {
-                points.add(grossLength - deductionRight);
-              }
-
-              panels.forEach(p => {
-                if (p.type === 'lcut') {
-                  if (p.side === 'left') {
-                    // Only subtract overhang when opening has a footer (window with sill)
-                    const adj = p.openBottom > 0 ? WINDOW_OVERHANG : 0;
-                    points.add(Math.round(p.x + p.width - adj));
-                  } else if (p.side === 'right') {
-                    points.add(Math.round(p.x + p.width));
-                  } else {
-                    // Pier — right edge borders the right opening
-                    const adj = p.rightOpenBottom > 0 ? WINDOW_OVERHANG : 0;
-                    points.add(Math.round(p.x + p.width - adj));
-                  }
-                } else {
-                  points.add(Math.round(p.x + p.width));
-                }
-              });
-
-              footers.forEach(f => {
-                points.add(Math.round(f.x + f.width));
-              });
-
+              if (deductionLeft > 0) points.add(deductionLeft);
+              if (deductionRight > 0) points.add(grossLength - deductionRight);
+              panels.forEach(p => points.add(Math.round(p.x + p.width)));
+              footers.forEach(f => points.add(Math.round(f.x + f.width)));
               const sorted = [...points].sort((a, b) => a - b);
-              const tickY = s(height) + 22;
+              const tickY = yBottom + 22;
               return sorted.map((pt, i) => (
                 <g key={`rm-${i}`}>
                   <line x1={s(pt)} y1={tickY - 4} x2={s(pt)} y2={tickY + 4} stroke={COLORS.DIMENSION} strokeWidth={1} />
-                  <text
-                    x={s(pt)}
-                    y={tickY + 14}
-                    textAnchor="middle"
-                    fontSize="9"
-                    fill={COLORS.DIMENSION}
-                  >
+                  <text x={s(pt)} y={tickY + 14} textAnchor="middle" fontSize="9" fill={COLORS.DIMENSION}>
                     {pt}
                   </text>
                 </g>
@@ -309,40 +212,78 @@ export default function WallDrawing({ layout, wallName }) {
             })()}
           </g>
 
-          {/* Total width dimension - bottom */}
+          {/* Total width dimension */}
           <g>
-            <line x1={0} y1={s(height) + 44} x2={s(grossLength)} y2={s(height) + 44} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={0} y1={s(height) + 39} x2={0} y2={s(height) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={s(grossLength)} y1={s(height) + 39} x2={s(grossLength)} y2={s(height) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <text
-              x={s(grossLength / 2)}
-              y={s(height) + 60}
-              textAnchor="middle"
-              fontSize="12"
-              fill={COLORS.DIMENSION}
-              fontWeight="bold"
-            >
+            <line x1={0} y1={yBottom + 44} x2={s(grossLength)} y2={yBottom + 44} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={0} y1={yBottom + 39} x2={0} y2={yBottom + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={s(grossLength)} y1={yBottom + 39} x2={s(grossLength)} y2={yBottom + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <text x={s(grossLength / 2)} y={yBottom + 60} textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold">
               {grossLength} mm
             </text>
           </g>
 
-          {/* Height dimension - left */}
+          {/* Height dimensions — left side */}
           <g>
-            <line x1={-20} y1={0} x2={-20} y2={s(height)} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={-25} y1={0} x2={-15} y2={0} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={-25} y1={s(height)} x2={-15} y2={s(height)} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <text
-              x={-35}
-              y={s(height / 2)}
-              textAnchor="middle"
-              fontSize="12"
-              fill={COLORS.DIMENSION}
-              fontWeight="bold"
-              transform={`rotate(-90, -35, ${s(height / 2)})`}
-            >
-              {height} mm
-            </text>
+            {(() => {
+              const hL = heightAt ? heightAt(0) : height;
+              return (
+                <>
+                  <line x1={-20} y1={yTop(0)} x2={-20} y2={yBottom} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                  <line x1={-25} y1={yTop(0)} x2={-15} y2={yTop(0)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                  <line x1={-25} y1={yBottom} x2={-15} y2={yBottom} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                  <text
+                    x={-35} y={(yTop(0) + yBottom) / 2}
+                    textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold"
+                    transform={`rotate(-90, -35, ${(yTop(0) + yBottom) / 2})`}
+                  >
+                    {Math.round(hL)} mm
+                  </text>
+                </>
+              );
+            })()}
           </g>
+
+          {/* Height dimension — right side (if raked/gable) */}
+          {isRaked && (
+            <g>
+              {(() => {
+                const hR = heightAt(grossLength);
+                const xR = s(grossLength);
+                return (
+                  <>
+                    <line x1={xR + 20} y1={yTop(grossLength)} x2={xR + 20} y2={yBottom} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                    <line x1={xR + 15} y1={yTop(grossLength)} x2={xR + 25} y2={yTop(grossLength)} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                    <line x1={xR + 15} y1={yBottom} x2={xR + 25} y2={yBottom} stroke={COLORS.DIMENSION} strokeWidth={1} />
+                    <text
+                      x={xR + 35} y={(yTop(grossLength) + yBottom) / 2}
+                      textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold"
+                      transform={`rotate(90, ${xR + 35}, ${(yTop(grossLength) + yBottom) / 2})`}
+                    >
+                      {Math.round(hR)} mm
+                    </text>
+                  </>
+                );
+              })()}
+            </g>
+          )}
+
+          {/* Peak height dimension (gable) */}
+          {profile === 'gable' && layout.peakPosition != null && (
+            <g>
+              {(() => {
+                const px = layout.peakPosition;
+                const ph = layout.peakHeight;
+                return (
+                  <>
+                    <line x1={s(px)} y1={yTop(px)} x2={s(px)} y2={yTop(px) - 12} stroke={COLORS.DIMENSION} strokeWidth={1} strokeDasharray="3,2" />
+                    <text x={s(px)} y={yTop(px) - 16} textAnchor="middle" fontSize="10" fill={COLORS.DIMENSION} fontWeight="bold">
+                      Peak {ph}mm
+                    </text>
+                  </>
+                );
+              })()}
+            </g>
+          )}
         </g>
 
         {/* Legend */}
