@@ -510,36 +510,42 @@ export default function EpsElevation({ layout, wallName }) {
             });
           })()}
 
-          </g>{/* end wall-clip */}
-
           {/* ── Course join lines (multi-course walls > 3000mm) ── */}
+          {/* Rendered inside clipPath so wall outline clips the line on raked/gable walls */}
           {isMultiCourse && courses.slice(1).map((course, i) => {
             const joinY = yBottom - course.y;
-            // Find x extent where wall height >= course.y (for raked/gable walls)
-            let x0 = null, x1 = null;
-            const step = grossLength / 200;
-            for (let x = 0; x <= grossLength; x = Math.min(x + step, grossLength)) {
-              if (heightAt ? heightAt(x) >= course.y : height >= course.y) {
-                if (x0 === null) x0 = x;
-                x1 = x;
-              }
-              if (x >= grossLength) break;
-            }
-            if (x0 === null) return null;
             return (
               <g key={`course-join-${i}`}>
                 <line
-                  x1={s(x0)} y1={s(joinY)}
-                  x2={s(x1)} y2={s(joinY)}
+                  x1={s(0)} y1={s(joinY)}
+                  x2={s(grossLength)} y2={s(joinY)}
                   stroke="#E74C3C" strokeWidth={2} strokeDasharray="8,4"
                 />
-                <text
-                  x={s(x1) + 8} y={s(joinY) + 4}
-                  fontSize="8" fill="#E74C3C" fontWeight="bold"
-                >
-                  {course.y}
-                </text>
               </g>
+            );
+          })}
+
+          </g>{/* end wall-clip */}
+
+          {/* Course join label (outside clip so it's always visible) */}
+          {isMultiCourse && courses.slice(1).map((course, i) => {
+            const joinY = yBottom - course.y;
+            // Find rightmost x where wall height >= course.y for label placement
+            let labelX = grossLength;
+            if (heightAt) {
+              const step = grossLength / 200;
+              for (let x = grossLength; x >= 0; x -= step) {
+                if (heightAt(x) >= course.y) { labelX = x; break; }
+              }
+            }
+            return (
+              <text
+                key={`course-label-${i}`}
+                x={s(labelX) + 8} y={s(joinY) + 4}
+                fontSize="8" fill="#E74C3C" fontWeight="bold"
+              >
+                {course.y}
+              </text>
             );
           })}
 
