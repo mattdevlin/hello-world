@@ -6,6 +6,7 @@ import {
 } from '../utils/storage.js';
 import EpsBlockSummary from '../components/EpsBlockSummary.jsx';
 import MagboardSheetSummary from '../components/MagboardSheetSummary.jsx';
+import GlueSummary from '../components/GlueSummary.jsx';
 
 export default function ProjectPage() {
   const { projectId } = useParams();
@@ -102,6 +103,7 @@ export default function ProjectPage() {
         {/* Material Summaries */}
         {walls.length > 0 && <EpsBlockSummary walls={walls} />}
         {walls.length > 0 && <MagboardSheetSummary walls={walls} />}
+        {walls.length > 0 && <GlueSummary walls={walls} />}
 
         {/* Wall list */}
         {walls.length === 0 ? (
