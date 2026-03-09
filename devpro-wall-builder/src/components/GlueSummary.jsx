@@ -4,10 +4,23 @@ import { computeProjectGlue } from '../utils/glueCalculator.js';
 export default function GlueSummary({ walls }) {
   const [expanded, setExpanded] = useState(false);
 
-  const result = useMemo(() => {
-    if (!walls || walls.length === 0) return null;
-    return computeProjectGlue(walls);
+  const { result, error } = useMemo(() => {
+    if (!walls || walls.length === 0) return { result: null, error: null };
+    try {
+      return { result: computeProjectGlue(walls), error: null };
+    } catch (e) {
+      console.error('GlueSummary error:', e);
+      return { result: null, error: e.message };
+    }
   }, [walls]);
+
+  if (error) {
+    return (
+      <div style={{ ...styles.container, padding: 16, color: '#e74c3c', fontSize: 13 }}>
+        PU Glue calculation error: {error}
+      </div>
+    );
+  }
 
   if (!result) return null;
 
