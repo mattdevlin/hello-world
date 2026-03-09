@@ -19,22 +19,30 @@ const defaultWall = {
   openings: [],
 };
 
-export default function WallForm({ onCalculate, initialWall }) {
+export default function WallForm({ onCalculate, onChange, initialWall }) {
   const [wall, setWall] = useState(initialWall || defaultWall);
 
+  const updateWall = (updater) => {
+    setWall(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (onChange) onChange(next);
+      return next;
+    });
+  };
+
   const updateField = (field, value) => {
-    setWall(prev => ({ ...prev, [field]: value }));
+    updateWall(prev => ({ ...prev, [field]: value }));
   };
 
   const addOpening = () => {
-    setWall(prev => ({
+    updateWall(prev => ({
       ...prev,
       openings: [...prev.openings, { ...defaultOpening, ref: `W${String(prev.openings.length + 1).padStart(2, '0')}` }],
     }));
   };
 
   const updateOpening = (index, field, value) => {
-    setWall(prev => {
+    updateWall(prev => {
       const openings = [...prev.openings];
       openings[index] = { ...openings[index], [field]: value };
       // Auto-set sill to 0 for doors
@@ -46,7 +54,7 @@ export default function WallForm({ onCalculate, initialWall }) {
   };
 
   const removeOpening = (index) => {
-    setWall(prev => ({
+    updateWall(prev => ({
       ...prev,
       openings: prev.openings.filter((_, i) => i !== index),
     }));

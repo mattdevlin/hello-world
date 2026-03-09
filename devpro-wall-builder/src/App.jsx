@@ -201,6 +201,7 @@ function App() {
         <WallForm
           key={loadKey}
           onCalculate={handleCalculate}
+          onChange={setWallInput}
           initialWall={wallInput}
         />
 
