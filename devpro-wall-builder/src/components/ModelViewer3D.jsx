@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { CameraControls, PerspectiveCamera, Grid, Text, Sphere, ContactShadows, Environment } from '@react-three/drei';
+import * as THREE from 'three';
 import { computeFloorPlanFromConnections } from '../utils/floorPlan.js';
 import { calculateWallLayout } from '../utils/calculator.js';
 import { computeLayoutBounds, computeWallEndpoint } from '../utils/wallSnap.js';
@@ -116,6 +117,67 @@ function WallMesh({ entry, layout, isSelected, onSelect, showWireframe }) {
         {entry.wall.name || entry.side}
       </Text>
     </group>
+  );
+}
+
+const GRID_SNAP_M = 0.1; // 100mm grid snap
+const snapToGrid = (v) => Math.round(v / GRID_SNAP_M) * GRID_SNAP_M;
+
+/**
+ * Semi-transparent ghost wall that follows the cursor during placement mode.
+ */
+function GhostWall({ wall, position, rotationY }) {
+  const s = MM_TO_M;
+  const len = wall.length_mm * s;
+  const h = wall.height_mm * s;
+  const thick = WALL_THICKNESS * s;
+
+  return (
+    <group
+      position={[position[0], h / 2, position[2]]}
+      rotation={[0, rotationY, 0]}
+    >
+      <mesh>
+        <boxGeometry args={[len, h, thick]} />
+        <meshStandardMaterial
+          color="#4a90d9"
+          transparent
+          opacity={0.4}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh>
+        <boxGeometry args={[len, h, thick]} />
+        <meshBasicMaterial color="#2C5F8A" wireframe />
+      </mesh>
+      <Text
+        position={[0, h / 2 + 0.15, thick / 2 + 0.01]}
+        fontSize={0.15}
+        color="#2C5F8A"
+        anchorX="center"
+        anchorY="bottom"
+      >
+        {wall.name}
+      </Text>
+    </group>
+  );
+}
+
+/**
+ * Invisible ground plane for raycasting mouse position during placement.
+ */
+function PlacementGroundPlane({ onPointerMove, onClick }) {
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, 0, 0]}
+      onPointerMove={onPointerMove}
+      onClick={onClick}
+      visible={false}
+    >
+      <planeGeometry args={[200, 200]} />
+      <meshBasicMaterial />
+    </mesh>
   );
 }
 
@@ -316,7 +378,11 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
   const [showWireframe, setShowWireframe] = useState(false);
   const [selectedWallId, setSelectedWallId] = useState(null);
   const [selectedEnd, setSelectedEnd] = useState(null);
+  const [placingWallId, setPlacingWallId] = useState(null);
+  const [ghostPos, setGhostPos] = useState([0, 0, 0]);
+  const [ghostRotation, setGhostRotation] = useState(0);
   const cameraControlsRef = useRef(null);
+  const placingWall = placingWallId ? walls.find(w => w.id === placingWallId) : null;
 
   const placedWalls = useMemo(
     () => {
@@ -394,10 +460,43 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
   }, [sceneBounds]);
 
   const handlePlaceWall = useCallback((wallId) => {
-    if (onPlacementsChange && !placedWallIds.includes(wallId)) {
-      onPlacementsChange([...placedWallIds, wallId]);
+    setPlacingWallId(wallId);
+    setGhostPos([0, 0, 0]);
+    setGhostRotation(0);
+    setSelectedWallId(null);
+    setSelectedEnd(null);
+    // Disable camera controls during placement
+    if (cameraControlsRef.current) {
+      cameraControlsRef.current.enabled = false;
     }
-  }, [placedWallIds, onPlacementsChange]);
+  }, []);
+
+  const handleGhostMove = useCallback((e) => {
+    if (!placingWallId) return;
+    e.stopPropagation();
+    const point = e.point;
+    setGhostPos([snapToGrid(point.x), 0, snapToGrid(point.z)]);
+  }, [placingWallId]);
+
+  const handleCommitPlacement = useCallback((e) => {
+    if (!placingWallId || !onPlacementsChange) return;
+    e.stopPropagation();
+    if (!placedWallIds.includes(placingWallId)) {
+      onPlacementsChange([...placedWallIds, placingWallId]);
+    }
+    setPlacingWallId(null);
+    // Re-enable camera controls
+    if (cameraControlsRef.current) {
+      cameraControlsRef.current.enabled = true;
+    }
+  }, [placingWallId, placedWallIds, onPlacementsChange]);
+
+  const handleCancelPlacement = useCallback(() => {
+    setPlacingWallId(null);
+    if (cameraControlsRef.current) {
+      cameraControlsRef.current.enabled = true;
+    }
+  }, []);
 
   const handleRemoveWall = useCallback((wallId) => {
     if (onPlacementsChange) {
@@ -417,6 +516,20 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
       setSelectedEnd(null);
     }
   }, [placedWallIds, onPlacementsChange, connections, onConnectionsChange, selectedWallId]);
+
+  // Keyboard shortcuts for placement mode
+  useEffect(() => {
+    if (!placingWallId) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'r' || e.key === 'R') {
+        setGhostRotation(prev => (prev + Math.PI / 2) % (Math.PI * 2));
+      } else if (e.key === 'Escape') {
+        handleCancelPlacement();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [placingWallId, handleCancelPlacement]);
 
   if (!walls || walls.length === 0) {
     return (
@@ -530,6 +643,21 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
             </>
           )}
 
+          {/* Placement mode: ground plane for raycasting + ghost preview */}
+          {placingWall && (
+            <>
+              <PlacementGroundPlane
+                onPointerMove={handleGhostMove}
+                onClick={handleCommitPlacement}
+              />
+              <GhostWall
+                wall={placingWall}
+                position={ghostPos}
+                rotationY={ghostRotation}
+              />
+            </>
+          )}
+
           {/* Axes helper */}
           <axesHelper args={[2]} />
         </Canvas>
@@ -547,6 +675,23 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
           ))}
         </div>
 
+        {/* Placement mode indicator */}
+        {placingWall && (
+          <div style={styles.placementBanner}>
+            <span>
+              Placing: <strong>{placingWall.name}</strong>
+              {' \u2022 '}
+              {Math.round(ghostRotation * 180 / Math.PI)}°
+            </span>
+            <span style={styles.placementHints}>
+              Click to place &bull; R to rotate &bull; Esc to cancel
+            </span>
+            <button onClick={handleCancelPlacement} style={styles.placementCancelBtn}>
+              Cancel
+            </button>
+          </div>
+        )}
+
         {/* Snap controls overlay */}
         {selectedWall && selectedEnd && onConnectionsChange && (
           <SnapControlsPanel
@@ -562,7 +707,7 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
       </div>
       </div>
       <div style={styles.legend}>
-        <span style={styles.legendHint}>Click a wall to select it. Click the red markers to snap another wall.</span>
+        <span style={styles.legendHint}>Click &quot;Place&quot; in the sidebar to position a wall. Click a placed wall to select it.</span>
       </div>
     </div>
   );
@@ -655,6 +800,38 @@ const styles = {
     fontSize: 11,
     fontWeight: 600,
     color: '#555',
+  },
+  placementBanner: {
+    position: 'absolute',
+    top: 10,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    background: 'rgba(44,95,138,0.95)',
+    color: '#fff',
+    borderRadius: 6,
+    padding: '8px 16px',
+    fontSize: 13,
+    fontWeight: 500,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+    zIndex: 10,
+    whiteSpace: 'nowrap',
+  },
+  placementHints: {
+    fontSize: 11,
+    opacity: 0.8,
+  },
+  placementCancelBtn: {
+    padding: '4px 10px',
+    background: 'rgba(255,255,255,0.2)',
+    color: '#fff',
+    border: '1px solid rgba(255,255,255,0.3)',
+    borderRadius: 4,
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 600,
   },
 
   // Snap controls panel
