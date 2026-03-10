@@ -4,6 +4,7 @@ import {
   getProjects, getProjectWalls, deleteWall, renameProject,
   copyWallToProject, getProjectConnections, saveProjectConnections,
   getProjectPlacements, saveProjectPlacements,
+  getProjectWallPositions, saveProjectWallPositions,
 } from '../utils/storage.js';
 import EpsBlockSummary from '../components/EpsBlockSummary.jsx';
 import MagboardSheetSummary from '../components/MagboardSheetSummary.jsx';
@@ -20,6 +21,7 @@ export default function ProjectPage() {
   const [copyingWallId, setCopyingWallId] = useState(null);
   const [connections, setConnections] = useState([]);
   const [placedWallIds, setPlacedWallIds] = useState([]);
+  const [wallPositions, setWallPositions] = useState({});
 
   useEffect(() => {
     const projects = getProjects();
@@ -32,12 +34,14 @@ export default function ProjectPage() {
     setWalls(getProjectWalls(projectId));
     setConnections(getProjectConnections(projectId));
     setPlacedWallIds(getProjectPlacements(projectId));
+    setWallPositions(getProjectWallPositions(projectId));
   }, [projectId, navigate]);
 
   const refresh = () => {
     setWalls(getProjectWalls(projectId));
     setConnections(getProjectConnections(projectId));
     setPlacedWallIds(getProjectPlacements(projectId));
+    setWallPositions(getProjectWallPositions(projectId));
     const p = getProjects().find(p => p.id === projectId);
     if (p) setProject(p);
   };
@@ -50,6 +54,11 @@ export default function ProjectPage() {
   const handlePlacementsChange = (newPlacedIds) => {
     saveProjectPlacements(projectId, newPlacedIds);
     setPlacedWallIds(newPlacedIds);
+  };
+
+  const handleWallPositionsChange = (newPositions) => {
+    saveProjectWallPositions(projectId, newPositions);
+    setWallPositions(newPositions);
   };
 
   const handleDeleteWall = (wallId, e) => {
@@ -126,6 +135,8 @@ export default function ProjectPage() {
             onConnectionsChange={handleConnectionsChange}
             placedWallIds={placedWallIds}
             onPlacementsChange={handlePlacementsChange}
+            wallPositions={wallPositions}
+            onWallPositionsChange={handleWallPositionsChange}
           />
         )}
 

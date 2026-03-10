@@ -411,16 +411,24 @@ function SnapControlsPanel({
 /**
  * 3D Model Viewer for a project's walls arranged via snap connections.
  */
-export default function ModelViewer3D({ walls, connections = [], onConnectionsChange, placedWallIds = [], onPlacementsChange }) {
+export default function ModelViewer3D({
+  walls, connections = [], onConnectionsChange,
+  placedWallIds = [], onPlacementsChange,
+  wallPositions = {}, onWallPositionsChange,
+}) {
   const [showWireframe, setShowWireframe] = useState(false);
   const [selectedWallId, setSelectedWallId] = useState(null);
   const [selectedEnd, setSelectedEnd] = useState(null);
   const [placingWallId, setPlacingWallId] = useState(null);
+  const [movingWallId, setMovingWallId] = useState(null);
   const [ghostPos, setGhostPos] = useState([0, 0, 0]);
   const [ghostRotation, setGhostRotation] = useState(0);
-  const [snapInfo, setSnapInfo] = useState(null); // { anchorWallId, anchorEnd, ghostEnd, angleDeg, snapPoint }
+  const [snapInfo, setSnapInfo] = useState(null);
+  const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
   const cameraControlsRef = useRef(null);
-  const placingWall = placingWallId ? walls.find(w => w.id === placingWallId) : null;
+  const activeWallId = placingWallId || movingWallId;
+  const activeWall = activeWallId ? walls.find(w => w.id === activeWallId) : null;
 
   const placedWalls = useMemo(
     () => {
@@ -430,10 +438,28 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
     [walls, placedWallIds]
   );
 
-  const floorPlan = useMemo(
-    () => placedWalls.length > 0 ? computeFloorPlanFromConnections(placedWalls, connections) : [],
-    [placedWalls, connections]
-  );
+  const floorPlan = useMemo(() => {
+    if (placedWalls.length === 0) return [];
+    // Filter out the wall currently being moved — it shows as ghost instead
+    const wallsToRender = movingWallId
+      ? placedWalls.filter(w => w.id !== movingWallId)
+      : placedWalls;
+    const plan = computeFloorPlanFromConnections(wallsToRender, connections);
+    // Apply manual positions for standalone walls (no connections)
+    for (const entry of plan) {
+      const pos = wallPositions[entry.wall.id];
+      if (pos) {
+        const isConnected = connections.some(
+          c => c.wallId === entry.wall.id || c.attachedWallId === entry.wall.id
+        );
+        if (!isConnected) {
+          entry.position = { x: pos.x, y: entry.wall.height_mm / 2, z: pos.z };
+          entry.rotation = { x: 0, y: pos.rotationY || 0, z: 0 };
+        }
+      }
+    }
+    return plan;
+  }, [placedWalls, connections, wallPositions, movingWallId]);
 
   const layouts = useMemo(() => {
     const map = {};
@@ -497,23 +523,62 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
     ctrl.setLookAt(px * d, py * d, pz * d, 0, 0, 0, true);
   }, [sceneBounds]);
 
+  // Undo/redo: snapshot current state before mutations
+  const pushUndo = useCallback(() => {
+    setUndoStack(prev => [...prev.slice(-19), {
+      placedWallIds: [...placedWallIds],
+      connections: [...connections],
+      wallPositions: { ...wallPositions },
+    }]);
+    setRedoStack([]);
+  }, [placedWallIds, connections, wallPositions]);
+
+  const handleUndo = useCallback(() => {
+    if (undoStack.length === 0) return;
+    const prev = undoStack[undoStack.length - 1];
+    setRedoStack(r => [...r, {
+      placedWallIds: [...placedWallIds],
+      connections: [...connections],
+      wallPositions: { ...wallPositions },
+    }]);
+    setUndoStack(s => s.slice(0, -1));
+    if (onPlacementsChange) onPlacementsChange(prev.placedWallIds);
+    if (onConnectionsChange) onConnectionsChange(prev.connections);
+    if (onWallPositionsChange) onWallPositionsChange(prev.wallPositions);
+  }, [undoStack, placedWallIds, connections, wallPositions, onPlacementsChange, onConnectionsChange, onWallPositionsChange]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setUndoStack(s => [...s, {
+      placedWallIds: [...placedWallIds],
+      connections: [...connections],
+      wallPositions: { ...wallPositions },
+    }]);
+    setRedoStack(r => r.slice(0, -1));
+    if (onPlacementsChange) onPlacementsChange(next.placedWallIds);
+    if (onConnectionsChange) onConnectionsChange(next.connections);
+    if (onWallPositionsChange) onWallPositionsChange(next.wallPositions);
+  }, [redoStack, placedWallIds, connections, wallPositions, onPlacementsChange, onConnectionsChange, onWallPositionsChange]);
+
   const handlePlaceWall = useCallback((wallId) => {
+    pushUndo();
     setPlacingWallId(wallId);
+    setMovingWallId(null);
     setGhostPos([0, 0, 0]);
     setGhostRotation(0);
     setSelectedWallId(null);
     setSelectedEnd(null);
-    // Disable camera controls during placement
     if (cameraControlsRef.current) {
       cameraControlsRef.current.enabled = false;
     }
-  }, []);
+  }, [pushUndo]);
 
   const handleGhostMove = useCallback((e) => {
-    if (!placingWallId) return;
+    if (!activeWallId) return;
     e.stopPropagation();
     const point = e.point;
-    const wall = walls.find(w => w.id === placingWallId);
+    const wall = walls.find(w => w.id === activeWallId);
     if (!wall) return;
 
     const mouseX = point.x;
@@ -583,41 +648,65 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
       setGhostPos([snapToGrid(mouseX), 0, snapToGrid(mouseZ)]);
       setSnapInfo(null);
     }
-  }, [placingWallId, walls, floorPlan, connections, ghostRotation]);
+  }, [activeWallId, walls, floorPlan, connections, ghostRotation]);
 
   const handleCommitPlacement = useCallback((e) => {
-    if (!placingWallId || !onPlacementsChange) return;
+    if (!activeWallId) return;
     e.stopPropagation();
-    if (!placedWallIds.includes(placingWallId)) {
+
+    // Add to placements if new
+    if (placingWallId && onPlacementsChange && !placedWallIds.includes(placingWallId)) {
       onPlacementsChange([...placedWallIds, placingWallId]);
     }
-    // Auto-create connection if snapped to an endpoint
+
+    // Auto-create connection if snapped
     if (snapInfo && onConnectionsChange) {
       const newConnection = {
         id: crypto.randomUUID(),
         wallId: snapInfo.anchorWallId,
         anchorEnd: snapInfo.anchorEnd,
-        attachedWallId: placingWallId,
+        attachedWallId: activeWallId,
         attachedEnd: snapInfo.ghostEnd,
         angleDeg: snapInfo.angleDeg,
       };
       onConnectionsChange([...connections, newConnection]);
     }
+
+    // Save manual position if no snap (standalone wall)
+    if (!snapInfo && onWallPositionsChange) {
+      const newPositions = { ...wallPositions };
+      newPositions[activeWallId] = {
+        x: ghostPos[0] / MM_TO_M,
+        z: ghostPos[2] / MM_TO_M,
+        rotationY: ghostRotation,
+      };
+      onWallPositionsChange(newPositions);
+    }
+
     setPlacingWallId(null);
+    setMovingWallId(null);
     setSnapInfo(null);
-    // Re-enable camera controls
     if (cameraControlsRef.current) {
       cameraControlsRef.current.enabled = true;
     }
-  }, [placingWallId, placedWallIds, onPlacementsChange, snapInfo, connections, onConnectionsChange]);
+  }, [activeWallId, placingWallId, placedWallIds, onPlacementsChange, snapInfo, connections, onConnectionsChange, wallPositions, onWallPositionsChange, ghostPos, ghostRotation]);
 
   const handleCancelPlacement = useCallback(() => {
     setPlacingWallId(null);
+    setMovingWallId(null);
     setSnapInfo(null);
+    // Revert undo since action was cancelled
+    if (undoStack.length > 0) {
+      const prev = undoStack[undoStack.length - 1];
+      setUndoStack(s => s.slice(0, -1));
+      if (onPlacementsChange) onPlacementsChange(prev.placedWallIds);
+      if (onConnectionsChange) onConnectionsChange(prev.connections);
+      if (onWallPositionsChange) onWallPositionsChange(prev.wallPositions);
+    }
     if (cameraControlsRef.current) {
       cameraControlsRef.current.enabled = true;
     }
-  }, []);
+  }, [undoStack, onPlacementsChange, onConnectionsChange, onWallPositionsChange]);
 
   const handleRemoveWall = useCallback((wallId) => {
     if (onPlacementsChange) {
@@ -638,19 +727,93 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
     }
   }, [placedWallIds, onPlacementsChange, connections, onConnectionsChange, selectedWallId]);
 
-  // Keyboard shortcuts for placement mode
+  const handleMoveWall = useCallback((wallId) => {
+    pushUndo();
+    const entry = floorPlan.find(e => e.wall.id === wallId);
+    // Disconnect the wall before moving
+    if (onConnectionsChange) {
+      const filtered = connections.filter(
+        c => c.wallId !== wallId && c.attachedWallId !== wallId
+      );
+      if (filtered.length !== connections.length) {
+        onConnectionsChange(filtered);
+      }
+    }
+    setMovingWallId(wallId);
+    setPlacingWallId(null);
+    setGhostRotation(entry ? entry.rotation.y : 0);
+    setGhostPos(entry
+      ? [entry.position.x * MM_TO_M, 0, entry.position.z * MM_TO_M]
+      : [0, 0, 0]
+    );
+    setSelectedWallId(null);
+    setSelectedEnd(null);
+    if (cameraControlsRef.current) {
+      cameraControlsRef.current.enabled = false;
+    }
+  }, [pushUndo, floorPlan, connections, onConnectionsChange]);
+
+  const handleRotateSelected = useCallback(() => {
+    if (!selectedWallId) return;
+    const isConnected = connections.some(
+      c => c.wallId === selectedWallId || c.attachedWallId === selectedWallId
+    );
+    if (isConnected) return; // Can't rotate connected walls directly
+    pushUndo();
+    const pos = wallPositions[selectedWallId];
+    const currentRot = pos?.rotationY || 0;
+    const newPositions = { ...wallPositions };
+    newPositions[selectedWallId] = {
+      x: pos?.x || 0,
+      z: pos?.z || 0,
+      rotationY: (currentRot + Math.PI / 2) % (Math.PI * 2),
+    };
+    if (onWallPositionsChange) onWallPositionsChange(newPositions);
+  }, [selectedWallId, connections, wallPositions, onWallPositionsChange, pushUndo]);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!selectedWallId) return;
+    pushUndo();
+    handleRemoveWall(selectedWallId);
+  }, [selectedWallId, pushUndo, handleRemoveWall]);
+
+  // Keyboard shortcuts
   useEffect(() => {
-    if (!placingWallId) return;
+    if (!activeWallId && !selectedWallId) return;
     const handleKeyDown = (e) => {
-      if (e.key === 'r' || e.key === 'R') {
-        setGhostRotation(prev => (prev + Math.PI / 2) % (Math.PI * 2));
-      } else if (e.key === 'Escape') {
-        handleCancelPlacement();
+      if (activeWallId) {
+        // Placement/move mode
+        if (e.key === 'r' || e.key === 'R') {
+          setGhostRotation(prev => (prev + Math.PI / 2) % (Math.PI * 2));
+        } else if (e.key === 'Escape') {
+          handleCancelPlacement();
+        }
+      } else if (selectedWallId) {
+        // Selection mode
+        if (e.key === 'r' || e.key === 'R') {
+          handleRotateSelected();
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          handleDeleteSelected();
+        } else if (e.key === 'm' || e.key === 'M') {
+          handleMoveWall(selectedWallId);
+        } else if (e.key === 'Escape') {
+          setSelectedWallId(null);
+          setSelectedEnd(null);
+        } else if (e.key === 'z' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+          e.preventDefault();
+          handleUndo();
+        } else if (
+          (e.key === 'y' && (e.ctrlKey || e.metaKey)) ||
+          (e.key === 'z' && (e.ctrlKey || e.metaKey) && e.shiftKey)
+        ) {
+          e.preventDefault();
+          handleRedo();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [placingWallId, handleCancelPlacement]);
+  }, [activeWallId, selectedWallId, handleCancelPlacement, handleRotateSelected, handleDeleteSelected, handleMoveWall, handleUndo, handleRedo]);
 
   if (!walls || walls.length === 0) {
     return (
@@ -764,15 +927,15 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
             </>
           )}
 
-          {/* Placement mode: ground plane for raycasting + ghost preview */}
-          {placingWall && (
+          {/* Placement/move mode: ground plane for raycasting + ghost preview */}
+          {activeWall && (
             <>
               <PlacementGroundPlane
                 onPointerMove={handleGhostMove}
                 onClick={handleCommitPlacement}
               />
               <GhostWall
-                wall={placingWall}
+                wall={activeWall}
                 position={ghostPos}
                 rotationY={ghostRotation}
               />
@@ -799,11 +962,11 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
           ))}
         </div>
 
-        {/* Placement mode indicator */}
-        {placingWall && (
+        {/* Placement/move mode indicator */}
+        {activeWall && (
           <div style={styles.placementBanner}>
             <span>
-              Placing: <strong>{placingWall.name}</strong>
+              {movingWallId ? 'Moving' : 'Placing'}: <strong>{activeWall.name}</strong>
               {' \u2022 '}
               {Math.round(ghostRotation * 180 / Math.PI)}°
               {snapInfo && (
@@ -816,6 +979,25 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
             <button onClick={handleCancelPlacement} style={styles.placementCancelBtn}>
               Cancel
             </button>
+          </div>
+        )}
+
+        {/* Selected wall actions */}
+        {selectedWall && !activeWallId && (
+          <div style={styles.selectionToolbar}>
+            <span style={styles.selectionLabel}>{selectedWall.name}</span>
+            <button onClick={() => handleMoveWall(selectedWallId)} style={styles.actionToolbarBtn}>
+              Move (M)
+            </button>
+            <button onClick={handleRotateSelected} style={styles.actionToolbarBtn}>
+              Rotate (R)
+            </button>
+            <button onClick={handleDeleteSelected} style={styles.actionToolbarBtnDanger}>
+              Delete
+            </button>
+            {undoStack.length > 0 && (
+              <button onClick={handleUndo} style={styles.actionToolbarBtn}>Undo</button>
+            )}
           </div>
         )}
 
@@ -964,6 +1146,48 @@ const styles = {
     background: 'rgba(255,255,255,0.2)',
     color: '#fff',
     border: '1px solid rgba(255,255,255,0.3)',
+    borderRadius: 4,
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 600,
+  },
+
+  selectionToolbar: {
+    position: 'absolute',
+    top: 10,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    background: 'rgba(255,255,255,0.95)',
+    borderRadius: 6,
+    padding: '6px 12px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+    zIndex: 10,
+    whiteSpace: 'nowrap',
+  },
+  selectionLabel: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#1a1a1a',
+    marginRight: 4,
+  },
+  actionToolbarBtn: {
+    padding: '4px 10px',
+    background: '#f0f2f5',
+    color: '#333',
+    border: '1px solid #ddd',
+    borderRadius: 4,
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 600,
+  },
+  actionToolbarBtnDanger: {
+    padding: '4px 10px',
+    background: '#fff5f5',
+    color: '#e74c3c',
+    border: '1px solid #fdd',
     borderRadius: 4,
     cursor: 'pointer',
     fontSize: 11,
