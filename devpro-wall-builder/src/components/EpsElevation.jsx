@@ -335,31 +335,78 @@ export default function EpsElevation({ layout, wallName }) {
                       const plateAbove = isTopCourse ? TOP_PLATE * 2 : TOP_PLATE;
                       const cEpsBot = yBottom - course.y - plateBelow - EPS_INSET;
 
-                      if (isTopCourse && isRaked) {
-                        // Top course on sloped walls: polygon following wall slope
-                        const epsTopL = yTopAt(segL) + plateAbove + EPS_INSET;
-                        const epsTopR = yTopAt(segR) + plateAbove + EPS_INSET;
-                        // At least one edge must have positive height
-                        if (epsTopL >= cEpsBot && epsTopR >= cEpsBot) return null;
-                        // Build polygon: bottom-left → bottom-right → top-right → [peak] → top-left
-                        let pts = `${s(segL)},${s(cEpsBot)} ${s(segR)},${s(cEpsBot)} ${s(segR)},${s(epsTopR)}`;
-                        if (panel.peakHeight && panel.peakXLocal != null) {
-                          const peakGX = panel.x + panel.peakXLocal;
-                          if (peakGX > segL && peakGX < segR) {
-                            pts += ` ${s(peakGX)},${s(yTopAt(peakGX) + plateAbove + EPS_INSET)}`;
+                      if (isRaked) {
+                        // Sloped walls: polygon with per-vertex top edge + edge clipping
+                        // Top course: bounded by wall slope
+                        // Non-top courses: bounded by max(course boundary, wall slope)
+                        const courseTopY = isTopCourse
+                          ? -Infinity
+                          : yBottom - course.y - course.height + plateAbove + EPS_INSET;
+
+                        const epsTopAtX = (x) => {
+                          const wallTop = yTopAt(x) + TOP_PLATE * 2 + EPS_INSET;
+                          return isTopCourse ? wallTop : Math.max(courseTopY, wallTop);
+                        };
+
+                        const epsTopL = epsTopAtX(segL);
+                        const epsTopR = epsTopAtX(segR);
+                        const hL = cEpsBot - epsTopL;
+                        const hR = cEpsBot - epsTopR;
+
+                        // Both edges have no height — skip
+                        if (hL <= 0 && hR <= 0) return null;
+
+                        const pts = [];
+
+                        if (hL > 0 && hR > 0) {
+                          // Both edges visible — full polygon
+                          pts.push(`${s(segL)},${s(cEpsBot)}`);
+                          pts.push(`${s(segR)},${s(cEpsBot)}`);
+                          pts.push(`${s(segR)},${s(epsTopR)}`);
+                          if (panel.peakHeight && panel.peakXLocal != null) {
+                            const peakGX = panel.x + panel.peakXLocal;
+                            if (peakGX > segL && peakGX < segR) {
+                              pts.push(`${s(peakGX)},${s(epsTopAtX(peakGX))}`);
+                            }
+                          }
+                          pts.push(`${s(segL)},${s(epsTopL)}`);
+                        } else if (hL > 0) {
+                          // Right edge clipped — triangle ending at clipX
+                          const clipX = segL + hL / (hL - hR) * (segR - segL);
+                          pts.push(`${s(segL)},${s(cEpsBot)}`);
+                          pts.push(`${s(clipX)},${s(cEpsBot)}`);
+                          if (panel.peakHeight && panel.peakXLocal != null) {
+                            const peakGX = panel.x + panel.peakXLocal;
+                            if (peakGX > segL && peakGX < clipX) {
+                              pts.push(`${s(peakGX)},${s(epsTopAtX(peakGX))}`);
+                            }
+                          }
+                          pts.push(`${s(segL)},${s(epsTopL)}`);
+                        } else {
+                          // Left edge clipped — triangle starting at clipX
+                          const clipX = segL + hL / (hL - hR) * (segR - segL);
+                          pts.push(`${s(clipX)},${s(cEpsBot)}`);
+                          pts.push(`${s(segR)},${s(cEpsBot)}`);
+                          pts.push(`${s(segR)},${s(epsTopR)}`);
+                          if (panel.peakHeight && panel.peakXLocal != null) {
+                            const peakGX = panel.x + panel.peakXLocal;
+                            if (peakGX > clipX && peakGX < segR) {
+                              pts.push(`${s(peakGX)},${s(epsTopAtX(peakGX))}`);
+                            }
                           }
                         }
-                        pts += ` ${s(segL)},${s(epsTopL)}`;
-                        return <polygon key={`eps-${j}-c${ci}`} points={pts} fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1} />;
+
+                        return pts.length >= 3 ? (
+                          <polygon key={`eps-${j}-c${ci}`} points={pts.join(' ')} fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1} />
+                        ) : null;
                       }
 
-                      // Non-top courses (and top course on flat walls): rect bounded by course boundary
-                      const wallTopHere = isRaked ? panelShortTopY : yTopAt(leftX);
+                      // Flat walls: rect bounded by course boundary
                       const cEpsTop = isTopCourse
-                        ? wallTopHere + plateAbove + EPS_INSET
+                        ? yTopAt(leftX) + (TOP_PLATE * 2) + EPS_INSET
                         : Math.max(
                             yBottom - course.y - course.height + plateAbove + EPS_INSET,
-                            wallTopHere + TOP_PLATE * 2 + EPS_INSET
+                            yTopAt(leftX) + TOP_PLATE * 2 + EPS_INSET
                           );
                       const cH = cEpsBot - cEpsTop;
 
