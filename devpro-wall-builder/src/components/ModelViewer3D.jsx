@@ -1,12 +1,21 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Grid, Text, Sphere } from '@react-three/drei';
+import { CameraControls, PerspectiveCamera, Grid, Text, Sphere, ContactShadows, Environment } from '@react-three/drei';
 import { computeFloorPlanFromConnections } from '../utils/floorPlan.js';
 import { calculateWallLayout } from '../utils/calculator.js';
 import { computeLayoutBounds, computeWallEndpoint } from '../utils/wallSnap.js';
 import { WALL_THICKNESS, COLORS } from '../utils/constants.js';
 
 const MM_TO_M = 1 / 1000;
+/** Camera preset positions relative to scene center and camDist. */
+const CAMERA_PRESETS = {
+  iso:   { label: 'Iso',   pos: [0.8, 0.6, 0.8] },
+  front: { label: 'Front', pos: [0, 0.3, 1] },
+  back:  { label: 'Back',  pos: [0, 0.3, -1] },
+  left:  { label: 'Left',  pos: [-1, 0.3, 0] },
+  right: { label: 'Right', pos: [1, 0.3, 0] },
+  top:   { label: 'Top',   pos: [0, 1, 0.001] },
+};
 
 const WALL_COLORS = {
   front: COLORS.PANEL,
@@ -107,19 +116,6 @@ function WallMesh({ entry, layout, isSelected, onSelect, showWireframe }) {
         {entry.wall.name || entry.side}
       </Text>
     </group>
-  );
-}
-
-/**
- * Floor plane showing the footprint.
- */
-function FloorPlane({ width, depth }) {
-  const s = MM_TO_M;
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-      <planeGeometry args={[width * s + 1, depth * s + 1]} />
-      <meshStandardMaterial color="#e8e8e0" transparent opacity={0.5} />
-    </mesh>
   );
 }
 
@@ -246,6 +242,7 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
   const [showWireframe, setShowWireframe] = useState(false);
   const [selectedWallId, setSelectedWallId] = useState(null);
   const [selectedEnd, setSelectedEnd] = useState(null);
+  const cameraControlsRef = useRef(null);
 
   const floorPlan = useMemo(
     () => computeFloorPlanFromConnections(walls, connections),
@@ -304,6 +301,16 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
     setSelectedEnd(null);
   }, [connections, onConnectionsChange]);
 
+  const handleCameraPreset = useCallback((presetKey) => {
+    const ctrl = cameraControlsRef.current;
+    if (!ctrl) return;
+    const preset = CAMERA_PRESETS[presetKey];
+    if (!preset) return;
+    const d = Math.max(sceneBounds.width, sceneBounds.depth, sceneBounds.maxHeight) * MM_TO_M * 1.5;
+    const [px, py, pz] = preset.pos;
+    ctrl.setLookAt(px * d, py * d, pz * d, 0, 0, 0, true);
+  }, [sceneBounds]);
+
   if (!walls || walls.length === 0) {
     return (
       <div style={styles.empty}>
@@ -341,24 +348,39 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
             position={[camDist * 0.8, camDist * 0.6, camDist * 0.8]}
             fov={50}
           />
-          <OrbitControls enableDamping dampingFactor={0.1} />
+          <CameraControls
+            ref={cameraControlsRef}
+            minDistance={camDist * 0.3}
+            maxDistance={camDist * 3}
+            maxPolarAngle={Math.PI * 0.47}
+            smoothTime={0.25}
+            draggingSmoothTime={0.1}
+          />
 
           {/* Lighting */}
-          <ambientLight intensity={0.5} />
+          <ambientLight intensity={0.4} />
           <directionalLight position={[10, 15, 10]} intensity={0.8} castShadow />
           <directionalLight position={[-5, 10, -5]} intensity={0.3} />
+          <Environment preset="city" background={false} />
 
-          {/* Floor */}
-          <FloorPlane width={sceneBounds.width} depth={sceneBounds.depth} />
+          {/* Floor — contact shadows + grid */}
+          <ContactShadows
+            position={[0, -0.01, 0]}
+            opacity={0.35}
+            scale={Math.max(sceneBounds.width, sceneBounds.depth) * MM_TO_M + 4}
+            blur={2}
+            far={sceneBounds.maxHeight * MM_TO_M + 1}
+          />
           <Grid
             args={[50, 50]}
             cellSize={1}
             cellThickness={0.5}
-            cellColor="#ccc"
+            cellColor="#d0d0d0"
             sectionSize={5}
             sectionThickness={1}
-            sectionColor="#999"
-            fadeDistance={30}
+            sectionColor="#aaa"
+            fadeDistance={camDist * 2}
+            fadeStrength={1.5}
             position={[0, -0.01, 0]}
           />
 
@@ -395,6 +417,19 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
           {/* Axes helper */}
           <axesHelper args={[2]} />
         </Canvas>
+
+        {/* Camera preset toolbar */}
+        <div style={styles.cameraToolbar}>
+          {Object.entries(CAMERA_PRESETS).map(([key, { label }]) => (
+            <button
+              key={key}
+              onClick={() => handleCameraPreset(key)}
+              style={styles.cameraBtn}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         {/* Snap controls overlay */}
         {selectedWall && selectedEnd && onConnectionsChange && (
@@ -476,6 +511,29 @@ const styles = {
     textAlign: 'center',
     color: '#999',
     fontSize: 14,
+  },
+  cameraToolbar: {
+    position: 'absolute',
+    bottom: 10,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    gap: 4,
+    background: 'rgba(255,255,255,0.9)',
+    borderRadius: 6,
+    padding: '4px 6px',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+    zIndex: 10,
+  },
+  cameraBtn: {
+    padding: '5px 10px',
+    background: 'none',
+    border: '1px solid #ddd',
+    borderRadius: 4,
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 600,
+    color: '#555',
   },
 
   // Snap controls panel
