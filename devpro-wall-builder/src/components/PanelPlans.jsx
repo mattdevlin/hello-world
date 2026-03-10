@@ -536,6 +536,31 @@ function SplineMagboardCard({ label, splineHeight, totalQty }) {
 }
 
 /**
+ * Horizontal spline magboard card — simple rectangle (width × 146mm).
+ */
+function HSplineMagboardCard({ label, width, totalQty }) {
+  const W = width;
+  const H = SPLINE_WIDTH;
+  const verts = [
+    { x: 0, y: H },
+    { x: W, y: H },
+    { x: W, y: 0 },
+    { x: 0, y: 0 },
+  ];
+  return (
+    <ProfileCard
+      vertices={verts}
+      profileWidth={W}
+      profileHeight={H}
+      fill="#D4A574"
+      title={label}
+      subtitle={`${W} × ${H} mm`}
+      qty={totalQty}
+    />
+  );
+}
+
+/**
  * Top course panel card — rectangle cut from sheet for upper course.
  */
 function TopCourseCard({ panel, courseHeight, sheetHeight }) {
@@ -613,13 +638,48 @@ export default function PanelPlans({ layout, wallName }) {
     }
   }
 
+  // ── Horizontal spline pieces (multi-course only) ──
+  const hsplinePieces = [];
+  if (isMultiCourse && courses.length > 1) {
+    const HSPLINE_CLEARANCE = 10;
+    const jointHasSpline = [];
+    for (let i = 0; i < panels.length - 1; i++) {
+      const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
+      const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+      const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+      jointHasSpline.push(!insideLintel && !insideFooter);
+    }
+    for (let ci = 0; ci < courses.length - 1; ci++) {
+      for (let pi = 0; pi < panels.length; pi++) {
+        const panel = panels[pi];
+        let leftEdge = panel.x;
+        if (pi > 0 && jointHasSpline[pi - 1]) {
+          const gc = panels[pi - 1].x + panels[pi - 1].width + PANEL_GAP / 2;
+          leftEdge = gc + HALF_SPLINE;
+        }
+        let rightEdge = panel.x + panel.width;
+        if (pi < panels.length - 1 && jointHasSpline[pi]) {
+          const gc = panel.x + panel.width + PANEL_GAP / 2;
+          rightEdge = gc - HALF_SPLINE;
+        }
+        const w = Math.round(rightEdge - leftEdge - 2 * HSPLINE_CLEARANCE);
+        if (w > 0) {
+          hsplinePieces.push({
+            label: `H-Spline P${panel.index + 1} C${ci + 1}/${ci + 2}`,
+            width: w,
+          });
+        }
+      }
+    }
+  }
+
   // For multi-course walls, collect panels that individually need multi-course cuts
   const topCoursePanels = panels.filter(p => p.isMultiCourse);
   const upperCourses = courses.length > 1 ? courses.slice(1) : [];
 
   const hasContent = lcutPanels.length || endPanels.length || rakedFullPanels.length
     || lintels.length || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length
-    || topCoursePanels.length;
+    || topCoursePanels.length || hsplinePieces.length;
   if (!hasContent) return null;
 
   return (
@@ -673,6 +733,9 @@ export default function PanelPlans({ layout, wallName }) {
         {splinePieces.length > 0 && (
           <SplineMagboardCard label="Splines" splineHeight={splineH} totalQty={splinePieces.length * 2} />
         )}
+        {hsplinePieces.map((hs, i) => (
+          <HSplineMagboardCard key={`hspline-${i}`} label={hs.label} width={hs.width} totalQty={2} />
+        ))}
       </div>
 
       {/* Top course panels (multi-course only) */}

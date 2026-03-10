@@ -90,7 +90,9 @@ export function extractMagboardPieces(layout, wallName = '') {
     }
   }
 
-  // ── Splines: 2 magboard pieces each ──
+  // ── Vertical splines: 2 magboard pieces each ──
+  // Track which joints have vertical splines (needed for horizontal spline sizing)
+  const jointHasSpline = new Array(panels.length - 1).fill(false);
   const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2 - 10;
   if (splineH > 0) {
     // Joint splines
@@ -100,6 +102,7 @@ export function extractMagboardPieces(layout, wallName = '') {
       const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
       const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
       if (!insideLintel && !insideFooter) {
+        jointHasSpline[i] = true;
         for (let j = 0; j < 2; j++) {
           cutPieces.push({
             width: SPLINE_WIDTH,
@@ -118,6 +121,75 @@ export function extractMagboardPieces(layout, wallName = '') {
         for (let j = 0; j < 2; j++) {
           cutPieces.push({ width: SPLINE_WIDTH, height: splineH, type: 'spline', label: `Spline ${op.ref} L`, wallName });
           cutPieces.push({ width: SPLINE_WIDTH, height: splineH, type: 'spline', label: `Spline ${op.ref} R`, wallName });
+        }
+      }
+    }
+  }
+
+  // ── Horizontal splines at course joints (multi-course only) ──
+  // Width = distance between inner edges of adjacent vertical splines, less 10mm each end.
+  // First/last panels (or joints without a vertical spline) use the vertical timber
+  // edge (panel edge) as the boundary, still less 10mm clearance.
+  const HSPLINE_CLEARANCE = 10;
+  if (isMultiCourse && courses.length > 1) {
+    for (let ci = 0; ci < courses.length - 1; ci++) {
+      for (let pi = 0; pi < panels.length; pi++) {
+        const panel = panels[pi];
+
+        // Left boundary
+        let leftEdge;
+        if (pi > 0 && jointHasSpline[pi - 1]) {
+          // Inner edge of left vertical spline (spline centered on gap)
+          const gapCentre = panels[pi - 1].x + panels[pi - 1].width + PANEL_GAP / 2;
+          leftEdge = gapCentre + SPLINE_WIDTH / 2;
+        } else {
+          // Inset past the vertical timber plate at the panel edge
+          leftEdge = panel.x + BOTTOM_PLATE;
+        }
+
+        // Right boundary
+        let rightEdge;
+        if (pi < panels.length - 1 && jointHasSpline[pi]) {
+          const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
+          rightEdge = gapCentre - SPLINE_WIDTH / 2;
+        } else {
+          // Inset past the vertical timber plate at the panel edge
+          rightEdge = panel.x + panel.width - BOTTOM_PLATE;
+        }
+
+        // Split around lintels (10mm clearance from lintel edges)
+        const splineLeft = leftEdge + HSPLINE_CLEARANCE;
+        const splineRight = rightEdge - HSPLINE_CLEARANCE;
+        if (splineRight > splineLeft) {
+          const excl = [];
+          for (const l of lintels) {
+            const eL = Math.max(l.x - HSPLINE_CLEARANCE, splineLeft);
+            const eR = Math.min(l.x + l.width + HSPLINE_CLEARANCE, splineRight);
+            if (eL < eR) excl.push([eL, eR]);
+          }
+          excl.sort((a, b) => a[0] - b[0]);
+          const segs = [];
+          let cursor = splineLeft;
+          for (const [eL, eR] of excl) {
+            if (cursor < eL) segs.push([cursor, eL]);
+            cursor = Math.max(cursor, eR);
+          }
+          if (cursor < splineRight) segs.push([cursor, splineRight]);
+
+          for (const [segL, segR] of segs) {
+            const hsplineWidth = segR - segL;
+            if (hsplineWidth > 0) {
+              for (let j = 0; j < 2; j++) {
+                cutPieces.push({
+                  width: hsplineWidth,
+                  height: SPLINE_WIDTH,
+                  type: 'hspline',
+                  label: `H-Spline P${panel.index + 1} C${ci + 1}/${ci + 2}`,
+                  wallName,
+                });
+              }
+            }
+          }
         }
       }
     }
@@ -238,6 +310,7 @@ export function computeProjectMagboardSheets(walls) {
       footerCount: cutPieces.filter(p => p.type === 'footer').length,
       splineCount: cutPieces.filter(p => p.type === 'spline').length,
       deductionCount: cutPieces.filter(p => p.type === 'deduction').length,
+      hsplineCount: cutPieces.filter(p => p.type === 'hspline').length,
     });
   }
 
@@ -293,6 +366,7 @@ export function computeProjectMagboardSheets(walls) {
     totalFooters: allCutPieces.filter(p => p.type === 'footer').length,
     totalSplines: allCutPieces.filter(p => p.type === 'spline').length,
     totalDeductions: allCutPieces.filter(p => p.type === 'deduction').length,
+    totalHsplines: allCutPieces.filter(p => p.type === 'hspline').length,
 
     perWall,
   };
