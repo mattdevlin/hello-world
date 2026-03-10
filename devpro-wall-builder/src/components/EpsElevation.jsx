@@ -555,17 +555,21 @@ export default function EpsElevation({ layout, wallName }) {
             // Timber beam spans between inner edges of opening splines/plates, with 10mm gap
             const beamH = l.beamHeight || 200;
             const beamLeft = hasSill
-              ? op.x - BOTTOM_PLATE + EPS_INSET            // 10mm inside left spline inner edge
-              : op.x - BOTTOM_PLATE + EPS_INSET;           // 10mm inside left plate inner edge
+              ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET  // 10mm inside left spline outer edge
+              : op.x - BOTTOM_PLATE + EPS_INSET;                // 10mm inside left plate inner edge
             const beamRight = hasSill
-              ? op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET  // 10mm inside right spline inner edge
-              : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET; // 10mm inside right plate inner edge
+              ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET  // 10mm inside right spline outer edge
+              : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;               // 10mm inside right plate inner edge
             const beamTop = yBottom - l.y - beamH;
             const beamBot = yBottom - l.y;
 
             // Lintel EPS: fills the area above the timber beam, inset 10mm from spline/plate inner edges
-            const epsLeft = op.x - BOTTOM_PLATE + EPS_INSET;     // 10mm inside spline/plate inner edge
-            const epsRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;  // 10mm inside spline/plate inner edge
+            const epsLeft = hasSill
+              ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET  // 10mm inside spline outer edge
+              : op.x - BOTTOM_PLATE + EPS_INSET;                // 10mm inside plate inner edge
+            const epsRight = hasSill
+              ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET  // 10mm inside spline outer edge
+              : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;               // 10mm inside plate inner edge
             const epsBot = beamTop - EPS_INSET;  // 10mm above timber beam
 
             // EPS top follows wall slope (same as panel EPS logic)
