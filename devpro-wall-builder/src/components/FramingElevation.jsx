@@ -35,6 +35,27 @@ export default function FramingElevation({ layout, wallName }) {
   const plateLeft = deductionLeft;
   const plateRight = grossLength - deductionRight;
 
+  // Render a vertical spline rect or raked polygon
+  const renderSpline = (xL, xR, topL, topR, bot, key) => {
+    if (topL >= bot && topR >= bot) return null;
+    if (!isRaked || Math.abs(topL - topR) < 0.5) {
+      const topY = Math.min(topL, topR);
+      return (bot - topY) > 0 ? (
+        <rect key={key} x={s(xL)} y={s(topY)} width={s(xR - xL)} height={s(bot - topY)}
+          fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+      ) : null;
+    }
+    const pts = [];
+    pts.push(`${s(xL)},${s(bot)}`);
+    pts.push(`${s(xR)},${s(bot)}`);
+    if (topR < bot) pts.push(`${s(xR)},${s(topR)}`);
+    if (topL < bot) pts.push(`${s(xL)},${s(topL)}`);
+    return pts.length >= 3 ? (
+      <polygon key={key} points={pts.join(' ')}
+        fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+    ) : null;
+  };
+
   return (
     <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0' }}>
@@ -319,33 +340,7 @@ export default function FramingElevation({ layout, wallName }) {
             const spTopR = yTop(spXR) + TOP_PLATE * 2;
             const spBot = yBottom - BOTTOM_PLATE;
 
-            if (spTopL >= spBot && spTopR >= spBot) return null;
-
-            if (!isRaked || Math.abs(spTopL - spTopR) < 0.5) {
-              const spTopY = Math.min(spTopL, spTopR);
-              return (spBot - spTopY) > 0 ? (
-                <rect
-                  key={`joint-spline-${i}`}
-                  x={s(spXL)} y={s(spTopY)}
-                  width={s(SPLINE_WIDTH)} height={s(spBot - spTopY)}
-                  fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-                />
-              ) : null;
-            }
-
-            // Raked/gable: polygon with angled top
-            const pts = [];
-            pts.push(`${s(spXL)},${s(spBot)}`);
-            pts.push(`${s(spXR)},${s(spBot)}`);
-            if (spTopR < spBot) pts.push(`${s(spXR)},${s(spTopR)}`);
-            if (spTopL < spBot) pts.push(`${s(spXL)},${s(spTopL)}`);
-            return pts.length >= 3 ? (
-              <polygon
-                key={`joint-spline-${i}`}
-                points={pts.join(' ')}
-                fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-              />
-            ) : null;
+            return renderSpline(spXL, spXR, spTopL, spTopR, spBot, `joint-spline-${i}`);
           })}
 
           {/* ── Openings ── */}
@@ -419,41 +414,14 @@ export default function FramingElevation({ layout, wallName }) {
                 />
                 {hasSill && (() => {
                   const spBot = yBottom - BOTTOM_PLATE;
-                  // Left opening spline
                   const lSpXL = op.x - BOTTOM_PLATE - SPLINE_WIDTH;
                   const lSpXR = op.x - BOTTOM_PLATE;
-                  const lTopL = yTop(lSpXL) + TOP_PLATE * 2;
-                  const lTopR = yTop(lSpXR) + TOP_PLATE * 2;
-                  // Right opening spline
                   const rSpXL = op.x + op.drawWidth + BOTTOM_PLATE;
                   const rSpXR = rSpXL + SPLINE_WIDTH;
-                  const rTopL = yTop(rSpXL) + TOP_PLATE * 2;
-                  const rTopR = yTop(rSpXR) + TOP_PLATE * 2;
-
-                  const renderSpline = (xL, xR, topL, topR, key) => {
-                    if (topL >= spBot && topR >= spBot) return null;
-                    if (!isRaked || Math.abs(topL - topR) < 0.5) {
-                      const topY = Math.min(topL, topR);
-                      return (spBot - topY) > 0 ? (
-                        <rect key={key} x={s(xL)} y={s(topY)} width={s(SPLINE_WIDTH)} height={s(spBot - topY)}
-                          fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                      ) : null;
-                    }
-                    const pts = [];
-                    pts.push(`${s(xL)},${s(spBot)}`);
-                    pts.push(`${s(xR)},${s(spBot)}`);
-                    if (topR < spBot) pts.push(`${s(xR)},${s(topR)}`);
-                    if (topL < spBot) pts.push(`${s(xL)},${s(topL)}`);
-                    return pts.length >= 3 ? (
-                      <polygon key={key} points={pts.join(' ')}
-                        fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                    ) : null;
-                  };
-
                   return (
                     <>
-                      {renderSpline(lSpXL, lSpXR, lTopL, lTopR, `op-spline-l-${i}`)}
-                      {renderSpline(rSpXL, rSpXR, rTopL, rTopR, `op-spline-r-${i}`)}
+                      {renderSpline(lSpXL, lSpXR, yTop(lSpXL) + TOP_PLATE * 2, yTop(lSpXR) + TOP_PLATE * 2, spBot, `op-spline-l-${i}`)}
+                      {renderSpline(rSpXL, rSpXR, yTop(rSpXL) + TOP_PLATE * 2, yTop(rSpXR) + TOP_PLATE * 2, spBot, `op-spline-r-${i}`)}
                     </>
                   );
                 })()}
