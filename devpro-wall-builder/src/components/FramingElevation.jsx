@@ -5,6 +5,8 @@ import PrintButton from './PrintButton.jsx';
 const SPLINE_WIDTH = 146; // mm
 const HALF_SPLINE = SPLINE_WIDTH / 2; // 73mm each side of centre
 
+const EPS_INSET = 10; // mm recess from framing (matches EpsElevation)
+
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 const DASH = '6,3';
@@ -494,13 +496,18 @@ export default function FramingElevation({ layout, wallName }) {
               : `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
             const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
 
-            // Timber beam rect (spans between vertical plates/splines with 10mm gap)
+            // Timber beam rect (spans between vertical plates/splines with EPS_INSET gap)
             const op = openings.find(o => o.ref === l.ref);
+            const hasSill = op && op.y > 0;
             const beamH = l.beamHeight || 200;
             let beamEl = null;
             if (op) {
-              const beamLeft = op.x - BOTTOM_PLATE + 10;
-              const beamRight = op.x + op.drawWidth + BOTTOM_PLATE - 10;
+              const beamLeft = hasSill
+                ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET
+                : op.x - BOTTOM_PLATE + EPS_INSET;
+              const beamRight = hasSill
+                ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET
+                : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
               const beamTop = yBottom - l.y - beamH;
               const beamW = beamRight - beamLeft;
               if (beamW > 0 && beamH > 0) {
