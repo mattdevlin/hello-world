@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { CameraControls, PerspectiveCamera, Grid, Text, Sphere, ContactShadows, Environment } from '@react-three/drei';
+import { CameraControls, PerspectiveCamera, Grid, Text, Sphere, ContactShadows, Environment, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import { computeFloorPlanFromConnections } from '../utils/floorPlan.js';
 import { calculateWallLayout } from '../utils/calculator.js';
@@ -57,16 +57,96 @@ function SnapPointMarker({ entry, end, isConnected, onClick }) {
 }
 
 /**
- * Single wall mesh — a box with openings cut out (approximated as separate meshes).
+ * Build a THREE.Shape for a wall profile with opening cutouts.
+ * Shape is in wall-local coords: X = along wall length, Y = up.
+ * Origin at wall center (centered on length and height).
+ */
+function buildWallShape(wall, openings) {
+  const s = MM_TO_M;
+  const len = wall.length_mm;
+  const hLeft = wall.height_mm;
+  const halfLen = len / 2;
+  const profile = wall.profile || 'standard';
+
+  const shape = new THREE.Shape();
+
+  if (profile === 'raked') {
+    const hRight = wall.height_right_mm || hLeft;
+    // Bottom-left → bottom-right → top-right → top-left
+    shape.moveTo(-halfLen * s, (-hLeft / 2) * s);
+    shape.lineTo(halfLen * s, (-hLeft / 2) * s);
+    shape.lineTo(halfLen * s, (-hLeft / 2 + hRight) * s);
+    shape.lineTo(-halfLen * s, (hLeft / 2) * s);
+    shape.closePath();
+  } else if (profile === 'gable') {
+    const peakH = wall.peak_height_mm || hLeft;
+    const peakX = (wall.peak_position_mm ?? len / 2);
+    const peakLocalX = (peakX - halfLen) * s;
+    const baseY = (-hLeft / 2) * s;
+    // Bottom-left → bottom-right → top-right → peak → top-left
+    shape.moveTo(-halfLen * s, baseY);
+    shape.lineTo(halfLen * s, baseY);
+    shape.lineTo(halfLen * s, (hLeft / 2) * s);
+    shape.lineTo(peakLocalX, (-hLeft / 2 + peakH) * s);
+    shape.lineTo(-halfLen * s, (hLeft / 2) * s);
+    shape.closePath();
+  } else {
+    // Standard rectangular
+    shape.moveTo(-halfLen * s, (-hLeft / 2) * s);
+    shape.lineTo(halfLen * s, (-hLeft / 2) * s);
+    shape.lineTo(halfLen * s, (hLeft / 2) * s);
+    shape.lineTo(-halfLen * s, (hLeft / 2) * s);
+    shape.closePath();
+  }
+
+  // Cut openings as holes
+  if (openings) {
+    for (const op of openings) {
+      const ox = (op.x - halfLen) * s;
+      const oy = (op.y - hLeft / 2) * s;
+      const ow = op.drawWidth * s;
+      const oh = op.drawHeight * s;
+      const hole = new THREE.Path();
+      hole.moveTo(ox, oy);
+      hole.lineTo(ox + ow, oy);
+      hole.lineTo(ox + ow, oy + oh);
+      hole.lineTo(ox, oy + oh);
+      hole.closePath();
+      shape.holes.push(hole);
+    }
+  }
+
+  return shape;
+}
+
+/**
+ * Single wall mesh with profile geometry and opening cutouts.
  */
 function WallMesh({ entry, layout, isSelected, onSelect, showWireframe }) {
   const { position, rotation, dimensions } = entry;
+  const wall = entry.wall;
   const s = MM_TO_M;
-  const len = dimensions.length * s;
-  const h = dimensions.height * s;
   const thick = dimensions.thickness * s;
 
   const wallColor = WALL_COLORS[entry.side] || COLORS.PANEL;
+
+  const geometry = useMemo(() => {
+    const shape = buildWallShape(wall, layout?.openings);
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: thick,
+      bevelEnabled: false,
+    });
+    // Center on Z axis (extrude goes 0 → depth, we want -depth/2 → depth/2)
+    geo.translate(0, 0, -thick / 2);
+    return geo;
+  }, [wall, layout?.openings, thick]);
+
+  // Compute max height for label positioning
+  const maxH = wall.profile === 'gable'
+    ? (wall.peak_height_mm || wall.height_mm) * s
+    : wall.profile === 'raked'
+    ? Math.max(wall.height_mm, wall.height_right_mm || wall.height_mm) * s
+    : wall.height_mm * s;
 
   return (
     <group
@@ -75,47 +155,44 @@ function WallMesh({ entry, layout, isSelected, onSelect, showWireframe }) {
       onClick={(e) => { e.stopPropagation(); onSelect(entry.wall.id); }}
     >
       {/* Main wall body */}
-      <mesh castShadow>
-        <boxGeometry args={[len, h, thick]} />
+      <mesh castShadow geometry={geometry}>
         <meshStandardMaterial
           color={wallColor}
           transparent
           opacity={isSelected ? 0.85 : 0.7}
           emissive={isSelected ? SELECTED_EMISSIVE : '#000000'}
           emissiveIntensity={isSelected ? 0.3 : 0}
+          side={THREE.DoubleSide}
         />
       </mesh>
 
       {/* Wall wireframe outline */}
       {showWireframe && (
-        <mesh>
-          <boxGeometry args={[len, h, thick]} />
+        <mesh geometry={geometry}>
           <meshBasicMaterial color="#333" wireframe />
         </mesh>
       )}
 
-      {/* Openings rendered as darker inset boxes */}
-      {layout?.openings?.map((op, i) => {
-        const opX = (op.x + op.drawWidth / 2 - dimensions.length / 2) * s;
-        const opY = (op.y + op.drawHeight / 2 - dimensions.height / 2) * s;
-        return (
-          <mesh key={`opening-${i}`} position={[opX, opY, 0]}>
-            <boxGeometry args={[op.drawWidth * s, op.drawHeight * s, thick * 1.1]} />
-            <meshStandardMaterial color="#87CEEB" transparent opacity={0.3} />
-          </mesh>
-        );
-      })}
-
-      {/* Wall label */}
-      <Text
-        position={[0, h / 2 + 0.15, thick / 2 + 0.01]}
-        fontSize={0.15}
-        color="#333"
-        anchorX="center"
-        anchorY="bottom"
-      >
-        {entry.wall.name || entry.side}
-      </Text>
+      {/* Wall label — billboard so it always faces camera */}
+      <Billboard position={[0, maxH / 2 + 0.15, 0]}>
+        <Text
+          fontSize={0.15}
+          color="#333"
+          anchorX="center"
+          anchorY="bottom"
+        >
+          {wall.name || entry.side}
+        </Text>
+        <Text
+          fontSize={0.09}
+          color="#888"
+          anchorX="center"
+          anchorY="top"
+          position={[0, -0.02, 0]}
+        >
+          {(wall.length_mm / 1000).toFixed(1)}m
+        </Text>
+      </Billboard>
     </group>
   );
 }
@@ -147,38 +224,46 @@ function roundToNearest90(rad) {
  * Semi-transparent ghost wall that follows the cursor during placement mode.
  */
 function GhostWall({ wall, position, rotationY }) {
-  const s = MM_TO_M;
-  const len = wall.length_mm * s;
-  const h = wall.height_mm * s;
-  const thick = WALL_THICKNESS * s;
+  const h = wall.height_mm * MM_TO_M;
+  const thick = WALL_THICKNESS * MM_TO_M;
+
+  const geometry = useMemo(() => {
+    const shape = buildWallShape(wall, null);
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: thick,
+      bevelEnabled: false,
+    });
+    geo.translate(0, 0, -thick / 2);
+    return geo;
+  }, [wall, thick]);
 
   return (
     <group
       position={[position[0], h / 2, position[2]]}
       rotation={[0, rotationY, 0]}
     >
-      <mesh>
-        <boxGeometry args={[len, h, thick]} />
+      <mesh geometry={geometry}>
         <meshStandardMaterial
           color="#4a90d9"
           transparent
           opacity={0.4}
           depthWrite={false}
+          side={THREE.DoubleSide}
         />
       </mesh>
-      <mesh>
-        <boxGeometry args={[len, h, thick]} />
+      <mesh geometry={geometry}>
         <meshBasicMaterial color="#2C5F8A" wireframe />
       </mesh>
-      <Text
-        position={[0, h / 2 + 0.15, thick / 2 + 0.01]}
-        fontSize={0.15}
-        color="#2C5F8A"
-        anchorX="center"
-        anchorY="bottom"
-      >
-        {wall.name}
-      </Text>
+      <Billboard position={[0, h / 2 + 0.15, 0]}>
+        <Text
+          fontSize={0.15}
+          color="#2C5F8A"
+          anchorX="center"
+          anchorY="bottom"
+        >
+          {wall.name}
+        </Text>
+      </Billboard>
     </group>
   );
 }
