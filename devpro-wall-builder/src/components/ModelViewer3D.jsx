@@ -4,7 +4,7 @@ import { CameraControls, PerspectiveCamera, Grid, Text, Sphere, ContactShadows, 
 import * as THREE from 'three';
 import { computeFloorPlanFromConnections } from '../utils/floorPlan.js';
 import { calculateWallLayout } from '../utils/calculator.js';
-import { computeLayoutBounds, computeWallEndpoint } from '../utils/wallSnap.js';
+import { computeLayoutBounds, computeWallEndpoint, computeSnapPosition } from '../utils/wallSnap.js';
 import { WALL_THICKNESS, COLORS } from '../utils/constants.js';
 
 const MM_TO_M = 1 / 1000;
@@ -121,7 +121,27 @@ function WallMesh({ entry, layout, isSelected, onSelect, showWireframe }) {
 }
 
 const GRID_SNAP_M = 0.1; // 100mm grid snap
+const SNAP_THRESHOLD_M = 0.4; // 400mm — magnetic snap distance
 const snapToGrid = (v) => Math.round(v / GRID_SNAP_M) * GRID_SNAP_M;
+
+/**
+ * Compute world-space XZ position of a wall endpoint.
+ */
+function getEndpointWorld(wall, end, posX, posZ, angleRad) {
+  const ep = computeWallEndpoint(wall, end);
+  return {
+    x: posX + ep.localX_mm * MM_TO_M * Math.cos(angleRad),
+    z: posZ - ep.localX_mm * MM_TO_M * Math.sin(angleRad),
+  };
+}
+
+/**
+ * Round angle (radians) to nearest 90° and return degrees (0, 90, 180, 270).
+ */
+function roundToNearest90(rad) {
+  const deg = ((rad * 180 / Math.PI) % 360 + 360) % 360;
+  return Math.round(deg / 90) * 90 % 360;
+}
 
 /**
  * Semi-transparent ghost wall that follows the cursor during placement mode.
@@ -159,6 +179,23 @@ function GhostWall({ wall, position, rotationY }) {
       >
         {wall.name}
       </Text>
+    </group>
+  );
+}
+
+/**
+ * Green sphere + ring indicating an active snap point during placement.
+ */
+function SnapIndicator({ position }) {
+  return (
+    <group position={[position.x, 0.05, position.z]}>
+      <Sphere args={[0.1, 16, 16]}>
+        <meshStandardMaterial color="#22cc44" emissive="#22cc44" emissiveIntensity={0.6} />
+      </Sphere>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.15, 0.2, 32]} />
+        <meshBasicMaterial color="#22cc44" transparent opacity={0.5} />
+      </mesh>
     </group>
   );
 }
@@ -381,6 +418,7 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
   const [placingWallId, setPlacingWallId] = useState(null);
   const [ghostPos, setGhostPos] = useState([0, 0, 0]);
   const [ghostRotation, setGhostRotation] = useState(0);
+  const [snapInfo, setSnapInfo] = useState(null); // { anchorWallId, anchorEnd, ghostEnd, angleDeg, snapPoint }
   const cameraControlsRef = useRef(null);
   const placingWall = placingWallId ? walls.find(w => w.id === placingWallId) : null;
 
@@ -475,8 +513,77 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
     if (!placingWallId) return;
     e.stopPropagation();
     const point = e.point;
-    setGhostPos([snapToGrid(point.x), 0, snapToGrid(point.z)]);
-  }, [placingWallId]);
+    const wall = walls.find(w => w.id === placingWallId);
+    if (!wall) return;
+
+    const mouseX = point.x;
+    const mouseZ = point.z;
+
+    // Check snap against all placed wall endpoints
+    let bestSnap = null;
+    let bestDist = SNAP_THRESHOLD_M;
+
+    for (const entry of floorPlan) {
+      for (const anchorEnd of ['left', 'right']) {
+        // Skip already-connected endpoints
+        const alreadyConnected = connections.some(
+          c => (c.wallId === entry.wall.id && c.anchorEnd === anchorEnd) ||
+               (c.attachedWallId === entry.wall.id && c.attachedEnd === anchorEnd)
+        );
+        if (alreadyConnected) continue;
+
+        const anchorPt = getEndpointWorld(
+          entry.wall, anchorEnd,
+          entry.position.x * MM_TO_M, entry.position.z * MM_TO_M,
+          entry.rotation.y
+        );
+
+        for (const ghostEnd of ['left', 'right']) {
+          // Compute where ghost endpoint would be at mouse position
+          const ghostPt = getEndpointWorld(wall, ghostEnd, mouseX, mouseZ, ghostRotation);
+          const dx = ghostPt.x - anchorPt.x;
+          const dz = ghostPt.z - anchorPt.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestSnap = {
+              anchorEntry: entry,
+              anchorEnd,
+              ghostEnd,
+              snapPoint: anchorPt,
+            };
+          }
+        }
+      }
+    }
+
+    if (bestSnap) {
+      // Use computeSnapPosition for exact placement with thickness offset
+      const { anchorEntry, anchorEnd, ghostEnd } = bestSnap;
+      const relativeAngle = ghostRotation - anchorEntry.rotation.y;
+      const angleDeg = roundToNearest90(relativeAngle);
+
+      const snap = computeSnapPosition(
+        anchorEntry.wall, anchorEnd,
+        anchorEntry.position, anchorEntry.rotation.y,
+        wall, ghostEnd,
+        angleDeg
+      );
+
+      setGhostPos([snap.position.x * MM_TO_M, 0, snap.position.z * MM_TO_M]);
+      setSnapInfo({
+        anchorWallId: anchorEntry.wall.id,
+        anchorEnd,
+        ghostEnd,
+        angleDeg,
+        snapPoint: bestSnap.snapPoint,
+      });
+    } else {
+      setGhostPos([snapToGrid(mouseX), 0, snapToGrid(mouseZ)]);
+      setSnapInfo(null);
+    }
+  }, [placingWallId, walls, floorPlan, connections, ghostRotation]);
 
   const handleCommitPlacement = useCallback((e) => {
     if (!placingWallId || !onPlacementsChange) return;
@@ -484,15 +591,29 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
     if (!placedWallIds.includes(placingWallId)) {
       onPlacementsChange([...placedWallIds, placingWallId]);
     }
+    // Auto-create connection if snapped to an endpoint
+    if (snapInfo && onConnectionsChange) {
+      const newConnection = {
+        id: crypto.randomUUID(),
+        wallId: snapInfo.anchorWallId,
+        anchorEnd: snapInfo.anchorEnd,
+        attachedWallId: placingWallId,
+        attachedEnd: snapInfo.ghostEnd,
+        angleDeg: snapInfo.angleDeg,
+      };
+      onConnectionsChange([...connections, newConnection]);
+    }
     setPlacingWallId(null);
+    setSnapInfo(null);
     // Re-enable camera controls
     if (cameraControlsRef.current) {
       cameraControlsRef.current.enabled = true;
     }
-  }, [placingWallId, placedWallIds, onPlacementsChange]);
+  }, [placingWallId, placedWallIds, onPlacementsChange, snapInfo, connections, onConnectionsChange]);
 
   const handleCancelPlacement = useCallback(() => {
     setPlacingWallId(null);
+    setSnapInfo(null);
     if (cameraControlsRef.current) {
       cameraControlsRef.current.enabled = true;
     }
@@ -655,6 +776,9 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
                 position={ghostPos}
                 rotationY={ghostRotation}
               />
+              {snapInfo && (
+                <SnapIndicator position={snapInfo.snapPoint} />
+              )}
             </>
           )}
 
@@ -682,6 +806,9 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
               Placing: <strong>{placingWall.name}</strong>
               {' \u2022 '}
               {Math.round(ghostRotation * 180 / Math.PI)}°
+              {snapInfo && (
+                <span style={styles.snapBadge}>SNAP</span>
+              )}
             </span>
             <span style={styles.placementHints}>
               Click to place &bull; R to rotate &bull; Esc to cancel
@@ -822,6 +949,15 @@ const styles = {
   placementHints: {
     fontSize: 11,
     opacity: 0.8,
+  },
+  snapBadge: {
+    marginLeft: 8,
+    padding: '2px 6px',
+    background: '#22cc44',
+    borderRadius: 3,
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: 0.5,
   },
   placementCancelBtn: {
     padding: '4px 10px',
