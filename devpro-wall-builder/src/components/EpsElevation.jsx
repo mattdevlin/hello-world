@@ -307,8 +307,13 @@ export default function EpsElevation({ layout, wallName }) {
 
             return (
               <g key={`panel-${i}`}>
-                {/* Panel outline — sloped top & flat bottom */}
-                <line x1={s(leftX)} y1={s(yTopAt(leftX))} x2={s(rightX)} y2={s(yTopAt(rightX))} stroke={STROKE_COLOR} strokeWidth={1} />
+                {/* Panel outline — sloped top & flat bottom (peaked for gable) */}
+                {panel.peakHeight ? (<>
+                  <line x1={s(leftX)} y1={s(yTopAt(leftX))} x2={s(panel.x + panel.peakXLocal)} y2={s(yTopAt(panel.x + panel.peakXLocal))} stroke={STROKE_COLOR} strokeWidth={1} />
+                  <line x1={s(panel.x + panel.peakXLocal)} y1={s(yTopAt(panel.x + panel.peakXLocal))} x2={s(rightX)} y2={s(yTopAt(rightX))} stroke={STROKE_COLOR} strokeWidth={1} />
+                </>) : (
+                  <line x1={s(leftX)} y1={s(yTopAt(leftX))} x2={s(rightX)} y2={s(yTopAt(rightX))} stroke={STROKE_COLOR} strokeWidth={1} />
+                )}
                 <line x1={s(leftX)} y1={s(yBottom)} x2={s(rightX)} y2={s(yBottom)} stroke={STROKE_COLOR} strokeWidth={1} />
                 {leftSegs.map(([y1, y2], j) => (
                   <line key={`l-${j}`} x1={s(leftX)} y1={s(y1)} x2={s(leftX)} y2={s(y2)} stroke={STROKE_COLOR} strokeWidth={1} />

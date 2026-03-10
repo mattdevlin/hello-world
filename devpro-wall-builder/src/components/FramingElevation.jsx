@@ -227,12 +227,13 @@ export default function FramingElevation({ layout, wallName }) {
 
             return (
               <g key={`panel-${i}`}>
-                {/* Top edge (sloped for raked) */}
-                <line
-                  x1={s(leftX)} y1={s(yTop(leftX))}
-                  x2={s(rightX)} y2={s(yTop(rightX))}
-                  stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-                />
+                {/* Top edge (sloped for raked, peaked for gable) */}
+                {panel.peakHeight ? (<>
+                  <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(panel.x + panel.peakXLocal)} y2={s(yTop(panel.x + panel.peakXLocal))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                  <line x1={s(panel.x + panel.peakXLocal)} y1={s(yTop(panel.x + panel.peakXLocal))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                </>) : (
+                  <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                )}
                 {/* Bottom horizontal */}
                 <line
                   x1={s(leftX)} y1={s(yBottom)}

@@ -105,7 +105,8 @@ export default function WallDrawing({ layout, wallName }) {
 
             const pLeft = panel.x;
             const pRight = panel.x + panel.width;
-            const pts = `${s(pLeft)},${yBottom} ${s(pLeft)},${yTop(pLeft)} ${s(pRight)},${yTop(pRight)} ${s(pRight)},${yBottom}`;
+            const peakPt = panel.peakHeight ? `${s(panel.x + panel.peakXLocal)},${yTop(panel.x + panel.peakXLocal)} ` : '';
+            const pts = `${s(pLeft)},${yBottom} ${s(pLeft)},${yTop(pLeft)} ${peakPt}${s(pRight)},${yTop(pRight)} ${s(pRight)},${yBottom}`;
 
             return (
               <g key={`panel-${i}`}>
