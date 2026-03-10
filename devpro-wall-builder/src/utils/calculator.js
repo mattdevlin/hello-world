@@ -190,6 +190,7 @@ export function calculateWallLayout(wall) {
       heightRight: lHeightRight,
       peakHeight: lPeakHeight,
       peakXLocal: lPeakXLocal,
+      beamHeight: opening.lintel_height_mm ?? 200,
       type: 'lintel',
     });
   }
