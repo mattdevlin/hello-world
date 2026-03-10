@@ -333,10 +333,28 @@ export default function EpsElevation({ layout, wallName }) {
                       const isTopCourse = ci === courses.length - 1;
                       const plateBelow = isBottomCourse ? BOTTOM_PLATE : TOP_PLATE;
                       const plateAbove = isTopCourse ? TOP_PLATE * 2 : TOP_PLATE;
-
-                      // Use shortest side — EPS rect must stay below top plates at every point
-                      const wallTopHere = isRaked ? panelShortTopY : yTopAt(leftX);
                       const cEpsBot = yBottom - course.y - plateBelow - EPS_INSET;
+
+                      if (isTopCourse && isRaked) {
+                        // Top course on sloped walls: polygon following wall slope
+                        const epsTopL = yTopAt(segL) + plateAbove + EPS_INSET;
+                        const epsTopR = yTopAt(segR) + plateAbove + EPS_INSET;
+                        // At least one edge must have positive height
+                        if (epsTopL >= cEpsBot && epsTopR >= cEpsBot) return null;
+                        // Build polygon: bottom-left → bottom-right → top-right → [peak] → top-left
+                        let pts = `${s(segL)},${s(cEpsBot)} ${s(segR)},${s(cEpsBot)} ${s(segR)},${s(epsTopR)}`;
+                        if (panel.peakHeight && panel.peakXLocal != null) {
+                          const peakGX = panel.x + panel.peakXLocal;
+                          if (peakGX > segL && peakGX < segR) {
+                            pts += ` ${s(peakGX)},${s(yTopAt(peakGX) + plateAbove + EPS_INSET)}`;
+                          }
+                        }
+                        pts += ` ${s(segL)},${s(epsTopL)}`;
+                        return <polygon key={`eps-${j}-c${ci}`} points={pts} fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1} />;
+                      }
+
+                      // Non-top courses (and top course on flat walls): rect bounded by course boundary
+                      const wallTopHere = isRaked ? panelShortTopY : yTopAt(leftX);
                       const cEpsTop = isTopCourse
                         ? wallTopHere + plateAbove + EPS_INSET
                         : Math.max(
@@ -354,6 +372,23 @@ export default function EpsElevation({ layout, wallName }) {
                         />
                       ) : null;
                     });
+                  }
+
+                  // Single-course: polygon for sloped walls, rect for flat
+                  if (isRaked) {
+                    const epsBot = yBottom - BOTTOM_PLATE - EPS_INSET;
+                    const epsTopL = yTopAt(segL) + TOP_PLATE * 2 + EPS_INSET;
+                    const epsTopR = yTopAt(segR) + TOP_PLATE * 2 + EPS_INSET;
+                    if (epsTopL >= epsBot && epsTopR >= epsBot) return null;
+                    let pts = `${s(segL)},${s(epsBot)} ${s(segR)},${s(epsBot)} ${s(segR)},${s(epsTopR)}`;
+                    if (panel.peakHeight && panel.peakXLocal != null) {
+                      const peakGX = panel.x + panel.peakXLocal;
+                      if (peakGX > segL && peakGX < segR) {
+                        pts += ` ${s(peakGX)},${s(yTopAt(peakGX) + TOP_PLATE * 2 + EPS_INSET)}`;
+                      }
+                    }
+                    pts += ` ${s(segL)},${s(epsTopL)}`;
+                    return <polygon key={`eps-${j}`} points={pts} fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1} />;
                   }
 
                   return pEpsH > 0 ? (
