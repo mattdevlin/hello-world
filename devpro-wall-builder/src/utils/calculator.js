@@ -173,7 +173,7 @@ export function calculateWallLayout(wall) {
     // Detect gable peak within lintel span
     let lPeakHeight, lPeakXLocal;
     if (profile === WALL_PROFILES.GABLE) {
-      const peakX = wall.peak_position_mm ?? Math.round(grossLen / 2);
+      const peakX = wall.peak_position_mm ?? Math.round(grossLength / 2);
       if (lintelLeft < peakX && lintelRight > peakX) {
         lPeakHeight = Math.max(0, heightAt(peakX) - openTop);
         lPeakXLocal = peakX - lintelLeft;
@@ -405,7 +405,7 @@ export function calculateWallLayout(wall) {
   // For gable walls, detect panels that straddle the peak and stamp them
   // with peakHeight and peakXLocal so profile renderers can draw a pentagon.
   if (profile === WALL_PROFILES.GABLE) {
-    const peakX = wall.peak_position_mm ?? Math.round(grossLen / 2);
+    const peakX = wall.peak_position_mm ?? Math.round(grossLength / 2);
     panels.forEach(panel => {
       const panelRight = panel.x + panel.width;
       if (panel.x < peakX && panelRight > peakX) {
