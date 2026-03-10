@@ -535,7 +535,7 @@ export default function EpsElevation({ layout, wallName }) {
             );
           })}
 
-          {/* ── Lintels (trapezoid for raked/gable — magboard) ── */}
+          {/* ── Lintels (timber beam + EPS fill above) ── */}
           {lintels.map((l, i) => {
             const hL = l.heightLeft != null ? l.heightLeft : l.height;
             const hR = l.heightRight != null ? l.heightRight : l.height;
@@ -544,13 +544,89 @@ export default function EpsElevation({ layout, wallName }) {
             const yBase = s(yBottom - l.y);
             const yTopL = s(yBottom - l.y - hL);
             const yTopR = s(yBottom - l.y - hR);
-            const pts = l.peakHeight
+            const outlinePts = l.peakHeight
               ? `${x1},${yBase} ${x1},${yTopL} ${s(l.x + l.peakXLocal)},${s(yBottom - l.y - l.peakHeight)} ${x2},${yTopR} ${x2},${yBase}`
               : `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
+
+            // Find the matching opening for spline positions
+            const op = openings.find(o => o.ref === l.ref);
+            const hasSill = op && op.y > 0;
+
+            // Timber beam spans between inner edges of opening splines/plates, with 10mm gap
+            const beamH = l.beamHeight || 200;
+            const beamLeft = hasSill
+              ? op.x - BOTTOM_PLATE + EPS_INSET            // 10mm inside left spline inner edge
+              : op.x - BOTTOM_PLATE + EPS_INSET;           // 10mm inside left plate inner edge
+            const beamRight = hasSill
+              ? op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET  // 10mm inside right spline inner edge
+              : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET; // 10mm inside right plate inner edge
+            const beamTop = yBottom - l.y - beamH;
+            const beamBot = yBottom - l.y;
+
+            // Lintel EPS: fills the area above the timber beam, inset 10mm from spline/plate inner edges
+            const epsLeft = op.x - BOTTOM_PLATE + EPS_INSET;     // 10mm inside spline/plate inner edge
+            const epsRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;  // 10mm inside spline/plate inner edge
+            const epsBot = beamTop - EPS_INSET;  // 10mm above timber beam
+
+            // EPS top follows wall slope (same as panel EPS logic)
+            const epsTopAt = (x) => yTopAt(x) + TOP_PLATE * 2 + EPS_INSET;
+
             const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
+
+            // Build EPS polygon (if there's space above the beam)
+            let epsPoly = null;
+            if (epsBot > epsTopAt(epsLeft) || epsBot > epsTopAt(epsRight)) {
+              const epsTopL = epsTopAt(epsLeft);
+              const epsTopR = epsTopAt(epsRight);
+
+              if (isRaked && Math.abs(epsTopL - epsTopR) > 0.5) {
+                // Raked/gable: polygon with angled top
+                const pts = [];
+                pts.push(`${s(epsLeft)},${s(epsBot)}`);
+                pts.push(`${s(epsRight)},${s(epsBot)}`);
+                if (epsTopR < epsBot) pts.push(`${s(epsRight)},${s(epsTopR)}`);
+                // Gable peak vertex
+                if (l.peakHeight && l.peakXLocal != null) {
+                  const peakGX = l.x + l.peakXLocal;
+                  if (peakGX > epsLeft && peakGX < epsRight) {
+                    const peakTopY = epsTopAt(peakGX);
+                    if (peakTopY < epsBot) pts.push(`${s(peakGX)},${s(peakTopY)}`);
+                  }
+                }
+                if (epsTopL < epsBot) pts.push(`${s(epsLeft)},${s(epsTopL)}`);
+                if (pts.length >= 3) {
+                  epsPoly = <polygon points={pts.join(' ')} fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1} />;
+                }
+              } else {
+                // Flat: simple rect
+                const epsTopY = Math.min(epsTopL, epsTopR);
+                const epsH = epsBot - epsTopY;
+                if (epsH > 0) {
+                  epsPoly = (
+                    <rect
+                      x={s(epsLeft)} y={s(epsTopY)}
+                      width={s(epsRight - epsLeft)} height={s(epsH)}
+                      fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1}
+                    />
+                  );
+                }
+              }
+            }
+
             return (
               <g key={`lintel-${i}`}>
-                <polygon points={pts} fill="none" stroke={STROKE_COLOR} strokeWidth={1} />
+                {/* Lintel outline */}
+                <polygon points={outlinePts} fill="none" stroke={STROKE_COLOR} strokeWidth={1} />
+                {/* Timber beam */}
+                {op && (
+                  <rect
+                    x={s(beamLeft)} y={s(beamTop)}
+                    width={s(beamRight - beamLeft)} height={s(beamH)}
+                    fill="none" stroke={STROKE_COLOR} strokeWidth={1}
+                  />
+                )}
+                {/* EPS above beam */}
+                {epsPoly}
                 <text
                   x={s(l.x + l.width / 2)}
                   y={s(yBottom - l.y - midH / 2) + 3}
@@ -664,11 +740,20 @@ export default function EpsElevation({ layout, wallName }) {
                 const splineRight = rightEdge - HSPLINE_CLEARANCE;
                 if (splineRight <= splineLeft) return null;
 
-                // Collect lintel exclusions clipped to this spline range
+                // Collect exclusions: lintels, openings, opening plates & splines
                 const excl = [];
                 for (const l of lintels) {
                   const eL = Math.max(l.x - HSPLINE_CLEARANCE, splineLeft);
                   const eR = Math.min(l.x + l.width + HSPLINE_CLEARANCE, splineRight);
+                  if (eL < eR) excl.push([eL, eR]);
+                }
+                for (const op of openings) {
+                  const hasSill = op.y > 0;
+                  // Opening itself + vertical plates on each side
+                  const oL = op.x - BOTTOM_PLATE - (hasSill ? SPLINE_WIDTH : 0) - HSPLINE_CLEARANCE;
+                  const oR = op.x + op.drawWidth + BOTTOM_PLATE + (hasSill ? SPLINE_WIDTH : 0) + HSPLINE_CLEARANCE;
+                  const eL = Math.max(oL, splineLeft);
+                  const eR = Math.min(oR, splineRight);
                   if (eL < eR) excl.push([eL, eR]);
                 }
                 excl.sort((a, b) => a[0] - b[0]);
@@ -789,40 +874,7 @@ export default function EpsElevation({ layout, wallName }) {
 
           </g>{/* end wall-clip */}
 
-          {/* ── Course join lines (multi-course walls > 3050mm) ── */}
-          {isMultiCourse && courses.slice(1).map((course, i) => {
-            const joinY = yBottom - course.y;
-            // Compute x-extent where wall height >= course.y analytically
-            const hL = heightAt ? heightAt(0) : height;
-            const hR = heightAt ? heightAt(grossLength) : height;
-            let x0, x1;
-            if (hL >= course.y && hR >= course.y) {
-              x0 = 0; x1 = grossLength;
-            } else if (hL >= course.y) {
-              x0 = 0;
-              x1 = (course.y - hL) / (hR - hL) * grossLength;
-            } else if (hR >= course.y) {
-              x0 = (course.y - hL) / (hR - hL) * grossLength;
-              x1 = grossLength;
-            } else {
-              return null; // wall never reaches course height
-            }
-            return (
-              <g key={`course-join-${i}`}>
-                <line
-                  x1={s(x0)} y1={s(joinY)}
-                  x2={s(x1)} y2={s(joinY)}
-                  stroke="#E74C3C" strokeWidth={2} strokeDasharray="8,4"
-                />
-                <text
-                  x={s(x1) + 8} y={s(joinY) + 4}
-                  fontSize="8" fill="#E74C3C" fontWeight="bold"
-                >
-                  {course.y}
-                </text>
-              </g>
-            );
-          })}
+          {/* Course join lines removed — visible on External Elevation instead */}
 
           {/* ── Running measurement ── */}
           <g>

@@ -206,21 +206,20 @@ export default function WallDrawing({ layout, wallName }) {
           {/* Course join lines (multi-course walls > 3050mm) */}
           {isMultiCourse && courses.slice(1).map((course, i) => {
             const joinY = yBottom - s(course.y);
-            // Compute x-extent where wall height >= course.y
-            const hL = heightAt ? heightAt(0) : height;
-            const hR = heightAt ? heightAt(grossLength) : height;
-            let x0, x1;
-            if (hL >= course.y && hR >= course.y) {
-              x0 = 0; x1 = grossLength;
-            } else if (hL >= course.y) {
-              x0 = 0;
-              x1 = (course.y - hL) / (hR - hL) * grossLength;
-            } else if (hR >= course.y) {
-              x0 = (course.y - hL) / (hR - hL) * grossLength;
-              x1 = grossLength;
-            } else {
-              return null;
+            // Compute x-extent where wall height >= course.y using heightAt
+            // This handles gable peaks (piecewise linear) correctly
+            if (!heightAt) return null;
+            // Sample to find where heightAt(x) crosses course.y
+            const steps = 200;
+            let x0 = null, x1 = null;
+            for (let j = 0; j <= steps; j++) {
+              const x = (j / steps) * grossLength;
+              if (heightAt(x) >= course.y) {
+                if (x0 === null) x0 = x;
+                x1 = x;
+              }
             }
+            if (x0 === null) return null;
             return (
               <g key={`course-join-${i}`}>
                 <line

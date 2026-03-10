@@ -8,6 +8,7 @@ const defaultOpening = {
   height_mm: 1200,
   sill_mm: 900,
   position_from_left_mm: 1000,
+  lintel_height_mm: 200,
 };
 
 const defaultWall = {
@@ -296,6 +297,16 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
                 type="number"
                 value={op.position_from_left_mm}
                 onChange={e => updateOpening(i, 'position_from_left_mm', parseInt(e.target.value) || 0)}
+                style={styles.input}
+                min={0}
+              />
+            </div>
+            <div style={styles.field}>
+              <label style={styles.label}>Lintel Height (mm)</label>
+              <input
+                type="number"
+                value={op.lintel_height_mm ?? 200}
+                onChange={e => updateOpening(i, 'lintel_height_mm', parseInt(e.target.value) || 0)}
                 style={styles.input}
                 min={0}
               />

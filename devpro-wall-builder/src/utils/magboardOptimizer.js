@@ -64,16 +64,20 @@ export function extractMagboardPieces(layout, wallName = '') {
     }
   }
 
-  // ── Lintels: 2 magboard pieces each ──
+  // ── Lintels: 2 magboard pieces each (EPS area above timber beam) ──
   for (const lintel of lintels) {
-    for (let i = 0; i < 2; i++) {
-      cutPieces.push({
-        width: lintel.width,
-        height: lintel.height,
-        type: 'lintel',
-        label: `${lintel.ref} Lintel`,
-        wallName,
-      });
+    const beamH = lintel.beamHeight || 200;
+    const epsHeight = lintel.height - beamH;
+    if (epsHeight > 0) {
+      for (let i = 0; i < 2; i++) {
+        cutPieces.push({
+          width: lintel.width,
+          height: epsHeight,
+          type: 'lintel',
+          label: `${lintel.ref} Lintel`,
+          wallName,
+        });
+      }
     }
   }
 
@@ -157,7 +161,7 @@ export function extractMagboardPieces(layout, wallName = '') {
           rightEdge = panel.x + panel.width - BOTTOM_PLATE;
         }
 
-        // Split around lintels (10mm clearance from lintel edges)
+        // Split around lintels, openings, opening plates & splines
         const splineLeft = leftEdge + HSPLINE_CLEARANCE;
         const splineRight = rightEdge - HSPLINE_CLEARANCE;
         if (splineRight > splineLeft) {
@@ -165,6 +169,14 @@ export function extractMagboardPieces(layout, wallName = '') {
           for (const l of lintels) {
             const eL = Math.max(l.x - HSPLINE_CLEARANCE, splineLeft);
             const eR = Math.min(l.x + l.width + HSPLINE_CLEARANCE, splineRight);
+            if (eL < eR) excl.push([eL, eR]);
+          }
+          for (const op of openings) {
+            const hasSill = op.y > 0;
+            const oL = op.x - BOTTOM_PLATE - (hasSill ? SPLINE_WIDTH : 0) - HSPLINE_CLEARANCE;
+            const oR = op.x + op.drawWidth + BOTTOM_PLATE + (hasSill ? SPLINE_WIDTH : 0) + HSPLINE_CLEARANCE;
+            const eL = Math.max(oL, splineLeft);
+            const eR = Math.min(oR, splineRight);
             if (eL < eR) excl.push([eL, eR]);
           }
           excl.sort((a, b) => a[0] - b[0]);
