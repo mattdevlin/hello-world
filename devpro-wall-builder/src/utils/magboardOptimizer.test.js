@@ -165,20 +165,21 @@ describe('extractMagboardPieces', () => {
     expect(midHsplines.length).toBe(2); // front + back
     expect(midHsplines[0].width).toBeCloseTo(expectedMidWidth, 0);
 
-    // First panel — left boundary is vertical timber edge (panel.x), right is spline inner edge
+    // First panel — left boundary is panel.x + BOTTOM_PLATE (past vertical timber), right is spline inner edge
+    const BOTTOM_PLATE = 45;
     const firstPanel = panels[0];
     const firstRightGap = firstPanel.x + firstPanel.width + 5 / 2;
-    const expectedFirstWidth = (firstRightGap - SPLINE_W / 2) - firstPanel.x - 2 * CLEARANCE;
+    const expectedFirstWidth = (firstRightGap - SPLINE_W / 2) - (firstPanel.x + BOTTOM_PLATE) - 2 * CLEARANCE;
     const firstHsplines = hsplines.filter(h => h.label.includes(`P${firstPanel.index + 1}`));
     expect(firstHsplines[0].width).toBeCloseTo(expectedFirstWidth, 0);
     // First panel boundary: timber edge (panel.x) + 10mm clearance on left,
     // spline inner edge - 10mm clearance on right → shorter than full panel width
     expect(firstHsplines[0].width).toBeLessThan(firstPanel.width);
 
-    // Last panel — left is spline inner edge, right boundary is vertical timber edge
+    // Last panel — left is spline inner edge, right boundary is panel edge - BOTTOM_PLATE (past vertical timber)
     const lastPanel = panels[panels.length - 1];
     const lastLeftGap = panels[panels.length - 2].x + panels[panels.length - 2].width + 5 / 2;
-    const expectedLastWidth = (lastPanel.x + lastPanel.width) - (lastLeftGap + SPLINE_W / 2) - 2 * CLEARANCE;
+    const expectedLastWidth = (lastPanel.x + lastPanel.width - BOTTOM_PLATE) - (lastLeftGap + SPLINE_W / 2) - 2 * CLEARANCE;
     const lastHsplines = hsplines.filter(h => h.label.includes(`P${lastPanel.index + 1}`));
     expect(lastHsplines[0].width).toBeCloseTo(expectedLastWidth, 0);
     // Last panel boundary: spline inner edge + 10mm on left, timber edge - 10mm on right
