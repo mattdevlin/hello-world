@@ -356,6 +356,26 @@ export default function EpsElevation({ layout, wallName }) {
                         // Both edges have no height — skip
                         if (hL <= 0 && hR <= 0) return null;
 
+                        // Non-top courses: find kink where course boundary meets wall slope
+                        // (peak vertices only apply to top course — peak is always above course join)
+                        let kinkX = null;
+                        if (!isTopCourse) {
+                          const wallTopL = yTopAt(segL) + TOP_PLATE * 2 + EPS_INSET;
+                          const wallTopR = yTopAt(segR) + TOP_PLATE * 2 + EPS_INSET;
+                          const leftUsesCourse = courseTopY >= wallTopL;
+                          const rightUsesCourse = courseTopY >= wallTopR;
+                          if (leftUsesCourse !== rightUsesCourse) {
+                            const yL = yTopAt(segL), yR = yTopAt(segR);
+                            if (yR !== yL) {
+                              const target = courseTopY - TOP_PLATE * 2 - EPS_INSET;
+                              const t = (target - yL) / (yR - yL);
+                              if (t > 0 && t < 1) {
+                                kinkX = segL + t * (segR - segL);
+                              }
+                            }
+                          }
+                        }
+
                         const pts = [];
 
                         if (hL > 0 && hR > 0) {
@@ -363,11 +383,16 @@ export default function EpsElevation({ layout, wallName }) {
                           pts.push(`${s(segL)},${s(cEpsBot)}`);
                           pts.push(`${s(segR)},${s(cEpsBot)}`);
                           pts.push(`${s(segR)},${s(epsTopR)}`);
-                          if (panel.peakHeight && panel.peakXLocal != null) {
+                          // Peak vertex (top course only)
+                          if (isTopCourse && panel.peakHeight && panel.peakXLocal != null) {
                             const peakGX = panel.x + panel.peakXLocal;
                             if (peakGX > segL && peakGX < segR) {
                               pts.push(`${s(peakGX)},${s(epsTopAtX(peakGX))}`);
                             }
+                          }
+                          // Kink vertex (non-top courses only)
+                          if (kinkX != null) {
+                            pts.push(`${s(kinkX)},${s(courseTopY)}`);
                           }
                           pts.push(`${s(segL)},${s(epsTopL)}`);
                         } else if (hL > 0) {
@@ -375,11 +400,14 @@ export default function EpsElevation({ layout, wallName }) {
                           const clipX = segL + hL / (hL - hR) * (segR - segL);
                           pts.push(`${s(segL)},${s(cEpsBot)}`);
                           pts.push(`${s(clipX)},${s(cEpsBot)}`);
-                          if (panel.peakHeight && panel.peakXLocal != null) {
+                          if (isTopCourse && panel.peakHeight && panel.peakXLocal != null) {
                             const peakGX = panel.x + panel.peakXLocal;
                             if (peakGX > segL && peakGX < clipX) {
                               pts.push(`${s(peakGX)},${s(epsTopAtX(peakGX))}`);
                             }
+                          }
+                          if (kinkX != null && kinkX < clipX) {
+                            pts.push(`${s(kinkX)},${s(courseTopY)}`);
                           }
                           pts.push(`${s(segL)},${s(epsTopL)}`);
                         } else {
@@ -388,11 +416,14 @@ export default function EpsElevation({ layout, wallName }) {
                           pts.push(`${s(clipX)},${s(cEpsBot)}`);
                           pts.push(`${s(segR)},${s(cEpsBot)}`);
                           pts.push(`${s(segR)},${s(epsTopR)}`);
-                          if (panel.peakHeight && panel.peakXLocal != null) {
+                          if (isTopCourse && panel.peakHeight && panel.peakXLocal != null) {
                             const peakGX = panel.x + panel.peakXLocal;
                             if (peakGX > clipX && peakGX < segR) {
                               pts.push(`${s(peakGX)},${s(epsTopAtX(peakGX))}`);
                             }
+                          }
+                          if (kinkX != null && kinkX > clipX) {
+                            pts.push(`${s(kinkX)},${s(courseTopY)}`);
                           }
                         }
 
