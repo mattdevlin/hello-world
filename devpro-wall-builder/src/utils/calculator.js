@@ -163,20 +163,33 @@ export function calculateWallLayout(wall) {
       });
     }
 
-    // Lintel follows the wall slope — trapezoid for raked/gable (cut from magboard)
+    // Lintel follows the wall slope — trapezoid for raked/gable, pentagon if straddling gable peak
     const lintelOverhang = WINDOW_OVERHANG;
     const lintelLeft = openLeft - lintelOverhang;
     const lintelRight = openRight + lintelOverhang;
     const lHeightLeft = Math.max(0, heightAt(lintelLeft) - openTop);
     const lHeightRight = Math.max(0, heightAt(lintelRight) - openTop);
+
+    // Detect gable peak within lintel span
+    let lPeakHeight, lPeakXLocal;
+    if (profile === WALL_PROFILES.GABLE) {
+      const peakX = wall.peak_position_mm ?? Math.round(grossLen / 2);
+      if (lintelLeft < peakX && lintelRight > peakX) {
+        lPeakHeight = Math.max(0, heightAt(peakX) - openTop);
+        lPeakXLocal = peakX - lintelLeft;
+      }
+    }
+
     lintels.push({
       ref: opening.ref,
       x: lintelLeft,
       y: openTop,
       width: opening.width_mm + 2 * lintelOverhang,
-      height: Math.max(lHeightLeft, lHeightRight),
+      height: Math.max(lHeightLeft, lHeightRight, lPeakHeight || 0),
       heightLeft: lHeightLeft,
       heightRight: lHeightRight,
+      peakHeight: lPeakHeight,
+      peakXLocal: lPeakXLocal,
       type: 'lintel',
     });
   }
@@ -388,6 +401,19 @@ export function calculateWallLayout(wall) {
 
   panels.forEach((p, i) => { p.index = i; });
 
+  // For gable walls, detect panels that straddle the peak and stamp them
+  // with peakHeight and peakXLocal so profile renderers can draw a pentagon.
+  if (profile === WALL_PROFILES.GABLE) {
+    const peakX = wall.peak_position_mm ?? Math.round(grossLen / 2);
+    panels.forEach(panel => {
+      const panelRight = panel.x + panel.width;
+      if (panel.x < peakX && panelRight > peakX) {
+        panel.peakHeight = Math.round(heightAt(peakX));
+        panel.peakXLocal = peakX - panel.x;
+      }
+    });
+  }
+
   // Compute vertical course layout (multi-course for walls > 3050mm)
   // Use maxHeight so raked/gable walls trigger multi-course when any part exceeds sheet height
   const { courses, isMultiCourse } = computeCourses(maxHeight);
@@ -397,7 +423,7 @@ export function calculateWallLayout(wall) {
   // On raked/gable walls, panels have varying heights and may need different sheets.
   const maxStockSheet = Math.max(...STOCK_SHEET_HEIGHTS);
   panels.forEach(panel => {
-    const panelMaxH = Math.max(panel.heightLeft, panel.heightRight);
+    const panelMaxH = Math.max(panel.heightLeft, panel.heightRight, panel.peakHeight || 0);
     panel.sheetHeight = STOCK_SHEET_HEIGHTS.find(s => s >= panelMaxH) || maxStockSheet;
     panel.isMultiCourse = panelMaxH > maxStockSheet;
   });

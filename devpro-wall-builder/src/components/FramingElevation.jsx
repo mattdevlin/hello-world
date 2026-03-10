@@ -227,12 +227,13 @@ export default function FramingElevation({ layout, wallName }) {
 
             return (
               <g key={`panel-${i}`}>
-                {/* Top edge (sloped for raked) */}
-                <line
-                  x1={s(leftX)} y1={s(yTop(leftX))}
-                  x2={s(rightX)} y2={s(yTop(rightX))}
-                  stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-                />
+                {/* Top edge (sloped for raked, peaked for gable) */}
+                {panel.peakHeight ? (<>
+                  <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(panel.x + panel.peakXLocal)} y2={s(yTop(panel.x + panel.peakXLocal))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                  <line x1={s(panel.x + panel.peakXLocal)} y1={s(yTop(panel.x + panel.peakXLocal))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                </>) : (
+                  <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                )}
                 {/* Bottom horizontal */}
                 <line
                   x1={s(leftX)} y1={s(yBottom)}
@@ -447,8 +448,10 @@ export default function FramingElevation({ layout, wallName }) {
             const yBase = s(yBottom - l.y);
             const yTopL = s(yBottom - l.y - hL);
             const yTopR = s(yBottom - l.y - hR);
-            const pts = `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
-            const midH = (hL + hR) / 2;
+            const pts = l.peakHeight
+              ? `${x1},${yBase} ${x1},${yTopL} ${s(l.x + l.peakXLocal)},${s(yBottom - l.y - l.peakHeight)} ${x2},${yTopR} ${x2},${yBase}`
+              : `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
+            const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
             return (
               <g key={`lintel-${i}`}>
                 <polygon points={pts} fill="none" stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />

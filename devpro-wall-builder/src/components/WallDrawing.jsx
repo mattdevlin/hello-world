@@ -105,7 +105,8 @@ export default function WallDrawing({ layout, wallName }) {
 
             const pLeft = panel.x;
             const pRight = panel.x + panel.width;
-            const pts = `${s(pLeft)},${yBottom} ${s(pLeft)},${yTop(pLeft)} ${s(pRight)},${yTop(pRight)} ${s(pRight)},${yBottom}`;
+            const peakPt = panel.peakHeight ? `${s(panel.x + panel.peakXLocal)},${yTop(panel.x + panel.peakXLocal)} ` : '';
+            const pts = `${s(pLeft)},${yBottom} ${s(pLeft)},${yTop(pLeft)} ${peakPt}${s(pRight)},${yTop(pRight)} ${s(pRight)},${yBottom}`;
 
             return (
               <g key={`panel-${i}`}>
@@ -185,8 +186,10 @@ export default function WallDrawing({ layout, wallName }) {
             const yBase = yBottom - s(l.y);
             const yTopL = yBottom - s(l.y + hL);
             const yTopR = yBottom - s(l.y + hR);
-            const pts = `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
-            const midH = (hL + hR) / 2;
+            const pts = l.peakHeight
+              ? `${x1},${yBase} ${x1},${yTopL} ${s(l.x + l.peakXLocal)},${yBottom - s(l.y + l.peakHeight)} ${x2},${yTopR} ${x2},${yBase}`
+              : `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
+            const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
             return (
               <g key={`lintel-${i}`}>
                 <polygon points={pts} fill={COLORS.LINTEL} stroke={COLORS.LINTEL_STROKE} strokeWidth={1.5} />

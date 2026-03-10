@@ -307,8 +307,13 @@ export default function EpsElevation({ layout, wallName }) {
 
             return (
               <g key={`panel-${i}`}>
-                {/* Panel outline — sloped top & flat bottom */}
-                <line x1={s(leftX)} y1={s(yTopAt(leftX))} x2={s(rightX)} y2={s(yTopAt(rightX))} stroke={STROKE_COLOR} strokeWidth={1} />
+                {/* Panel outline — sloped top & flat bottom (peaked for gable) */}
+                {panel.peakHeight ? (<>
+                  <line x1={s(leftX)} y1={s(yTopAt(leftX))} x2={s(panel.x + panel.peakXLocal)} y2={s(yTopAt(panel.x + panel.peakXLocal))} stroke={STROKE_COLOR} strokeWidth={1} />
+                  <line x1={s(panel.x + panel.peakXLocal)} y1={s(yTopAt(panel.x + panel.peakXLocal))} x2={s(rightX)} y2={s(yTopAt(rightX))} stroke={STROKE_COLOR} strokeWidth={1} />
+                </>) : (
+                  <line x1={s(leftX)} y1={s(yTopAt(leftX))} x2={s(rightX)} y2={s(yTopAt(rightX))} stroke={STROKE_COLOR} strokeWidth={1} />
+                )}
                 <line x1={s(leftX)} y1={s(yBottom)} x2={s(rightX)} y2={s(yBottom)} stroke={STROKE_COLOR} strokeWidth={1} />
                 {leftSegs.map(([y1, y2], j) => (
                   <line key={`l-${j}`} x1={s(leftX)} y1={s(y1)} x2={s(leftX)} y2={s(y2)} stroke={STROKE_COLOR} strokeWidth={1} />
@@ -426,8 +431,10 @@ export default function EpsElevation({ layout, wallName }) {
             const yBase = s(yBottom - l.y);
             const yTopL = s(yBottom - l.y - hL);
             const yTopR = s(yBottom - l.y - hR);
-            const pts = `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
-            const midH = (hL + hR) / 2;
+            const pts = l.peakHeight
+              ? `${x1},${yBase} ${x1},${yTopL} ${s(l.x + l.peakXLocal)},${s(yBottom - l.y - l.peakHeight)} ${x2},${yTopR} ${x2},${yBase}`
+              : `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
+            const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
             return (
               <g key={`lintel-${i}`}>
                 <polygon points={pts} fill="none" stroke={STROKE_COLOR} strokeWidth={1} />
