@@ -26,6 +26,10 @@ export const DOOR_TOP_CUTOUT = 171;     // mm
 export const LINTEL_DEPTH = 300;        // mm default
 export const CNC_KERF = 10;            // mm
 
+// Splines
+export const SPLINE_WIDTH = 146;           // mm
+export const HSPLINE_CLEARANCE = 10;       // mm clearance from spline edges
+
 // Cassette
 export const MAX_CASSETTE = 6;          // panels
 export const MAX_CASSETTE_LEN = 7230;   // mm
@@ -69,3 +73,42 @@ export const COLORS = {
   END_CAP: '#9B59B6',
   END_CAP_STROKE: '#7D3C98',
 };
+
+/**
+ * Build horizontal spline segments within [splineLeft, splineRight],
+ * excluding zones around lintels and openings (with their plates/splines).
+ *
+ * @param {number} splineLeft  - left boundary (already inset by HSPLINE_CLEARANCE)
+ * @param {number} splineRight - right boundary (already inset by HSPLINE_CLEARANCE)
+ * @param {Array} lintels  - lintel objects with { x, width }
+ * @param {Array} openings - opening objects with { x, drawWidth, y }
+ * @returns {Array<[number, number]>} segments as [left, right] pairs
+ */
+export function buildHSplineSegments(splineLeft, splineRight, lintels, openings) {
+  if (splineRight <= splineLeft) return [];
+
+  const excl = [];
+  for (const l of lintels) {
+    const eL = Math.max(l.x - HSPLINE_CLEARANCE, splineLeft);
+    const eR = Math.min(l.x + l.width + HSPLINE_CLEARANCE, splineRight);
+    if (eL < eR) excl.push([eL, eR]);
+  }
+  for (const op of openings) {
+    const hasSill = op.y > 0;
+    const oL = op.x - BOTTOM_PLATE - (hasSill ? SPLINE_WIDTH : 0) - HSPLINE_CLEARANCE;
+    const oR = op.x + op.drawWidth + BOTTOM_PLATE + (hasSill ? SPLINE_WIDTH : 0) + HSPLINE_CLEARANCE;
+    const eL = Math.max(oL, splineLeft);
+    const eR = Math.min(oR, splineRight);
+    if (eL < eR) excl.push([eL, eR]);
+  }
+  excl.sort((a, b) => a[0] - b[0]);
+
+  const segs = [];
+  let cursor = splineLeft;
+  for (const [eL, eR] of excl) {
+    if (cursor < eL) segs.push([cursor, eL]);
+    cursor = Math.max(cursor, eR);
+  }
+  if (cursor < splineRight) segs.push([cursor, splineRight]);
+  return segs;
+}

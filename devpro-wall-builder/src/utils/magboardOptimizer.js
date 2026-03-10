@@ -9,7 +9,7 @@
  * and can share sheets via 2D bin packing.
  */
 
-import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_WIDTH } from './constants.js';
+import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_WIDTH, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 
 export const MAGBOARD_SHEETS = {
@@ -17,7 +17,7 @@ export const MAGBOARD_SHEETS = {
   large:  { width: 1200, height: 3050 },
 };
 
-const SPLINE_WIDTH = 146;
+
 
 // ─────────────────────────────────────────────────────────────
 // Piece extraction
@@ -134,7 +134,6 @@ export function extractMagboardPieces(layout, wallName = '') {
   // Width = distance between inner edges of adjacent vertical splines, less 10mm each end.
   // First/last panels (or joints without a vertical spline) use the vertical timber
   // edge (panel edge) as the boundary, still less 10mm clearance.
-  const HSPLINE_CLEARANCE = 10;
   if (isMultiCourse && courses.length > 1) {
     for (let ci = 0; ci < courses.length - 1; ci++) {
       for (let pi = 0; pi < panels.length; pi++) {
@@ -143,11 +142,9 @@ export function extractMagboardPieces(layout, wallName = '') {
         // Left boundary
         let leftEdge;
         if (pi > 0 && jointHasSpline[pi - 1]) {
-          // Inner edge of left vertical spline (spline centered on gap)
           const gapCentre = panels[pi - 1].x + panels[pi - 1].width + PANEL_GAP / 2;
           leftEdge = gapCentre + SPLINE_WIDTH / 2;
         } else {
-          // Inset past the vertical timber plate at the panel edge
           leftEdge = panel.x + BOTTOM_PLATE;
         }
 
@@ -157,49 +154,25 @@ export function extractMagboardPieces(layout, wallName = '') {
           const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
           rightEdge = gapCentre - SPLINE_WIDTH / 2;
         } else {
-          // Inset past the vertical timber plate at the panel edge
           rightEdge = panel.x + panel.width - BOTTOM_PLATE;
         }
 
         // Split around lintels, openings, opening plates & splines
         const splineLeft = leftEdge + HSPLINE_CLEARANCE;
         const splineRight = rightEdge - HSPLINE_CLEARANCE;
-        if (splineRight > splineLeft) {
-          const excl = [];
-          for (const l of lintels) {
-            const eL = Math.max(l.x - HSPLINE_CLEARANCE, splineLeft);
-            const eR = Math.min(l.x + l.width + HSPLINE_CLEARANCE, splineRight);
-            if (eL < eR) excl.push([eL, eR]);
-          }
-          for (const op of openings) {
-            const hasSill = op.y > 0;
-            const oL = op.x - BOTTOM_PLATE - (hasSill ? SPLINE_WIDTH : 0) - HSPLINE_CLEARANCE;
-            const oR = op.x + op.drawWidth + BOTTOM_PLATE + (hasSill ? SPLINE_WIDTH : 0) + HSPLINE_CLEARANCE;
-            const eL = Math.max(oL, splineLeft);
-            const eR = Math.min(oR, splineRight);
-            if (eL < eR) excl.push([eL, eR]);
-          }
-          excl.sort((a, b) => a[0] - b[0]);
-          const segs = [];
-          let cursor = splineLeft;
-          for (const [eL, eR] of excl) {
-            if (cursor < eL) segs.push([cursor, eL]);
-            cursor = Math.max(cursor, eR);
-          }
-          if (cursor < splineRight) segs.push([cursor, splineRight]);
+        const segs = buildHSplineSegments(splineLeft, splineRight, lintels, openings);
 
-          for (const [segL, segR] of segs) {
-            const hsplineWidth = segR - segL;
-            if (hsplineWidth > 0) {
-              for (let j = 0; j < 2; j++) {
-                cutPieces.push({
-                  width: hsplineWidth,
-                  height: SPLINE_WIDTH,
-                  type: 'hspline',
-                  label: `H-Spline P${panel.index + 1} C${ci + 1}/${ci + 2}`,
-                  wallName,
-                });
-              }
+        for (const [segL, segR] of segs) {
+          const hsplineWidth = segR - segL;
+          if (hsplineWidth > 0) {
+            for (let j = 0; j < 2; j++) {
+              cutPieces.push({
+                width: hsplineWidth,
+                height: SPLINE_WIDTH,
+                type: 'hspline',
+                label: `H-Spline P${panel.index + 1} C${ci + 1}/${ci + 2}`,
+                wallName,
+              });
             }
           }
         }

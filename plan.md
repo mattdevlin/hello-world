@@ -1,41 +1,50 @@
-# Plan: Fix RAKED wall multi-course red join lines
+# Fix: Dead ternary branches in EpsElevation.jsx lintel beam/EPS positioning
 
 ## Problem
-RAKED walls with left ≤ 3000 and right > 3000 don't show red dashed course join lines, even though `test-maxheight-raked.mjs` proves the calculator returns correct data.
+Lines 557-562 and 567-568 of `EpsElevation.jsx` have ternaries on `hasSill` that produce identical results in both branches. The intent is to position the timber beam and EPS differently depending on whether the opening has splines (windows with sills) or just plates (doors to the floor).
 
-## What We Know
-- **Calculator is correct** — `maxHeight`, `isMultiCourse`, `courses`, `heightAt` all verified by tests (19/19 pass)
-- **React setState-during-render bug** — `WallForm.updateWall` calls `onChange()` inside `setWall` updater. Fix committed but not yet verified in browser.
-- **Debug logs not appearing** — User's machine was on wrong branch. Now switched to `claude/review-code-6FROK`. Needs dev server restart.
+From the existing exclusion logic (lines 66-78):
+- **hasSill=true** (window): opening has both **plates** (45mm) and **splines** (146mm) on each side
+- **hasSill=false** (door): opening has only **plates** (45mm) on each side
 
-## Steps
+The beam/EPS should span to the outer structural edge. For windows with splines, that edge extends further out by `SPLINE_WIDTH`.
 
-### Step 1: Restart dev server and verify debug logs work
-User restarts via desktop icon (`.bat` now auto-detects branch). Confirm:
-- React setState warning is gone (fix is in WallForm.jsx)
-- `[DEBUG]` logs appear in console on Generate or wall load
+## Changes
 
-### Step 2: Reproduce and capture console output
-Test with Raked left=2400, right=3639. Check:
-- `[DEBUG handleCalculate] wall:` — Is `height_right_mm` correct?
-- `[DEBUG handleCalculate] layout:` — Is `isMultiCourse: true`?
-- `[DEBUG WallDrawing]` — Does component receive correct data?
+### File: `devpro-wall-builder/src/components/EpsElevation.jsx`
 
-### Step 3: Fix based on findings
+**Step 1**: Fix `beamLeft` / `beamRight` (lines 557-562) — when `hasSill`, extend to spline outer edge:
+```jsx
+// Before (both branches identical):
+const beamLeft = hasSill
+  ? op.x - BOTTOM_PLATE + EPS_INSET
+  : op.x - BOTTOM_PLATE + EPS_INSET;
+const beamRight = hasSill
+  ? op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET
+  : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
 
-**Most likely cause A: `height_right_mm` not in wall state when profile changes**
-- `WallForm.jsx:151` shows `wall.height_right_mm || wall.height_mm` as display value
-- But when switching to RAKED, `height_right_mm` may still be undefined in state
-- Fix: In profile change handler, explicitly set `height_right_mm` to `wall.height_mm` when switching to RAKED
+// After:
+const beamLeft = hasSill
+  ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET
+  : op.x - BOTTOM_PLATE + EPS_INSET;
+const beamRight = hasSill
+  ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET
+  : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
+```
 
-**Most likely cause B: `heightAt` function lost during React state update**
-- `calculateWallLayout` returns `heightAt` as a function in the layout object
-- If React serializes/loses the function reference, WallDrawing falls back to `height` (left height only)
-- Fix: Reconstruct `heightAt` in WallDrawing from `layout.heightLeft`/`heightRight`/`grossLength`
+**Step 2**: Fix `epsLeft` / `epsRight` (lines 567-568) to match:
+```jsx
+// Before:
+const epsLeft = op.x - BOTTOM_PLATE + EPS_INSET;
+const epsRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
 
-### Step 4: Remove debug console.logs
-Clean up `[DEBUG]` lines from `WallBuilderPage.jsx` and `WallDrawing.jsx`.
+// After:
+const epsLeft = hasSill
+  ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET
+  : op.x - BOTTOM_PLATE + EPS_INSET;
+const epsRight = hasSill
+  ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET
+  : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
+```
 
-### Step 5: Test and verify
-- `node test-maxheight-raked.mjs` — no regressions
-- Visual verification in browser with left=2400/right=3639 and left=3000/right=3100
+This ensures windows (with splines) get a wider beam/EPS span than doors (plates only), matching how the rest of the codebase treats these two cases.

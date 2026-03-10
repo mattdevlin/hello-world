@@ -1,9 +1,10 @@
 import { useRef } from 'react';
-import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_PITCH } from '../utils/constants.js';
+import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_PITCH, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
 
-const SPLINE_WIDTH = 146; // mm
 const HALF_SPLINE = SPLINE_WIDTH / 2; // 73mm each side of centre
+
+const EPS_INSET = 10; // mm recess from framing (matches EpsElevation)
 
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
@@ -33,6 +34,27 @@ export default function FramingElevation({ layout, wallName }) {
   // Plate lines run full width but skip deduction zones
   const plateLeft = deductionLeft;
   const plateRight = grossLength - deductionRight;
+
+  // Render a vertical spline rect or raked polygon
+  const renderSpline = (xL, xR, topL, topR, bot, key) => {
+    if (topL >= bot && topR >= bot) return null;
+    if (!isRaked || Math.abs(topL - topR) < 0.5) {
+      const topY = Math.min(topL, topR);
+      return (bot - topY) > 0 ? (
+        <rect key={key} x={s(xL)} y={s(topY)} width={s(xR - xL)} height={s(bot - topY)}
+          fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+      ) : null;
+    }
+    const pts = [];
+    pts.push(`${s(xL)},${s(bot)}`);
+    pts.push(`${s(xR)},${s(bot)}`);
+    if (topR < bot) pts.push(`${s(xR)},${s(topR)}`);
+    if (topL < bot) pts.push(`${s(xL)},${s(topL)}`);
+    return pts.length >= 3 ? (
+      <polygon key={key} points={pts.join(' ')}
+        fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+    ) : null;
+  };
 
   return (
     <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
@@ -318,33 +340,7 @@ export default function FramingElevation({ layout, wallName }) {
             const spTopR = yTop(spXR) + TOP_PLATE * 2;
             const spBot = yBottom - BOTTOM_PLATE;
 
-            if (spTopL >= spBot && spTopR >= spBot) return null;
-
-            if (!isRaked || Math.abs(spTopL - spTopR) < 0.5) {
-              const spTopY = Math.min(spTopL, spTopR);
-              return (spBot - spTopY) > 0 ? (
-                <rect
-                  key={`joint-spline-${i}`}
-                  x={s(spXL)} y={s(spTopY)}
-                  width={s(SPLINE_WIDTH)} height={s(spBot - spTopY)}
-                  fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-                />
-              ) : null;
-            }
-
-            // Raked/gable: polygon with angled top
-            const pts = [];
-            pts.push(`${s(spXL)},${s(spBot)}`);
-            pts.push(`${s(spXR)},${s(spBot)}`);
-            if (spTopR < spBot) pts.push(`${s(spXR)},${s(spTopR)}`);
-            if (spTopL < spBot) pts.push(`${s(spXL)},${s(spTopL)}`);
-            return pts.length >= 3 ? (
-              <polygon
-                key={`joint-spline-${i}`}
-                points={pts.join(' ')}
-                fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-              />
-            ) : null;
+            return renderSpline(spXL, spXR, spTopL, spTopR, spBot, `joint-spline-${i}`);
           })}
 
           {/* ── Openings ── */}
@@ -418,41 +414,14 @@ export default function FramingElevation({ layout, wallName }) {
                 />
                 {hasSill && (() => {
                   const spBot = yBottom - BOTTOM_PLATE;
-                  // Left opening spline
                   const lSpXL = op.x - BOTTOM_PLATE - SPLINE_WIDTH;
                   const lSpXR = op.x - BOTTOM_PLATE;
-                  const lTopL = yTop(lSpXL) + TOP_PLATE * 2;
-                  const lTopR = yTop(lSpXR) + TOP_PLATE * 2;
-                  // Right opening spline
                   const rSpXL = op.x + op.drawWidth + BOTTOM_PLATE;
                   const rSpXR = rSpXL + SPLINE_WIDTH;
-                  const rTopL = yTop(rSpXL) + TOP_PLATE * 2;
-                  const rTopR = yTop(rSpXR) + TOP_PLATE * 2;
-
-                  const renderSpline = (xL, xR, topL, topR, key) => {
-                    if (topL >= spBot && topR >= spBot) return null;
-                    if (!isRaked || Math.abs(topL - topR) < 0.5) {
-                      const topY = Math.min(topL, topR);
-                      return (spBot - topY) > 0 ? (
-                        <rect key={key} x={s(xL)} y={s(topY)} width={s(SPLINE_WIDTH)} height={s(spBot - topY)}
-                          fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                      ) : null;
-                    }
-                    const pts = [];
-                    pts.push(`${s(xL)},${s(spBot)}`);
-                    pts.push(`${s(xR)},${s(spBot)}`);
-                    if (topR < spBot) pts.push(`${s(xR)},${s(topR)}`);
-                    if (topL < spBot) pts.push(`${s(xL)},${s(topL)}`);
-                    return pts.length >= 3 ? (
-                      <polygon key={key} points={pts.join(' ')}
-                        fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                    ) : null;
-                  };
-
                   return (
                     <>
-                      {renderSpline(lSpXL, lSpXR, lTopL, lTopR, `op-spline-l-${i}`)}
-                      {renderSpline(rSpXL, rSpXR, rTopL, rTopR, `op-spline-r-${i}`)}
+                      {renderSpline(lSpXL, lSpXR, yTop(lSpXL) + TOP_PLATE * 2, yTop(lSpXR) + TOP_PLATE * 2, spBot, `op-spline-l-${i}`)}
+                      {renderSpline(rSpXL, rSpXR, yTop(rSpXL) + TOP_PLATE * 2, yTop(rSpXR) + TOP_PLATE * 2, spBot, `op-spline-r-${i}`)}
                     </>
                   );
                 })()}
@@ -494,13 +463,18 @@ export default function FramingElevation({ layout, wallName }) {
               : `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
             const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
 
-            // Timber beam rect (spans between vertical plates/splines with 10mm gap)
+            // Timber beam rect (spans between vertical plates/splines with EPS_INSET gap)
             const op = openings.find(o => o.ref === l.ref);
+            const hasSill = op && op.y > 0;
             const beamH = l.beamHeight || 200;
             let beamEl = null;
             if (op) {
-              const beamLeft = op.x - BOTTOM_PLATE + 10;
-              const beamRight = op.x + op.drawWidth + BOTTOM_PLATE - 10;
+              const beamLeft = hasSill
+                ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET
+                : op.x - BOTTOM_PLATE + EPS_INSET;
+              const beamRight = hasSill
+                ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET
+                : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
               const beamTop = yBottom - l.y - beamH;
               const beamW = beamRight - beamLeft;
               if (beamW > 0 && beamH > 0) {
@@ -631,7 +605,6 @@ export default function FramingElevation({ layout, wallName }) {
 
           {/* ── Horizontal splines at course joints (multi-course only) ── */}
           {isMultiCourse && courses.length > 1 && (() => {
-            const HSPLINE_CLEARANCE = 10;
             // Determine which joints have vertical splines
             const jointHasSpline = [];
             for (let i = 0; i < panels.length - 1; i++) {
@@ -664,33 +637,8 @@ export default function FramingElevation({ layout, wallName }) {
 
                 const splineLeft = leftEdge + HSPLINE_CLEARANCE;
                 const splineRight = rightEdge - HSPLINE_CLEARANCE;
-                if (splineRight <= splineLeft) return null;
-
-                // Collect exclusions: lintels, openings with plates & splines
-                const excl = [];
-                for (const l of lintels) {
-                  const eL = Math.max(l.x - HSPLINE_CLEARANCE, splineLeft);
-                  const eR = Math.min(l.x + l.width + HSPLINE_CLEARANCE, splineRight);
-                  if (eL < eR) excl.push([eL, eR]);
-                }
-                for (const op of openings) {
-                  const hasSill = op.y > 0;
-                  const oL = op.x - BOTTOM_PLATE - (hasSill ? SPLINE_WIDTH : 0) - HSPLINE_CLEARANCE;
-                  const oR = op.x + op.drawWidth + BOTTOM_PLATE + (hasSill ? SPLINE_WIDTH : 0) + HSPLINE_CLEARANCE;
-                  const eL = Math.max(oL, splineLeft);
-                  const eR = Math.min(oR, splineRight);
-                  if (eL < eR) excl.push([eL, eR]);
-                }
-                excl.sort((a, b) => a[0] - b[0]);
-
-                // Build segments between exclusions
-                const segs = [];
-                let cursor = splineLeft;
-                for (const [eL, eR] of excl) {
-                  if (cursor < eL) segs.push([cursor, eL]);
-                  cursor = Math.max(cursor, eR);
-                }
-                if (cursor < splineRight) segs.push([cursor, splineRight]);
+                const segs = buildHSplineSegments(splineLeft, splineRight, lintels, openings);
+                if (segs.length === 0) return null;
 
                 return segs.map(([segL, segR], si) => {
                   if (segR <= segL) return null;

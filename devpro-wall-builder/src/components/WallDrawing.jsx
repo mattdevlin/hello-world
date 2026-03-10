@@ -206,18 +206,31 @@ export default function WallDrawing({ layout, wallName }) {
           {/* Course join lines (multi-course walls > 3050mm) */}
           {isMultiCourse && courses.slice(1).map((course, i) => {
             const joinY = yBottom - s(course.y);
-            // Compute x-extent where wall height >= course.y using heightAt
-            // This handles gable peaks (piecewise linear) correctly
-            if (!heightAt) return null;
-            // Sample to find where heightAt(x) crosses course.y
-            const steps = 200;
+            // Compute x-extent where wall height >= course.y analytically
+            // heightAt is piecewise-linear with breakpoints at 0, peakX, grossLength
+            const hAtX = heightAt || (() => height);
+            const breakpoints = [0, grossLength];
+            if (layout.peakPosition != null && layout.peakPosition > 0 && layout.peakPosition < grossLength) {
+              breakpoints.push(layout.peakPosition);
+            }
+            breakpoints.sort((a, b) => a - b);
+
+            // Find x-range where hAtX(x) >= course.y by checking each linear segment
             let x0 = null, x1 = null;
-            for (let j = 0; j <= steps; j++) {
-              const x = (j / steps) * grossLength;
-              if (heightAt(x) >= course.y) {
-                if (x0 === null) x0 = x;
-                x1 = x;
+            for (let k = 0; k < breakpoints.length - 1; k++) {
+              const bL = breakpoints[k], bR = breakpoints[k + 1];
+              const hL = hAtX(bL), hR = hAtX(bR);
+              // Find where height crosses course.y within [bL, bR]
+              let segL = bL, segR = bR;
+              if (hL < course.y && hR < course.y) continue;
+              if (hL < course.y) {
+                segL = bL + (course.y - hL) / (hR - hL) * (bR - bL);
               }
+              if (hR < course.y) {
+                segR = bL + (course.y - hL) / (hR - hL) * (bR - bL);
+              }
+              if (x0 === null || segL < x0) x0 = segL;
+              if (x1 === null || segR > x1) x1 = segR;
             }
             if (x0 === null) return null;
             return (
