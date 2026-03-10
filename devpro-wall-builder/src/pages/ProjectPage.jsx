@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   getProjects, getProjectWalls, deleteWall, renameProject,
-  copyWallToProject,
+  copyWallToProject, getProjectConnections, saveProjectConnections,
 } from '../utils/storage.js';
 import EpsBlockSummary from '../components/EpsBlockSummary.jsx';
 import MagboardSheetSummary from '../components/MagboardSheetSummary.jsx';
@@ -17,6 +17,7 @@ export default function ProjectPage() {
   const [renamingProject, setRenamingProject] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [copyingWallId, setCopyingWallId] = useState(null);
+  const [connections, setConnections] = useState([]);
 
   useEffect(() => {
     const projects = getProjects();
@@ -27,12 +28,19 @@ export default function ProjectPage() {
     }
     setProject(p);
     setWalls(getProjectWalls(projectId));
+    setConnections(getProjectConnections(projectId));
   }, [projectId, navigate]);
 
   const refresh = () => {
     setWalls(getProjectWalls(projectId));
+    setConnections(getProjectConnections(projectId));
     const p = getProjects().find(p => p.id === projectId);
     if (p) setProject(p);
+  };
+
+  const handleConnectionsChange = (newConnections) => {
+    saveProjectConnections(projectId, newConnections);
+    setConnections(newConnections);
   };
 
   const handleDeleteWall = (wallId, e) => {
@@ -102,7 +110,13 @@ export default function ProjectPage() {
         </div>
 
         {/* 3D Model Viewer */}
-        {walls.length > 0 && <ModelViewer3D walls={walls} />}
+        {walls.length > 0 && (
+          <ModelViewer3D
+            walls={walls}
+            connections={connections}
+            onConnectionsChange={handleConnectionsChange}
+          />
+        )}
 
         {/* Material Summaries */}
         {walls.length > 0 && <EpsBlockSummary walls={walls} />}

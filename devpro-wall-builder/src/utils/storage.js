@@ -5,6 +5,10 @@ function projectWallsKey(projectId) {
   return `devpro-project-${projectId}`;
 }
 
+function projectConnectionsKey(projectId) {
+  return `devpro-project-${projectId}-connections`;
+}
+
 function readJson(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -99,6 +103,10 @@ export function saveWall(projectId, wallInput) {
 export function deleteWall(projectId, wallId) {
   const walls = getProjectWalls(projectId).filter(w => w.id !== wallId);
   localStorage.setItem(projectWallsKey(projectId), JSON.stringify(walls));
+  // Remove any connections referencing the deleted wall
+  const connections = getProjectConnections(projectId)
+    .filter(c => c.wallId !== wallId && c.attachedWallId !== wallId);
+  saveProjectConnections(projectId, connections);
   syncWallCount(projectId);
 }
 
@@ -116,6 +124,16 @@ export function copyWallToProject(wall, targetProjectId) {
   return copy;
 }
 
+// ── Connections (wall snap layout) ──
+
+export function getProjectConnections(projectId) {
+  return readJson(projectConnectionsKey(projectId)) || [];
+}
+
+export function saveProjectConnections(projectId, connections) {
+  localStorage.setItem(projectConnectionsKey(projectId), JSON.stringify(connections));
+}
+
 // ── Archive (export/import as JSON zip) ──
 
 export async function exportProject(projectId) {
@@ -125,9 +143,11 @@ export async function exportProject(projectId) {
   if (!project) throw new Error('Project not found');
 
   const walls = getProjectWalls(projectId);
+  const connections = getProjectConnections(projectId);
   const zip = new JSZip();
   zip.file('project.json', JSON.stringify({ ...project, exportedAt: Date.now() }, null, 2));
   zip.file('walls.json', JSON.stringify(walls, null, 2));
+  zip.file('connections.json', JSON.stringify(connections, null, 2));
 
   const blob = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(blob);
@@ -159,16 +179,31 @@ export async function importProject(file) {
     wallCount: wallsData.length,
   };
 
-  // Assign fresh wall IDs too
-  const walls = wallsData.map(w => ({
-    ...w,
+  // Import connections if present (backward compatible with older exports)
+  const connectionsJson = await zip.file('connections.json')?.async('string');
+  const connectionsData = connectionsJson ? JSON.parse(connectionsJson) : [];
+
+  // Remap wall IDs in connections
+  const wallIdMap = new Map();
+  const walls = wallsData.map(w => {
+    const newWallId = crypto.randomUUID();
+    wallIdMap.set(w.id, newWallId);
+    return { ...w, id: newWallId };
+  });
+  const connections = connectionsData.map(c => ({
+    ...c,
     id: crypto.randomUUID(),
+    wallId: wallIdMap.get(c.wallId) || c.wallId,
+    attachedWallId: wallIdMap.get(c.attachedWallId) || c.attachedWallId,
   }));
 
   const projects = getProjects();
   projects.push(project);
   saveProjects(projects);
   localStorage.setItem(projectWallsKey(newId), JSON.stringify(walls));
+  if (connections.length > 0) {
+    saveProjectConnections(newId, connections);
+  }
 
   return project;
 }

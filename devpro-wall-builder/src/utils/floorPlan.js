@@ -29,6 +29,7 @@
  */
 
 import { WALL_THICKNESS } from './constants.js';
+import { resolveFloorPlanLayout, computeLayoutBounds } from './wallSnap.js';
 
 /**
  * Compute the 3D position and rotation for each wall in a rectangular floor plan.
@@ -154,6 +155,21 @@ export function computeFloorPlanCorners(walls) {
  * @param {Array} floorPlanEntries - Output of computeFloorPlan()
  * @returns {Array<{corner: string, endA: {x,z}, endB: {x,z}, gap_mm: number}>}
  */
+/**
+ * Compute floor plan layout from walls and snap connections.
+ * Falls back to the rectangular computeFloorPlan when no connections exist.
+ *
+ * @param {Array} walls - All wall objects in the project
+ * @param {Array} connections - Snap connection objects (may be empty/null)
+ * @returns {Array} Same shape as computeFloorPlan output
+ */
+export function computeFloorPlanFromConnections(walls, connections) {
+  if (!connections || connections.length === 0) {
+    return computeFloorPlan(walls);
+  }
+  return resolveFloorPlanLayout(walls, connections);
+}
+
 export function validateCornerJoins(floorPlanEntries) {
   if (floorPlanEntries.length < 2) return [];
 
