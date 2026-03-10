@@ -53,7 +53,7 @@ function buildHeightFn(wall) {
  *        (future project-level optimizer can pass a custom subset)
  * @returns {{ courses: Array<{y: number, height: number, sheetHeight: number}>, isMultiCourse: boolean }}
  */
-export function computeCourses(wallHeight, availableSheets = STOCK_SHEET_HEIGHTS) {
+export function computeCourses(wallHeight, availableSheets = STOCK_SHEET_HEIGHTS, preferredBottom = null) {
   const maxSheet = Math.max(...availableSheets);
 
   if (wallHeight <= maxSheet) {
@@ -65,7 +65,36 @@ export function computeCourses(wallHeight, availableSheets = STOCK_SHEET_HEIGHTS
     };
   }
 
-  // Try all two-course combinations; pick the one with minimum waste
+  // If a preferred bottom course height is specified, use it directly
+  if (preferredBottom && preferredBottom < wallHeight) {
+    const bottomSheet = availableSheets.find(s => s >= preferredBottom) || maxSheet;
+    const topHeight = wallHeight - preferredBottom;
+    const topSheet = availableSheets.find(s => s >= topHeight) || maxSheet;
+    if (topHeight <= maxSheet) {
+      return {
+        courses: [
+          { y: 0, height: preferredBottom, sheetHeight: bottomSheet },
+          { y: preferredBottom, height: topHeight, sheetHeight: topSheet },
+        ],
+        isMultiCourse: true,
+      };
+    }
+    // Top still exceeds max sheet — stack preferred bottom + remaining courses
+    const courses = [{ y: 0, height: preferredBottom, sheetHeight: bottomSheet }];
+    let remaining = topHeight;
+    let y = preferredBottom;
+    while (remaining > maxSheet) {
+      courses.push({ y, height: maxSheet, sheetHeight: maxSheet });
+      y += maxSheet;
+      remaining -= maxSheet;
+    }
+    const sheet = availableSheets.find(s => s >= remaining) || maxSheet;
+    courses.push({ y, height: remaining, sheetHeight: sheet });
+    return { courses, isMultiCourse: true };
+  }
+
+  // No preference — try all two-course combinations; pick the one with minimum waste
+  // Default: prefer smaller bottom sheet (less material usage)
   let best = null;
   let bestWaste = Infinity;
 
@@ -75,8 +104,8 @@ export function computeCourses(wallHeight, availableSheets = STOCK_SHEET_HEIGHTS
     const topSheet = availableSheets.find(s => s >= topHeight);
     if (!topSheet) continue; // top too tall for any single sheet
     const waste = topSheet - topHeight;
-    // Prefer less waste; on tie prefer taller bottom (structurally stronger)
-    if (waste < bestWaste || (waste === bestWaste && bottomSheet > (best?.bottomSheet || 0))) {
+    // Prefer less waste; on tie prefer smaller bottom (less material)
+    if (waste < bestWaste || (waste === bestWaste && bottomSheet < (best?.bottomSheet || Infinity))) {
       bestWaste = waste;
       best = { bottomSheet, topHeight, topSheet };
     }
@@ -417,17 +446,136 @@ export function calculateWallLayout(wall) {
 
   // Compute vertical course layout (multi-course for walls > 3050mm)
   // Use maxHeight so raked/gable walls trigger multi-course when any part exceeds sheet height
-  const { courses, isMultiCourse } = computeCourses(maxHeight);
-
-  // Per-panel sheet height assignment
-  // Each panel gets its own sheetHeight based on its individual max height.
-  // On raked/gable walls, panels have varying heights and may need different sheets.
+  // Determine preferred bottom course height based on wall profile
   const maxStockSheet = Math.max(...STOCK_SHEET_HEIGHTS);
-  panels.forEach(panel => {
-    const panelMaxH = Math.max(panel.heightLeft, panel.heightRight, panel.peakHeight || 0);
-    panel.sheetHeight = STOCK_SHEET_HEIGHTS.find(s => s >= panelMaxH) || maxStockSheet;
-    panel.isMultiCourse = panelMaxH > maxStockSheet;
-  });
+  let preferredBottom = wall.preferred_sheet_height || null;
+  if (!preferredBottom && maxHeight > maxStockSheet) {
+    if (profile === WALL_PROFILES.RAKED) {
+      // Use the actual lower wall height as the course split point
+      // (the sheet that covers it is tracked separately in sheetHeight)
+      const lowerH = Math.min(height, heightAt ? heightAt(grossLength) : height);
+      preferredBottom = lowerH;
+    } else if (profile === WALL_PROFILES.GABLE) {
+      // Use the actual base wall height as the course split point
+      preferredBottom = height;
+    } else {
+      // Standard flat wall — default to smaller sheet
+      preferredBottom = Math.min(...STOCK_SHEET_HEIGHTS);
+    }
+  }
+
+  const { courses, isMultiCourse } = computeCourses(maxHeight, STOCK_SHEET_HEIGHTS, preferredBottom);
+
+  // ── Replicate panels across courses ──
+  // The panels array so far represents horizontal positions for a single row.
+  // For multi-course walls, each course gets its own copy with adjusted heights.
+  let allPanels;
+
+  if (!isMultiCourse) {
+    // Single course — tag panels and assign sheet heights as before
+    panels.forEach(panel => {
+      panel.course = 0;
+      panel.courseY = 0;
+      const panelMaxH = Math.max(panel.heightLeft, panel.heightRight, panel.peakHeight || 0);
+      panel.sheetHeight = STOCK_SHEET_HEIGHTS.find(s => s >= panelMaxH) || maxStockSheet;
+      panel.isMultiCourse = false;
+    });
+    allPanels = panels;
+  } else {
+    allPanels = [];
+
+    for (let ci = 0; ci < courses.length; ci++) {
+      const course = courses[ci];
+      const courseTop = course.y + course.height;
+
+      for (const basePanel of panels) {
+        // Compute this panel's absolute height range at its edges for this course
+        const absLeftH = Math.max(basePanel.heightLeft, basePanel.heightRight, basePanel.peakHeight || 0) > 0
+          ? basePanel.heightLeft : height;
+        const absRightH = Math.max(basePanel.heightLeft, basePanel.heightRight, basePanel.peakHeight || 0) > 0
+          ? basePanel.heightRight : height;
+
+        // For raked/gable, use heightAt to get absolute heights at panel edges
+        const absHL = Math.round(heightAt(basePanel.x));
+        const absHR = Math.round(heightAt(basePanel.x + basePanel.width));
+
+        // Panel height within this course
+        const courseHL = Math.max(0, Math.min(absHL, courseTop) - course.y);
+        const courseHR = Math.max(0, Math.min(absHR, courseTop) - course.y);
+
+        // Skip if this panel has zero height in this course
+        if (courseHL <= 0 && courseHR <= 0) continue;
+
+        // Determine panel type for this course
+        let panelType = basePanel.type;
+        let panelProps = {};
+
+        if (basePanel.type === 'lcut') {
+          // Check if the opening intersects this course's vertical range
+          const openBottom = basePanel.openBottom || 0;
+          const openTop = basePanel.openTop || 0;
+          const overlaps = openBottom < courseTop && openTop > course.y;
+
+          if (overlaps) {
+            // Opening intersects this course — keep as L-cut with adjusted open coords
+            panelProps = {
+              openingRefs: basePanel.openingRefs,
+              side: basePanel.side,
+              openLeft: basePanel.openLeft,
+              openRight: basePanel.openRight,
+              openBottom: Math.max(0, openBottom - course.y),
+              openTop: Math.min(course.height, openTop - course.y),
+              openingType: basePanel.openingType,
+            };
+            if (basePanel.side === 'pier') {
+              panelProps.rightOpenLeft = basePanel.rightOpenLeft;
+              panelProps.rightOpenRight = basePanel.rightOpenRight;
+              panelProps.rightOpenBottom = Math.max(0, (basePanel.rightOpenBottom || 0) - course.y);
+              panelProps.rightOpenTop = Math.min(course.height, (basePanel.rightOpenTop || 0) - course.y);
+              panelProps.rightOpeningType = basePanel.rightOpeningType;
+            }
+          } else {
+            // Opening doesn't reach this course — emit as full or end panel
+            panelType = basePanel.width < PANEL_WIDTH ? 'end' : 'full';
+          }
+        }
+
+        // Gable peak detection for this course
+        let panelPeakHeight;
+        let panelPeakXLocal;
+        if (profile === WALL_PROFILES.GABLE && basePanel.peakHeight != null) {
+          const absPeakH = basePanel.peakHeight;
+          const coursePeakH = Math.max(0, Math.min(absPeakH, courseTop) - course.y);
+          if (coursePeakH > 0) {
+            panelPeakHeight = coursePeakH;
+            panelPeakXLocal = basePanel.peakXLocal;
+          }
+        }
+
+        const panelMaxH = Math.max(courseHL, courseHR, panelPeakHeight || 0);
+
+        allPanels.push({
+          x: basePanel.x,
+          width: basePanel.width,
+          pitch: basePanel.pitch,
+          height: course.height,
+          type: panelType,
+          heightLeft: courseHL,
+          heightRight: courseHR,
+          peakHeight: panelPeakHeight,
+          peakXLocal: panelPeakXLocal,
+          course: ci,
+          courseY: course.y,
+          sheetHeight: course.sheetHeight,
+          isMultiCourse: true,
+          ...panelProps,
+        });
+      }
+    }
+
+    // Re-index all panels
+    allPanels.forEach((p, i) => { p.index = i; });
+  }
 
   return {
     grossLength,
@@ -447,16 +595,16 @@ export function calculateWallLayout(wall) {
       : undefined,
     deductionLeft: dedLeft,
     deductionRight: dedRight,
-    panels,
+    panels: allPanels,
     openings: openingDetails,
     footers,
     lintels,
     courses,
     isMultiCourse,
-    totalPanels: panels.length,
-    fullPanels: panels.filter(p => p.type === 'full').length,
-    lcutPanels: panels.filter(p => p.type === 'lcut').length,
-    endPanels: panels.filter(p => p.type === 'end').length,
+    totalPanels: allPanels.length,
+    fullPanels: allPanels.filter(p => p.type === 'full').length,
+    lcutPanels: allPanels.filter(p => p.type === 'lcut').length,
+    endPanels: allPanels.filter(p => p.type === 'end').length,
   };
 }
 

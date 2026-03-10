@@ -129,7 +129,9 @@ describe('extractMagboardPieces', () => {
 
     expect(layout.isMultiCourse).toBe(true);
     const hsplines = cutPieces.filter(p => p.type === 'hspline');
-    const expectedCount = layout.panels.length * (layout.courses.length - 1) * 2;
+    // Panels per course (x-positions); layout.panels now includes all courses
+    const panelsPerCourse = layout.panels.filter(p => p.course === 0).length;
+    const expectedCount = panelsPerCourse * (layout.courses.length - 1) * 2;
     expect(hsplines.length).toBe(expectedCount);
 
     // Each hspline height should be SPLINE_WIDTH (146mm)
@@ -145,19 +147,20 @@ describe('extractMagboardPieces', () => {
     const { cutPieces } = extractMagboardPieces(layout, 'W1');
 
     expect(layout.isMultiCourse).toBe(true);
-    expect(layout.panels.length).toBeGreaterThanOrEqual(3);
+    // Use course 0 panels for x-position checks (same positions across courses)
+    const basePanels = layout.panels.filter(p => (p.course ?? 0) === 0);
+    expect(basePanels.length).toBeGreaterThanOrEqual(3);
 
     const hsplines = cutPieces.filter(p => p.type === 'hspline');
     const SPLINE_W = 146;
     const CLEARANCE = 10;
-    const panels = layout.panels;
 
     // Check the middle panel (index 1) — has vertical splines on both sides
     // Left spline inner edge = gap_centre + SPLINE_W/2
     // Right spline inner edge = gap_centre - SPLINE_W/2
     // hspline width = rightEdge - leftEdge - 20
-    const midPanel = panels[1];
-    const leftGap = panels[0].x + panels[0].width + 5 / 2;
+    const midPanel = basePanels[1];
+    const leftGap = basePanels[0].x + basePanels[0].width + 5 / 2;
     const rightGap = midPanel.x + midPanel.width + 5 / 2;
     const expectedMidWidth = (rightGap - SPLINE_W / 2) - (leftGap + SPLINE_W / 2) - 2 * CLEARANCE;
 
@@ -167,7 +170,7 @@ describe('extractMagboardPieces', () => {
 
     // First panel — left boundary is panel.x + BOTTOM_PLATE (past vertical timber), right is spline inner edge
     const BOTTOM_PLATE = 45;
-    const firstPanel = panels[0];
+    const firstPanel = basePanels[0];
     const firstRightGap = firstPanel.x + firstPanel.width + 5 / 2;
     const expectedFirstWidth = (firstRightGap - SPLINE_W / 2) - (firstPanel.x + BOTTOM_PLATE) - 2 * CLEARANCE;
     const firstHsplines = hsplines.filter(h => h.label.includes(`P${firstPanel.index + 1}`));
@@ -177,8 +180,8 @@ describe('extractMagboardPieces', () => {
     expect(firstHsplines[0].width).toBeLessThan(firstPanel.width);
 
     // Last panel — left is spline inner edge, right boundary is panel edge - BOTTOM_PLATE (past vertical timber)
-    const lastPanel = panels[panels.length - 1];
-    const lastLeftGap = panels[panels.length - 2].x + panels[panels.length - 2].width + 5 / 2;
+    const lastPanel = basePanels[basePanels.length - 1];
+    const lastLeftGap = basePanels[basePanels.length - 2].x + basePanels[basePanels.length - 2].width + 5 / 2;
     const expectedLastWidth = (lastPanel.x + lastPanel.width - BOTTOM_PLATE) - (lastLeftGap + SPLINE_W / 2) - 2 * CLEARANCE;
     const lastHsplines = hsplines.filter(h => h.label.includes(`P${lastPanel.index + 1}`));
     expect(lastHsplines[0].width).toBeCloseTo(expectedLastWidth, 0);
@@ -195,13 +198,8 @@ describe('extractMagboardPieces', () => {
     expect(layout.isMultiCourse).toBe(true);
     expect(layout.courses.length).toBe(2);
 
-    // Multi-course panels get 2 sheets per course
-    const multiCoursePanels = layout.panels.filter(p => p.isMultiCourse);
-    const singleCoursePanels = layout.panels.filter(p => !p.isMultiCourse);
-
-    const expectedSheets =
-      multiCoursePanels.length * layout.courses.length * 2 +
-      singleCoursePanels.length * 2;
+    // Each panel in layout.panels is now course-specific → 2 sheets each (front + back)
+    const expectedSheets = layout.panels.length * 2;
 
     expect(panelSheets.length).toBe(expectedSheets);
   });

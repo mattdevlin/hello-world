@@ -38,9 +38,11 @@ export default function WallSummary({ layout, wallName }) {
   const { panels, openings, lintels, footers, height, deductionLeft, deductionRight, grossLength, isRaked, courses, isMultiCourse } = layout;
 
   // ── Count splines ──
+  // Use course 0 panels for joint detection (same x-positions across courses)
+  const basePanels = panels.filter(p => (p.course ?? 0) === 0);
   const jointSplines = [];
-  for (let i = 0; i < panels.length - 1; i++) {
-    const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
+  for (let i = 0; i < basePanels.length - 1; i++) {
+    const gapCentre = basePanels[i].x + basePanels[i].width + PANEL_GAP / 2;
     const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (!insideLintel && !insideFooter) jointSplines.push(gapCentre);
@@ -69,7 +71,7 @@ export default function WallSummary({ layout, wallName }) {
     exclusions.push([op.x, op.x + op.drawWidth]);
   }
 
-  for (const p of panels) {
+  for (const p of basePanels) {
     if (p.type === 'end') exclusions.push([p.x + p.width - BOTTOM_PLATE, p.x + p.width]);
     if (deductionRight === 0 && Math.abs(p.x + p.width - grossLength) < 1) exclusions.push([grossLength - BOTTOM_PLATE, grossLength]);
     if (deductionLeft === 0 && Math.abs(p.x) < 1) exclusions.push([0, BOTTOM_PLATE]);
@@ -112,7 +114,7 @@ export default function WallSummary({ layout, wallName }) {
 
   let panelEpsVol = 0;
   let panelEpsSA = 0;
-  for (const panel of panels) {
+  for (const panel of basePanels) {
     const segments = getEpsSegments(panel.x, panel.x + panel.width);
     const panelEpsH = isRaked
       ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_INSET * 2)
@@ -222,43 +224,53 @@ export default function WallSummary({ layout, wallName }) {
       </div>
 
       {/* Panel details table */}
-      {panels.length > 0 && (
-        <div style={styles.detailSection}>
-          <SectionLabel>Panel Details</SectionLabel>
-          <div style={styles.tableWrap}>
-            <table style={styles.detailTable}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>#</th>
-                  <th style={styles.th}>Type</th>
-                  <th style={{ ...styles.th, textAlign: 'right' }}>Width</th>
-                  <th style={{ ...styles.th, textAlign: 'right' }}>Position</th>
-                  {isRaked && <th style={{ ...styles.th, textAlign: 'right' }}>H Left</th>}
-                  {isRaked && <th style={{ ...styles.th, textAlign: 'right' }}>H Right</th>}
-                  <th style={styles.th}>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {panels.map((p, i) => (
-                  <tr key={i} style={i % 2 === 0 ? styles.evenRow : undefined}>
-                    <td style={styles.td}>P{p.index + 1}</td>
-                    <td style={styles.td}>
-                      <span style={{ ...styles.badge, background: badgeColor(p.type) }}>
-                        {p.type}
-                      </span>
-                    </td>
-                    <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.width}</td>
-                    <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.x}</td>
-                    {isRaked && <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.heightLeft}</td>}
-                    {isRaked && <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.heightRight}</td>}
-                    <td style={{ ...styles.td, color: '#888' }}>{p.openingRefs ? `Opens: ${p.openingRefs.join(', ')}` : '—'}</td>
+      {panels.length > 0 && (() => {
+        const posMap = new Map(basePanels.map((p, idx) => [p.x, idx]));
+        return (
+          <div style={styles.detailSection}>
+            <SectionLabel>Panel Details</SectionLabel>
+            <div style={styles.tableWrap}>
+              <table style={styles.detailTable}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>#</th>
+                    {isMultiCourse && <th style={styles.th}>Course</th>}
+                    <th style={styles.th}>Type</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Width</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Position</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>H Left</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>H Right</th>
+                    <th style={styles.th}>Notes</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {panels.map((p, i) => {
+                    const posIdx = posMap.get(p.x) ?? 0;
+                    const courseIdx = p.course ?? 0;
+                    const label = isMultiCourse ? `P${posIdx + 1}·C${courseIdx + 1}` : `P${posIdx + 1}`;
+                    return (
+                      <tr key={i} style={i % 2 === 0 ? styles.evenRow : undefined}>
+                        <td style={styles.td}>{label}</td>
+                        {isMultiCourse && <td style={styles.td}>C{courseIdx + 1}</td>}
+                        <td style={styles.td}>
+                          <span style={{ ...styles.badge, background: badgeColor(p.type) }}>
+                            {p.type}
+                          </span>
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.width}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.x}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.heightLeft}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.heightRight}</td>
+                        <td style={{ ...styles.td, color: '#888' }}>{p.openingRefs ? `Opens: ${p.openingRefs.join(', ')}` : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

@@ -51,8 +51,10 @@ export default function EpsElevation({ layout, wallName }) {
   }
 
   // 2. Joint splines (146mm centred on 5mm gap between panels)
-  for (let i = 0; i < panels.length - 1; i++) {
-    const panel = panels[i];
+  // Use course 0 panels — x-positions are identical across courses
+  const basePanels = panels.filter(p => (p.course ?? 0) === 0);
+  for (let i = 0; i < basePanels.length - 1; i++) {
+    const panel = basePanels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
     // Skip if inside opening zone (same logic as framing elevation)
     const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
@@ -80,7 +82,7 @@ export default function EpsElevation({ layout, wallName }) {
   }
 
   // 4. Vertical plates at panel outer edges (45mm)
-  for (const p of panels) {
+  for (const p of basePanels) {
     // End panels always have a plate at their trailing edge
     if (p.type === 'end') {
       exclusions.push([p.x + p.width - BOTTOM_PLATE, p.x + p.width]);
@@ -245,7 +247,8 @@ export default function EpsElevation({ layout, wallName }) {
           <g clipPath={`url(#${clipId})`}>
 
           {/* ── Panels with EPS cores ── */}
-          {panels.map((panel, i) => {
+          {/* Use course 0 panels — internal multi-course rendering handles all courses */}
+          {panels.filter(p => (p.course ?? 0) === 0).map((panel, i) => {
             const segments = getEpsSegments(panel.x, panel.x + panel.width);
 
             const getVertExclusions = (xEdge) => {
@@ -477,13 +480,29 @@ export default function EpsElevation({ layout, wallName }) {
                     />
                   ) : null;
                 })}
-                <text
-                  x={s(panel.x + panel.width / 2)}
-                  y={s((panelMidH + yBottom) / 2) + 4}
-                  textAnchor="middle" fontSize="10" fill={LABEL_COLOR}
-                >
-                  P{panel.index + 1}
-                </text>
+                {/* Panel labels — one per course, positioned in each course's vertical region */}
+                {(isMultiCourse ? courses : [{ y: 0, height }]).map((course, ci) => {
+                  const cY = course.y;
+                  const cTop = cY + course.height;
+                  const panelCenterX = panel.x + panel.width / 2;
+                  const wallHAtCenter = heightAt ? heightAt(panelCenterX) : height;
+                  // Skip label if wall height at this panel doesn't reach this course (raked walls)
+                  if (wallHAtCenter <= cY) return null;
+                  // Clamp to cY so label stays within course when wall height < course bottom (raked walls)
+                  const courseMidTop = Math.max(Math.min(wallHAtCenter, cTop), cY);
+                  const courseMidY = (yBottom - cY + yBottom - courseMidTop) / 2;
+                  const label = isMultiCourse ? `P${i + 1}·C${ci + 1}` : `P${i + 1}`;
+                  return (
+                    <text
+                      key={`label-c${ci}`}
+                      x={s(panelCenterX)}
+                      y={s(courseMidY) + 4}
+                      textAnchor="middle" fontSize={isMultiCourse ? 8 : 10} fill={LABEL_COLOR}
+                    >
+                      {label}
+                    </text>
+                  );
+                })}
               </g>
             );
           })}
@@ -650,8 +669,8 @@ export default function EpsElevation({ layout, wallName }) {
             const splineEpsW = SPLINE_WIDTH - MAGBOARD * 2;
             const splines = [];
 
-            for (let i = 0; i < panels.length - 1; i++) {
-              const panel = panels[i];
+            for (let i = 0; i < basePanels.length - 1; i++) {
+              const panel = basePanels[i];
               const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
               const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
               const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
@@ -710,8 +729,8 @@ export default function EpsElevation({ layout, wallName }) {
           {isMultiCourse && courses.length > 1 && (() => {
             const splineEpsInset = MAGBOARD; // 10mm magboard each face
             const jointHasSpline = [];
-            for (let i = 0; i < panels.length - 1; i++) {
-              const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
+            for (let i = 0; i < basePanels.length - 1; i++) {
+              const gapCentre = basePanels[i].x + basePanels[i].width + PANEL_GAP / 2;
               const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
               const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
               jointHasSpline.push(!insideLintel && !insideFooter);
@@ -722,21 +741,19 @@ export default function EpsElevation({ layout, wallName }) {
               const epsY = joinY - HALF_SPLINE + splineEpsInset;
               const epsH = SPLINE_WIDTH - 2 * splineEpsInset;
               if (epsH <= 0) return null;
-              return panels.map((panel, pi) => {
+              return basePanels.map((panel, pi) => {
                 let leftEdge;
                 if (pi > 0 && jointHasSpline[pi - 1]) {
-                  const gc = panels[pi - 1].x + panels[pi - 1].width + PANEL_GAP / 2;
+                  const gc = basePanels[pi - 1].x + basePanels[pi - 1].width + PANEL_GAP / 2;
                   leftEdge = gc + HALF_SPLINE;
                 } else {
-                  // Inset past the vertical timber plate at the panel edge
                   leftEdge = panel.x + BOTTOM_PLATE;
                 }
                 let rightEdge;
-                if (pi < panels.length - 1 && jointHasSpline[pi]) {
+                if (pi < basePanels.length - 1 && jointHasSpline[pi]) {
                   const gc = panel.x + panel.width + PANEL_GAP / 2;
                   rightEdge = gc - HALF_SPLINE;
                 } else {
-                  // Inset past the vertical timber plate at the panel edge
                   rightEdge = panel.x + panel.width - BOTTOM_PLATE;
                 }
 
@@ -861,7 +878,8 @@ export default function EpsElevation({ layout, wallName }) {
               const points = new Set([0, grossLength]);
               if (deductionLeft > 0) points.add(deductionLeft);
               if (deductionRight > 0) points.add(grossLength - deductionRight);
-              panels.forEach(p => {
+              // Use course 0 panels for measurement ticks (same x-positions across courses)
+              basePanels.forEach(p => {
                 if (p.type === 'lcut') {
                   if (p.side === 'left') {
                     const adj = p.openBottom > 0 ? WINDOW_OVERHANG : 0;
