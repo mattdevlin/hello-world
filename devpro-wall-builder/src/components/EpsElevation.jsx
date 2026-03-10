@@ -552,67 +552,70 @@ export default function EpsElevation({ layout, wallName }) {
             const op = openings.find(o => o.ref === l.ref);
             const hasSill = op && op.y > 0;
 
-            // Timber beam spans between inner edges of opening splines/plates, with 10mm gap
-            const beamH = l.beamHeight || 200;
-            const beamLeft = hasSill
-              ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET  // 10mm inside left spline outer edge
-              : op.x - BOTTOM_PLATE + EPS_INSET;                // 10mm inside left plate inner edge
-            const beamRight = hasSill
-              ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET  // 10mm inside right spline outer edge
-              : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;               // 10mm inside right plate inner edge
-            const beamTop = yBottom - l.y - beamH;
-            const beamBot = yBottom - l.y;
-
-            // Lintel EPS: fills the area above the timber beam, inset 10mm from spline/plate inner edges
-            const epsLeft = hasSill
-              ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET  // 10mm inside spline outer edge
-              : op.x - BOTTOM_PLATE + EPS_INSET;                // 10mm inside plate inner edge
-            const epsRight = hasSill
-              ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET  // 10mm inside spline outer edge
-              : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;               // 10mm inside plate inner edge
-            const epsBot = beamTop - EPS_INSET;  // 10mm above timber beam
-
-            // EPS top follows wall slope (same as panel EPS logic)
-            const epsTopAt = (x) => yTopAt(x) + TOP_PLATE * 2 + EPS_INSET;
-
             const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
 
-            // Build EPS polygon (if there's space above the beam)
+            // Timber beam and EPS fill (only when matching opening exists)
+            let beamLeft, beamRight, beamTop, beamH;
             let epsPoly = null;
-            if (epsBot > epsTopAt(epsLeft) || epsBot > epsTopAt(epsRight)) {
-              const epsTopL = epsTopAt(epsLeft);
-              const epsTopR = epsTopAt(epsRight);
+            if (op) {
+              // Timber beam spans between inner edges of opening splines/plates, with 10mm gap
+              beamH = l.beamHeight || 200;
+              beamLeft = hasSill
+                ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET  // 10mm inside left spline outer edge
+                : op.x - BOTTOM_PLATE + EPS_INSET;                // 10mm inside left plate inner edge
+              beamRight = hasSill
+                ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET  // 10mm inside right spline outer edge
+                : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;               // 10mm inside right plate inner edge
+              beamTop = yBottom - l.y - beamH;
 
-              if (isRaked && Math.abs(epsTopL - epsTopR) > 0.5) {
-                // Raked/gable: polygon with angled top
-                const pts = [];
-                pts.push(`${s(epsLeft)},${s(epsBot)}`);
-                pts.push(`${s(epsRight)},${s(epsBot)}`);
-                if (epsTopR < epsBot) pts.push(`${s(epsRight)},${s(epsTopR)}`);
-                // Gable peak vertex
-                if (l.peakHeight && l.peakXLocal != null) {
-                  const peakGX = l.x + l.peakXLocal;
-                  if (peakGX > epsLeft && peakGX < epsRight) {
-                    const peakTopY = epsTopAt(peakGX);
-                    if (peakTopY < epsBot) pts.push(`${s(peakGX)},${s(peakTopY)}`);
+              // Lintel EPS: fills the area above the timber beam, inset 10mm from spline/plate inner edges
+              const epsLeft = hasSill
+                ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET  // 10mm inside spline outer edge
+                : op.x - BOTTOM_PLATE + EPS_INSET;                // 10mm inside plate inner edge
+              const epsRight = hasSill
+                ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET  // 10mm inside spline outer edge
+                : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;               // 10mm inside plate inner edge
+              const epsBot = beamTop - EPS_INSET;  // 10mm above timber beam
+
+              // EPS top follows wall slope (same as panel EPS logic)
+              const epsTopAt = (x) => yTopAt(x) + TOP_PLATE * 2 + EPS_INSET;
+
+              // Build EPS polygon (if there's space above the beam)
+              if (epsBot > epsTopAt(epsLeft) || epsBot > epsTopAt(epsRight)) {
+                const epsTopL = epsTopAt(epsLeft);
+                const epsTopR = epsTopAt(epsRight);
+
+                if (isRaked && Math.abs(epsTopL - epsTopR) > 0.5) {
+                  // Raked/gable: polygon with angled top
+                  const pts = [];
+                  pts.push(`${s(epsLeft)},${s(epsBot)}`);
+                  pts.push(`${s(epsRight)},${s(epsBot)}`);
+                  if (epsTopR < epsBot) pts.push(`${s(epsRight)},${s(epsTopR)}`);
+                  // Gable peak vertex
+                  if (l.peakHeight && l.peakXLocal != null) {
+                    const peakGX = l.x + l.peakXLocal;
+                    if (peakGX > epsLeft && peakGX < epsRight) {
+                      const peakTopY = epsTopAt(peakGX);
+                      if (peakTopY < epsBot) pts.push(`${s(peakGX)},${s(peakTopY)}`);
+                    }
                   }
-                }
-                if (epsTopL < epsBot) pts.push(`${s(epsLeft)},${s(epsTopL)}`);
-                if (pts.length >= 3) {
-                  epsPoly = <polygon points={pts.join(' ')} fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1} />;
-                }
-              } else {
-                // Flat: simple rect
-                const epsTopY = Math.min(epsTopL, epsTopR);
-                const epsH = epsBot - epsTopY;
-                if (epsH > 0) {
-                  epsPoly = (
-                    <rect
-                      x={s(epsLeft)} y={s(epsTopY)}
-                      width={s(epsRight - epsLeft)} height={s(epsH)}
-                      fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1}
-                    />
-                  );
+                  if (epsTopL < epsBot) pts.push(`${s(epsLeft)},${s(epsTopL)}`);
+                  if (pts.length >= 3) {
+                    epsPoly = <polygon points={pts.join(' ')} fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1} />;
+                  }
+                } else {
+                  // Flat: simple rect
+                  const epsTopY = Math.min(epsTopL, epsTopR);
+                  const epsH = epsBot - epsTopY;
+                  if (epsH > 0) {
+                    epsPoly = (
+                      <rect
+                        x={s(epsLeft)} y={s(epsTopY)}
+                        width={s(epsRight - epsLeft)} height={s(epsH)}
+                        fill={EPS_FILL} stroke={EPS_STROKE} strokeWidth={1}
+                      />
+                    );
+                  }
                 }
               }
             }
