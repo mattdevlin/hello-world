@@ -97,40 +97,74 @@ export default function WallDrawing({ layout, wallName }) {
           )}
 
           {/* Panels */}
-          {panels.map((panel, i) => {
-            let fill = COLORS.PANEL;
-            let stroke = COLORS.PANEL_STROKE;
-            if (panel.type === 'lcut') { fill = COLORS.LCUT; stroke = COLORS.LCUT_STROKE; }
-            else if (panel.type === 'end') { fill = COLORS.END_CAP; stroke = COLORS.END_CAP_STROKE; }
+          {(() => {
+            // Build position index from course 0 panels (same x-positions across courses)
+            const basePanels = panels.filter(p => (p.course ?? 0) === 0);
+            const posMap = new Map(basePanels.map((p, idx) => [p.x, idx]));
 
-            const pLeft = panel.x;
-            const pRight = panel.x + panel.width;
-            const peakPt = panel.peakHeight ? `${s(panel.x + panel.peakXLocal)},${yTop(panel.x + panel.peakXLocal)} ` : '';
-            const pts = `${s(pLeft)},${yBottom} ${s(pLeft)},${yTop(pLeft)} ${peakPt}${s(pRight)},${yTop(pRight)} ${s(pRight)},${yBottom}`;
+            return panels.map((panel, i) => {
+              let fill = COLORS.PANEL;
+              let stroke = COLORS.PANEL_STROKE;
+              if (panel.type === 'lcut') { fill = COLORS.LCUT; stroke = COLORS.LCUT_STROKE; }
+              else if (panel.type === 'end') { fill = COLORS.END_CAP; stroke = COLORS.END_CAP_STROKE; }
 
-            return (
-              <g key={`panel-${i}`}>
-                <polygon points={pts} fill={fill} stroke={stroke} strokeWidth={1} opacity={0.7} />
-                {i < panels.length - 1 && (
-                  <line
-                    x1={s(pRight)} y1={yTop(pRight)}
-                    x2={s(pRight)} y2={yBottom}
-                    stroke="#aaa" strokeWidth={1} strokeDasharray="2,2"
-                  />
-                )}
-                <text
-                  x={s(pLeft + panel.width / 2)}
-                  y={yBottom - s((panel.heightLeft || height) / 2) + 4}
-                  textAnchor="middle" fontSize="11" fill={COLORS.PANEL_LABEL} fontWeight="bold"
-                >
-                  P{panel.index + 1}
-                </text>
-                <text x={s(pLeft + panel.width / 2)} y={yBottom + 14} textAnchor="middle" fontSize="9" fill="#999">
-                  {panel.width}
-                </text>
-              </g>
-            );
-          })}
+              const pLeft = panel.x;
+              const pRight = panel.x + panel.width;
+              const courseIdx = panel.course ?? 0;
+              const course = courses?.[courseIdx];
+              const cY = course?.y ?? 0;
+              const cTop = cY + (course?.height ?? height);
+
+              // Clip panel polygon to its course vertical range
+              // Clamp top edges to never go below course bottom (cY) — prevents
+              // inverted polygons when wall height < course start (raked walls)
+              const pBot = yBottom - s(cY);
+              const pTopL = yBottom - s(Math.max(Math.min(heightAt ? heightAt(pLeft) : height, cTop), cY));
+              const pTopR = yBottom - s(Math.max(Math.min(heightAt ? heightAt(pRight) : height, cTop), cY));
+              let peakPt = '';
+              if (panel.peakHeight && panel.peakXLocal != null) {
+                const peakX = panel.x + panel.peakXLocal;
+                const peakH = Math.max(Math.min(heightAt ? heightAt(peakX) : height, cTop), cY);
+                peakPt = `${s(peakX)},${yBottom - s(peakH)} `;
+              }
+              const pts = `${s(pLeft)},${pBot} ${s(pLeft)},${pTopL} ${peakPt}${s(pRight)},${pTopR} ${s(pRight)},${pBot}`;
+
+              // Label: use horizontal position index + course suffix for multi-course
+              const posIdx = posMap.get(panel.x) ?? 0;
+              const label = isMultiCourse ? `P${posIdx + 1}·C${courseIdx + 1}` : `P${posIdx + 1}`;
+
+              // Center label vertically within the course region
+              const labelY = (pBot + Math.min(pTopL, pTopR)) / 2 + 4;
+
+              // Only show width labels and divider lines for course 0 (avoid duplicates)
+              const isCourse0 = courseIdx === 0;
+
+              return (
+                <g key={`panel-${i}`}>
+                  <polygon points={pts} fill={fill} stroke={stroke} strokeWidth={1} opacity={0.7} />
+                  {isCourse0 && i < basePanels.length - 1 && (
+                    <line
+                      x1={s(pRight)} y1={yTop(pRight)}
+                      x2={s(pRight)} y2={yBottom}
+                      stroke="#aaa" strokeWidth={1} strokeDasharray="2,2"
+                    />
+                  )}
+                  <text
+                    x={s(pLeft + panel.width / 2)}
+                    y={labelY}
+                    textAnchor="middle" fontSize={isMultiCourse ? 9 : 11} fill={COLORS.PANEL_LABEL} fontWeight="bold"
+                  >
+                    {label}
+                  </text>
+                  {isCourse0 && (
+                    <text x={s(pLeft + panel.width / 2)} y={yBottom + 14} textAnchor="middle" fontSize="9" fill="#999">
+                      {panel.width}
+                    </text>
+                  )}
+                </g>
+              );
+            });
+          })()}
 
           {/* Openings */}
           {openings.map((op, i) => (
@@ -256,7 +290,8 @@ export default function WallDrawing({ layout, wallName }) {
               const points = new Set([0, grossLength]);
               if (deductionLeft > 0) points.add(deductionLeft);
               if (deductionRight > 0) points.add(grossLength - deductionRight);
-              panels.forEach(p => points.add(Math.round(p.x + p.width)));
+              // Use course 0 panels for measurement ticks (same x-positions across courses)
+              panels.filter(p => (p.course ?? 0) === 0).forEach(p => points.add(Math.round(p.x + p.width)));
               footers.forEach(f => points.add(Math.round(f.x + f.width)));
               const sorted = [...points].sort((a, b) => a - b);
               const tickY = yBottom + 22;

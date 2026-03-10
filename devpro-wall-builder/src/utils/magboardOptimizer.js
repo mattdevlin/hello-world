@@ -39,29 +39,13 @@ export function extractMagboardPieces(layout, wallName = '') {
   } = layout;
 
   // ── Panel face sheets ──
-  // Each panel uses its own sheetHeight (per-panel assignment from calculator).
-  // Multi-course panels need 2 sheets per course; single-course panels need 2 sheets total.
+  // Each panel in the array is already course-specific (tagged with panel.course).
+  // 2 sheets per panel (front + back).
   for (const panel of panels) {
-    if (panel.isMultiCourse && courses.length > 1) {
-      for (const course of courses) {
-        // 2 sheets per panel per course (front + back)
-        panelSheets.push({
-          sheetHeight: course.sheetHeight,
-          label: `P${panel.index + 1} C${courses.indexOf(course) + 1}`,
-          wallName,
-        });
-        panelSheets.push({
-          sheetHeight: course.sheetHeight,
-          label: `P${panel.index + 1} C${courses.indexOf(course) + 1}`,
-          wallName,
-        });
-      }
-    } else {
-      // Single-course panel: use per-panel sheetHeight (front + back)
-      const sheetH = panel.sheetHeight || courses?.[0]?.sheetHeight || height;
-      panelSheets.push({ sheetHeight: sheetH, label: `P${panel.index + 1}`, wallName });
-      panelSheets.push({ sheetHeight: sheetH, label: `P${panel.index + 1}`, wallName });
-    }
+    const sheetH = panel.sheetHeight || courses?.[panel.course ?? 0]?.sheetHeight || height;
+    const courseLabel = isMultiCourse ? ` C${(panel.course ?? 0) + 1}` : '';
+    panelSheets.push({ sheetHeight: sheetH, label: `P${panel.index + 1}${courseLabel}`, wallName });
+    panelSheets.push({ sheetHeight: sheetH, label: `P${panel.index + 1}${courseLabel}`, wallName });
   }
 
   // ── Lintels: 2 magboard pieces each (EPS area above timber beam) ──
@@ -96,12 +80,14 @@ export function extractMagboardPieces(layout, wallName = '') {
 
   // ── Vertical splines: 2 magboard pieces each ──
   // Track which joints have vertical splines (needed for horizontal spline sizing)
-  const jointHasSpline = new Array(panels.length - 1).fill(false);
+  // Use course 0 panels for joint detection (x-positions are identical across courses)
+  const basePanels = panels.filter(p => (p.course ?? 0) === 0);
+  const jointHasSpline = new Array(basePanels.length - 1).fill(false);
   const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2 - 10;
   if (splineH > 0) {
     // Joint splines
-    for (let i = 0; i < panels.length - 1; i++) {
-      const panel = panels[i];
+    for (let i = 0; i < basePanels.length - 1; i++) {
+      const panel = basePanels[i];
       const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
       const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
       const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
@@ -112,7 +98,7 @@ export function extractMagboardPieces(layout, wallName = '') {
             width: SPLINE_WIDTH,
             height: splineH,
             type: 'spline',
-            label: `Spline P${panels[i].index + 1}/P${panels[i + 1].index + 1}`,
+            label: `Spline P${basePanels[i].index + 1}/P${basePanels[i + 1].index + 1}`,
             wallName,
           });
         }
@@ -134,15 +120,16 @@ export function extractMagboardPieces(layout, wallName = '') {
   // Width = distance between inner edges of adjacent vertical splines, less 10mm each end.
   // First/last panels (or joints without a vertical spline) use the vertical timber
   // edge (panel edge) as the boundary, still less 10mm clearance.
+  // Use basePanels (course 0) for x-positions since they are the same across courses.
   if (isMultiCourse && courses.length > 1) {
     for (let ci = 0; ci < courses.length - 1; ci++) {
-      for (let pi = 0; pi < panels.length; pi++) {
-        const panel = panels[pi];
+      for (let pi = 0; pi < basePanels.length; pi++) {
+        const panel = basePanels[pi];
 
         // Left boundary
         let leftEdge;
         if (pi > 0 && jointHasSpline[pi - 1]) {
-          const gapCentre = panels[pi - 1].x + panels[pi - 1].width + PANEL_GAP / 2;
+          const gapCentre = basePanels[pi - 1].x + basePanels[pi - 1].width + PANEL_GAP / 2;
           leftEdge = gapCentre + SPLINE_WIDTH / 2;
         } else {
           leftEdge = panel.x + BOTTOM_PLATE;
@@ -150,7 +137,7 @@ export function extractMagboardPieces(layout, wallName = '') {
 
         // Right boundary
         let rightEdge;
-        if (pi < panels.length - 1 && jointHasSpline[pi]) {
+        if (pi < basePanels.length - 1 && jointHasSpline[pi]) {
           const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
           rightEdge = gapCentre - SPLINE_WIDTH / 2;
         } else {

@@ -204,98 +204,127 @@ export default function FramingElevation({ layout, wallName }) {
 
           {/* ── Panels ── */}
           {/* Draw panel edges as individual lines, skipping lintel/footer zones */}
-          {panels.map((panel, i) => {
-            const getExclusions = (xEdge) => {
-              const zones = [];
-              for (const l of lintels) {
-                if (l.x < xEdge && xEdge < l.x + l.width) {
-                  // Interpolate lintel height at this x position (trapezoid)
-                  const hL = l.heightLeft != null ? l.heightLeft : l.height;
-                  const hR = l.heightRight != null ? l.heightRight : l.height;
-                  const t = l.width > 0 ? (xEdge - l.x) / l.width : 0;
-                  const hAtX = hL + (hR - hL) * t;
-                  const eTop = yBottom - l.y - hAtX;
-                  const eBot = yBottom - l.y;
-                  zones.push([eTop, eBot]);
-                }
-              }
-              for (const f of footers) {
-                if (f.x < xEdge && xEdge < f.x + f.width) {
-                  zones.push([yBottom - f.height, yBottom]);
-                }
-              }
-              zones.sort((a, b) => a[0] - b[0]);
-              return zones;
-            };
-
-            const vertSegments = (xEdge) => {
-              const excl = getExclusions(xEdge);
-              const topY = yTop(xEdge);
-              const segs = [];
-              let cursor = topY;
-              for (const [eTop, eBot] of excl) {
-                if (cursor < eTop) segs.push([cursor, eTop]);
-                cursor = Math.max(cursor, eBot);
-              }
-              if (cursor < yBottom) segs.push([cursor, yBottom]);
-              return segs;
-            };
-
-            const leftX = panel.x;
-            const rightX = panel.x + panel.width;
-            const leftSegs = vertSegments(leftX);
-            const rightSegs = vertSegments(rightX);
-            const panelMidH = (yTop(leftX) + yTop(rightX)) / 2;
+          {/* Use course 0 panels for structural lines (same x-positions across courses) */}
+          {(() => {
+            const basePanels = panels.filter(p => (p.course ?? 0) === 0);
+            const posMap = new Map(basePanels.map((p, idx) => [p.x, idx]));
 
             return (
-              <g key={`panel-${i}`}>
-                {/* Top edge (sloped for raked, peaked for gable) */}
-                {panel.peakHeight ? (<>
-                  <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(panel.x + panel.peakXLocal)} y2={s(yTop(panel.x + panel.peakXLocal))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                  <line x1={s(panel.x + panel.peakXLocal)} y1={s(yTop(panel.x + panel.peakXLocal))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                </>) : (
-                  <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                )}
-                {/* Bottom horizontal */}
-                <line
-                  x1={s(leftX)} y1={s(yBottom)}
-                  x2={s(rightX)} y2={s(yBottom)}
-                  stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-                />
-                {/* Left vertical segments */}
-                {leftSegs.map(([y1, y2], j) => (
-                  <line key={`l-${j}`} x1={s(leftX)} y1={s(y1)} x2={s(leftX)} y2={s(y2)}
-                    stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                ))}
-                {/* Right vertical segments */}
-                {rightSegs.map(([y1, y2], j) => (
-                  <line key={`r-${j}`} x1={s(rightX)} y1={s(y1)} x2={s(rightX)} y2={s(y2)}
-                    stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                ))}
-                {/* Panel number */}
-                <text
-                  x={s(panel.x + panel.width / 2)}
-                  y={s((panelMidH + yBottom) / 2) + 4}
-                  textAnchor="middle" fontSize="10" fill={LABEL_COLOR}
-                >
-                  P{panel.index + 1}
-                </text>
-                {/* Panel base width */}
-                <text
-                  x={s(panel.x + panel.width / 2)}
-                  y={s(yBottom) + 14}
-                  textAnchor="middle" fontSize="9" fill="#999"
-                >
-                  {panel.width}
-                </text>
-              </g>
+              <>
+                {/* Structural edge lines — from course 0 only (edges span full wall height) */}
+                {basePanels.map((panel, i) => {
+                  const getExclusions = (xEdge) => {
+                    const zones = [];
+                    for (const l of lintels) {
+                      if (l.x < xEdge && xEdge < l.x + l.width) {
+                        const hL = l.heightLeft != null ? l.heightLeft : l.height;
+                        const hR = l.heightRight != null ? l.heightRight : l.height;
+                        const t = l.width > 0 ? (xEdge - l.x) / l.width : 0;
+                        const hAtX = hL + (hR - hL) * t;
+                        const eTop = yBottom - l.y - hAtX;
+                        const eBot = yBottom - l.y;
+                        zones.push([eTop, eBot]);
+                      }
+                    }
+                    for (const f of footers) {
+                      if (f.x < xEdge && xEdge < f.x + f.width) {
+                        zones.push([yBottom - f.height, yBottom]);
+                      }
+                    }
+                    zones.sort((a, b) => a[0] - b[0]);
+                    return zones;
+                  };
+
+                  const vertSegments = (xEdge) => {
+                    const excl = getExclusions(xEdge);
+                    const topY = yTop(xEdge);
+                    const segs = [];
+                    let cursor = topY;
+                    for (const [eTop, eBot] of excl) {
+                      if (cursor < eTop) segs.push([cursor, eTop]);
+                      cursor = Math.max(cursor, eBot);
+                    }
+                    if (cursor < yBottom) segs.push([cursor, yBottom]);
+                    return segs;
+                  };
+
+                  const leftX = panel.x;
+                  const rightX = panel.x + panel.width;
+                  const leftSegs = vertSegments(leftX);
+                  const rightSegs = vertSegments(rightX);
+
+                  return (
+                    <g key={`panel-edge-${i}`}>
+                      {/* Top edge (sloped for raked, peaked for gable) */}
+                      {panel.peakHeight ? (<>
+                        <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(panel.x + panel.peakXLocal)} y2={s(yTop(panel.x + panel.peakXLocal))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                        <line x1={s(panel.x + panel.peakXLocal)} y1={s(yTop(panel.x + panel.peakXLocal))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                      </>) : (
+                        <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                      )}
+                      {/* Bottom horizontal */}
+                      <line
+                        x1={s(leftX)} y1={s(yBottom)}
+                        x2={s(rightX)} y2={s(yBottom)}
+                        stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                      />
+                      {/* Left vertical segments */}
+                      {leftSegs.map(([y1, y2], j) => (
+                        <line key={`l-${j}`} x1={s(leftX)} y1={s(y1)} x2={s(leftX)} y2={s(y2)}
+                          stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                      ))}
+                      {/* Right vertical segments */}
+                      {rightSegs.map(([y1, y2], j) => (
+                        <line key={`r-${j}`} x1={s(rightX)} y1={s(y1)} x2={s(rightX)} y2={s(y2)}
+                          stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                      ))}
+                      {/* Panel base width — only from course 0 */}
+                      <text
+                        x={s(panel.x + panel.width / 2)}
+                        y={s(yBottom) + 14}
+                        textAnchor="middle" fontSize="9" fill="#999"
+                      >
+                        {panel.width}
+                      </text>
+                    </g>
+                  );
+                })}
+                {/* Panel labels — per course, positioned in each course's vertical region */}
+                {panels.map((panel, i) => {
+                  const courseIdx = panel.course ?? 0;
+                  const course = courses?.[courseIdx];
+                  const cY = course?.y ?? 0;
+                  const cTop = cY + (course?.height ?? height);
+                  const panelCenterX = panel.x + panel.width / 2;
+
+                  // Vertical center of this course region
+                  // Clamp to cY so label stays within course when wall height < course bottom (raked walls)
+                  const courseMidTop = Math.max(Math.min(heightAt ? heightAt(panelCenterX) : height, cTop), cY);
+                  const courseMidY = (yBottom - cY + yBottom - courseMidTop) / 2;
+
+                  const posIdx = posMap.get(panel.x) ?? 0;
+                  const label = isMultiCourse ? `P${posIdx + 1}·C${courseIdx + 1}` : `P${posIdx + 1}`;
+
+                  return (
+                    <text
+                      key={`panel-label-${i}`}
+                      x={s(panelCenterX)}
+                      y={s(courseMidY) + 4}
+                      textAnchor="middle" fontSize={isMultiCourse ? 8 : 10} fill={LABEL_COLOR}
+                    >
+                      {label}
+                    </text>
+                  );
+                })}
+              </>
             );
-          })}
+          })()}
 
           {/* ── Vertical plates at panel outer edges (45mm) ── */}
           {(() => {
+            const basePanels = panels.filter(p => (p.course ?? 0) === 0);
             const plates = [];
-            for (const panel of panels) {
+            for (const panel of basePanels) {
               if (panel.type === 'end') {
                 plates.push(panel.x + panel.width - BOTTOM_PLATE);
               }
@@ -328,7 +357,8 @@ export default function FramingElevation({ layout, wallName }) {
 
           {/* ── Panel joint splines (146mm centred on 5mm gap) ── */}
           {/* Skip joints that fall inside a lintel or footer (opening zones) */}
-          {panels.slice(0, -1).map((panel, i) => {
+          {/* Use course 0 panels — x-positions are identical across courses */}
+          {panels.filter(p => (p.course ?? 0) === 0).slice(0, -1).map((panel, i) => {
             const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
             const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
             const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
@@ -510,16 +540,15 @@ export default function FramingElevation({ layout, wallName }) {
               if (deductionLeft > 0) points.add(deductionLeft);
               if (deductionRight > 0) points.add(grossLength - deductionRight);
 
-              panels.forEach(p => {
+              // Use course 0 panels for measurement ticks (same x-positions across courses)
+              panels.filter(p => (p.course ?? 0) === 0).forEach(p => {
                 if (p.type === 'lcut') {
                   if (p.side === 'left') {
-                    // Only subtract overhang when opening has a footer (window with sill)
                     const adj = p.openBottom > 0 ? WINDOW_OVERHANG : 0;
                     points.add(Math.round(p.x + p.width - adj));
                   } else if (p.side === 'right') {
                     points.add(Math.round(p.x + p.width));
                   } else {
-                    // Pier — right edge borders the right opening
                     const adj = p.rightOpenBottom > 0 ? WINDOW_OVERHANG : 0;
                     points.add(Math.round(p.x + p.width - adj));
                   }
@@ -605,10 +634,12 @@ export default function FramingElevation({ layout, wallName }) {
 
           {/* ── Horizontal splines at course joints (multi-course only) ── */}
           {isMultiCourse && courses.length > 1 && (() => {
+            // Use course 0 panels for x-positions (identical across courses)
+            const basePanels = panels.filter(p => (p.course ?? 0) === 0);
             // Determine which joints have vertical splines
             const jointHasSpline = [];
-            for (let i = 0; i < panels.length - 1; i++) {
-              const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
+            for (let i = 0; i < basePanels.length - 1; i++) {
+              const gapCentre = basePanels[i].x + basePanels[i].width + PANEL_GAP / 2;
               const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
               const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
               jointHasSpline.push(!insideLintel && !insideFooter);
@@ -617,18 +648,18 @@ export default function FramingElevation({ layout, wallName }) {
               const joinY = yBottom - course.y;
               const spTopY = joinY - HALF_SPLINE;
               const spBotY = joinY + HALF_SPLINE;
-              return panels.map((panel, pi) => {
+              return basePanels.map((panel, pi) => {
                 // Left boundary
                 let leftEdge;
                 if (pi > 0 && jointHasSpline[pi - 1]) {
-                  const gc = panels[pi - 1].x + panels[pi - 1].width + PANEL_GAP / 2;
+                  const gc = basePanels[pi - 1].x + basePanels[pi - 1].width + PANEL_GAP / 2;
                   leftEdge = gc + HALF_SPLINE;
                 } else {
                   leftEdge = panel.x + BOTTOM_PLATE;
                 }
                 // Right boundary
                 let rightEdge;
-                if (pi < panels.length - 1 && jointHasSpline[pi]) {
+                if (pi < basePanels.length - 1 && jointHasSpline[pi]) {
                   const gc = panel.x + panel.width + PANEL_GAP / 2;
                   rightEdge = gc - HALF_SPLINE;
                 } else {
