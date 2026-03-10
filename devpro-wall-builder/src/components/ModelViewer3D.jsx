@@ -119,6 +119,80 @@ function WallMesh({ entry, layout, isSelected, onSelect, showWireframe }) {
   );
 }
 
+const PROFILE_LABELS = { standard: 'Std', raked: 'Raked', gable: 'Gable' };
+
+/**
+ * Sidebar catalog listing all walls with placed/unplaced status.
+ */
+function WallCatalogSidebar({ walls, placedWallIds, onPlace, onRemove, selectedWallId, onSelectWall }) {
+  const placedSet = useMemo(() => new Set(placedWallIds), [placedWallIds]);
+
+  return (
+    <div style={styles.sidebar}>
+      <div style={styles.sidebarHeader}>
+        <span style={styles.sidebarTitle}>Walls</span>
+        <span style={styles.sidebarCount}>
+          {placedWallIds.length}/{walls.length} placed
+        </span>
+      </div>
+      <div style={styles.sidebarList}>
+        {walls.map(wall => {
+          const isPlaced = placedSet.has(wall.id);
+          const isSelected = wall.id === selectedWallId;
+          return (
+            <div
+              key={wall.id}
+              style={{
+                ...styles.catalogItem,
+                ...(isPlaced ? styles.catalogItemPlaced : {}),
+                ...(isSelected ? styles.catalogItemSelected : {}),
+              }}
+              onClick={() => onSelectWall(wall.id)}
+            >
+              <div style={styles.catalogItemTop}>
+                <span style={{
+                  ...styles.catalogName,
+                  ...(isPlaced ? styles.catalogNamePlaced : {}),
+                }}>
+                  {isPlaced ? '\u2713 ' : ''}{wall.name}
+                </span>
+                <span style={styles.catalogProfile}>
+                  {PROFILE_LABELS[wall.profile] || 'Std'}
+                </span>
+              </div>
+              <div style={styles.catalogDims}>
+                {(wall.length_mm / 1000).toFixed(1)}m x {(wall.height_mm / 1000).toFixed(1)}m
+                {wall.openings?.length > 0 && (
+                  <span style={styles.catalogOpenings}>
+                    {wall.openings.length} opening{wall.openings.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              <div style={styles.catalogActions}>
+                {isPlaced ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onRemove(wall.id); }}
+                    style={styles.catalogRemoveBtn}
+                  >
+                    Remove
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onPlace(wall.id); }}
+                    style={styles.catalogPlaceBtn}
+                  >
+                    Place
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Snap controls panel (HTML overlay).
  */
@@ -238,15 +312,23 @@ function SnapControlsPanel({
 /**
  * 3D Model Viewer for a project's walls arranged via snap connections.
  */
-export default function ModelViewer3D({ walls, connections = [], onConnectionsChange }) {
+export default function ModelViewer3D({ walls, connections = [], onConnectionsChange, placedWallIds = [], onPlacementsChange }) {
   const [showWireframe, setShowWireframe] = useState(false);
   const [selectedWallId, setSelectedWallId] = useState(null);
   const [selectedEnd, setSelectedEnd] = useState(null);
   const cameraControlsRef = useRef(null);
 
+  const placedWalls = useMemo(
+    () => {
+      const placedSet = new Set(placedWallIds);
+      return walls.filter(w => placedSet.has(w.id));
+    },
+    [walls, placedWallIds]
+  );
+
   const floorPlan = useMemo(
-    () => computeFloorPlanFromConnections(walls, connections),
-    [walls, connections]
+    () => placedWalls.length > 0 ? computeFloorPlanFromConnections(placedWalls, connections) : [],
+    [placedWalls, connections]
   );
 
   const layouts = useMemo(() => {
@@ -311,6 +393,31 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
     ctrl.setLookAt(px * d, py * d, pz * d, 0, 0, 0, true);
   }, [sceneBounds]);
 
+  const handlePlaceWall = useCallback((wallId) => {
+    if (onPlacementsChange && !placedWallIds.includes(wallId)) {
+      onPlacementsChange([...placedWallIds, wallId]);
+    }
+  }, [placedWallIds, onPlacementsChange]);
+
+  const handleRemoveWall = useCallback((wallId) => {
+    if (onPlacementsChange) {
+      onPlacementsChange(placedWallIds.filter(id => id !== wallId));
+    }
+    // Also remove connections involving this wall
+    if (onConnectionsChange) {
+      const filtered = connections.filter(
+        c => c.wallId !== wallId && c.attachedWallId !== wallId
+      );
+      if (filtered.length !== connections.length) {
+        onConnectionsChange(filtered);
+      }
+    }
+    if (selectedWallId === wallId) {
+      setSelectedWallId(null);
+      setSelectedEnd(null);
+    }
+  }, [placedWallIds, onPlacementsChange, connections, onConnectionsChange, selectedWallId]);
+
   if (!walls || walls.length === 0) {
     return (
       <div style={styles.empty}>
@@ -341,6 +448,15 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
           </label>
         </div>
       </div>
+      <div style={styles.viewerBody}>
+        <WallCatalogSidebar
+          walls={walls}
+          placedWallIds={placedWallIds}
+          onPlace={handlePlaceWall}
+          onRemove={handleRemoveWall}
+          selectedWallId={selectedWallId}
+          onSelectWall={handleSelectWall}
+        />
       <div style={styles.canvasWrap}>
         <Canvas shadows onClick={() => { setSelectedWallId(null); setSelectedEnd(null); }}>
           <PerspectiveCamera
@@ -444,6 +560,7 @@ export default function ModelViewer3D({ walls, connections = [], onConnectionsCh
           />
         )}
       </div>
+      </div>
       <div style={styles.legend}>
         <span style={styles.legendHint}>Click a wall to select it. Click the red markers to snap another wall.</span>
       </div>
@@ -490,9 +607,13 @@ const styles = {
     gap: 6,
     cursor: 'pointer',
   },
-  canvasWrap: {
-    width: '100%',
+  viewerBody: {
+    display: 'flex',
     height: 500,
+  },
+  canvasWrap: {
+    flex: 1,
+    height: '100%',
     background: '#f5f5f0',
     position: 'relative',
   },
@@ -628,5 +749,106 @@ const styles = {
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 600,
+  },
+
+  // Sidebar
+  sidebar: {
+    width: 220,
+    borderRight: '1px solid #eee',
+    background: '#fafafa',
+    display: 'flex',
+    flexDirection: 'column',
+    flexShrink: 0,
+  },
+  sidebarHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '10px 12px',
+    borderBottom: '1px solid #eee',
+  },
+  sidebarTitle: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: '#333',
+  },
+  sidebarCount: {
+    fontSize: 11,
+    color: '#888',
+  },
+  sidebarList: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '6px',
+  },
+  catalogItem: {
+    padding: '8px 10px',
+    borderRadius: 6,
+    border: '1px solid transparent',
+    cursor: 'pointer',
+    marginBottom: 4,
+    background: '#fff',
+    transition: 'border-color 0.15s',
+  },
+  catalogItemPlaced: {
+    background: '#f0f5f0',
+    opacity: 0.75,
+  },
+  catalogItemSelected: {
+    borderColor: '#2C5F8A',
+    background: '#eef3fa',
+    opacity: 1,
+  },
+  catalogItemTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  catalogName: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: '#1a1a1a',
+  },
+  catalogNamePlaced: {
+    color: '#666',
+  },
+  catalogProfile: {
+    fontSize: 10,
+    padding: '1px 5px',
+    background: '#f0f2f5',
+    borderRadius: 3,
+    color: '#666',
+  },
+  catalogDims: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 3,
+  },
+  catalogOpenings: {
+    marginLeft: 6,
+    color: '#999',
+  },
+  catalogActions: {
+    marginTop: 5,
+  },
+  catalogPlaceBtn: {
+    padding: '3px 10px',
+    background: '#2C5F8A',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 3,
+    cursor: 'pointer',
+    fontSize: 10,
+    fontWeight: 600,
+  },
+  catalogRemoveBtn: {
+    padding: '3px 10px',
+    background: '#fff',
+    color: '#999',
+    border: '1px solid #ddd',
+    borderRadius: 3,
+    cursor: 'pointer',
+    fontSize: 10,
+    fontWeight: 500,
   },
 };

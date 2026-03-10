@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   getProjects, getProjectWalls, deleteWall, renameProject,
   copyWallToProject, getProjectConnections, saveProjectConnections,
+  getProjectPlacements, saveProjectPlacements,
 } from '../utils/storage.js';
 import EpsBlockSummary from '../components/EpsBlockSummary.jsx';
 import MagboardSheetSummary from '../components/MagboardSheetSummary.jsx';
@@ -18,6 +19,7 @@ export default function ProjectPage() {
   const [renameValue, setRenameValue] = useState('');
   const [copyingWallId, setCopyingWallId] = useState(null);
   const [connections, setConnections] = useState([]);
+  const [placedWallIds, setPlacedWallIds] = useState([]);
 
   useEffect(() => {
     const projects = getProjects();
@@ -29,11 +31,13 @@ export default function ProjectPage() {
     setProject(p);
     setWalls(getProjectWalls(projectId));
     setConnections(getProjectConnections(projectId));
+    setPlacedWallIds(getProjectPlacements(projectId));
   }, [projectId, navigate]);
 
   const refresh = () => {
     setWalls(getProjectWalls(projectId));
     setConnections(getProjectConnections(projectId));
+    setPlacedWallIds(getProjectPlacements(projectId));
     const p = getProjects().find(p => p.id === projectId);
     if (p) setProject(p);
   };
@@ -41,6 +45,11 @@ export default function ProjectPage() {
   const handleConnectionsChange = (newConnections) => {
     saveProjectConnections(projectId, newConnections);
     setConnections(newConnections);
+  };
+
+  const handlePlacementsChange = (newPlacedIds) => {
+    saveProjectPlacements(projectId, newPlacedIds);
+    setPlacedWallIds(newPlacedIds);
   };
 
   const handleDeleteWall = (wallId, e) => {
@@ -115,6 +124,8 @@ export default function ProjectPage() {
             walls={walls}
             connections={connections}
             onConnectionsChange={handleConnectionsChange}
+            placedWallIds={placedWallIds}
+            onPlacementsChange={handlePlacementsChange}
           />
         )}
 

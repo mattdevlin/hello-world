@@ -9,6 +9,10 @@ function projectConnectionsKey(projectId) {
   return `devpro-project-${projectId}-connections`;
 }
 
+function projectPlacementsKey(projectId) {
+  return `devpro-project-${projectId}-placements`;
+}
+
 function readJson(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -107,6 +111,9 @@ export function deleteWall(projectId, wallId) {
   const connections = getProjectConnections(projectId)
     .filter(c => c.wallId !== wallId && c.attachedWallId !== wallId);
   saveProjectConnections(projectId, connections);
+  // Remove from placements
+  const placements = getProjectPlacements(projectId).filter(id => id !== wallId);
+  saveProjectPlacements(projectId, placements);
   syncWallCount(projectId);
 }
 
@@ -132,6 +139,16 @@ export function getProjectConnections(projectId) {
 
 export function saveProjectConnections(projectId, connections) {
   localStorage.setItem(projectConnectionsKey(projectId), JSON.stringify(connections));
+}
+
+// ── Placements (which walls are placed in the 3D scene) ──
+
+export function getProjectPlacements(projectId) {
+  return readJson(projectPlacementsKey(projectId)) || [];
+}
+
+export function saveProjectPlacements(projectId, placedWallIds) {
+  localStorage.setItem(projectPlacementsKey(projectId), JSON.stringify(placedWallIds));
 }
 
 // ── Archive (export/import as JSON zip) ──
