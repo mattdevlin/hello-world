@@ -1,8 +1,7 @@
 import { useRef } from 'react';
-import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP } from '../utils/constants.js';
+import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
 
-const SPLINE_WIDTH = 146;
 const HALF_SPLINE = SPLINE_WIDTH / 2;
 const EPS_INSET = 10; // mm recess from framing
 
@@ -709,7 +708,6 @@ export default function EpsElevation({ layout, wallName }) {
 
           {/* ── Horizontal spline EPS at course joints (multi-course only) ── */}
           {isMultiCourse && courses.length > 1 && (() => {
-            const HSPLINE_CLEARANCE = 10;
             const splineEpsInset = MAGBOARD; // 10mm magboard each face
             const jointHasSpline = [];
             for (let i = 0; i < panels.length - 1; i++) {
@@ -742,37 +740,11 @@ export default function EpsElevation({ layout, wallName }) {
                   rightEdge = panel.x + panel.width - BOTTOM_PLATE;
                 }
 
-                // Split around lintels (10mm clearance from lintel edges)
+                // Split around lintels, openings, opening plates & splines
                 const splineLeft = leftEdge + HSPLINE_CLEARANCE;
                 const splineRight = rightEdge - HSPLINE_CLEARANCE;
-                if (splineRight <= splineLeft) return null;
-
-                // Collect exclusions: lintels, openings, opening plates & splines
-                const excl = [];
-                for (const l of lintels) {
-                  const eL = Math.max(l.x - HSPLINE_CLEARANCE, splineLeft);
-                  const eR = Math.min(l.x + l.width + HSPLINE_CLEARANCE, splineRight);
-                  if (eL < eR) excl.push([eL, eR]);
-                }
-                for (const op of openings) {
-                  const hasSill = op.y > 0;
-                  // Opening itself + vertical plates on each side
-                  const oL = op.x - BOTTOM_PLATE - (hasSill ? SPLINE_WIDTH : 0) - HSPLINE_CLEARANCE;
-                  const oR = op.x + op.drawWidth + BOTTOM_PLATE + (hasSill ? SPLINE_WIDTH : 0) + HSPLINE_CLEARANCE;
-                  const eL = Math.max(oL, splineLeft);
-                  const eR = Math.min(oR, splineRight);
-                  if (eL < eR) excl.push([eL, eR]);
-                }
-                excl.sort((a, b) => a[0] - b[0]);
-
-                // Build segments between exclusions
-                const segs = [];
-                let cursor = splineLeft;
-                for (const [eL, eR] of excl) {
-                  if (cursor < eL) segs.push([cursor, eL]);
-                  cursor = Math.max(cursor, eR);
-                }
-                if (cursor < splineRight) segs.push([cursor, splineRight]);
+                const segs = buildHSplineSegments(splineLeft, splineRight, lintels, openings);
+                if (segs.length === 0) return null;
 
                 return segs.map(([segL, segR], si) => {
                   // No extra x-inset: HSPLINE_CLEARANCE already provides
