@@ -566,6 +566,50 @@ export default function FramingElevation({ layout, wallName }) {
             </g>
           )}
 
+          {/* ── Horizontal splines at course joints (multi-course only) ── */}
+          {isMultiCourse && courses.length > 1 && (() => {
+            const HSPLINE_CLEARANCE = 10;
+            // Determine which joints have vertical splines
+            const jointHasSpline = [];
+            for (let i = 0; i < panels.length - 1; i++) {
+              const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
+              const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+              const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+              jointHasSpline.push(!insideLintel && !insideFooter);
+            }
+            return courses.slice(1).map((course, ci) => {
+              const joinY = yBottom - course.y;
+              return panels.map((panel, pi) => {
+                let leftEdge = panel.x;
+                if (pi > 0 && jointHasSpline[pi - 1]) {
+                  const gc = panels[pi - 1].x + panels[pi - 1].width + PANEL_GAP / 2;
+                  leftEdge = gc + HALF_SPLINE;
+                }
+                let rightEdge = panel.x + panel.width;
+                if (pi < panels.length - 1 && jointHasSpline[pi]) {
+                  const gc = panel.x + panel.width + PANEL_GAP / 2;
+                  rightEdge = gc - HALF_SPLINE;
+                }
+                const w = rightEdge - leftEdge - 2 * HSPLINE_CLEARANCE;
+                if (w <= 0) return null;
+                const x = leftEdge + HSPLINE_CLEARANCE;
+                return (
+                  <rect
+                    key={`hspline-c${ci}-p${pi}`}
+                    x={s(x)}
+                    y={s(joinY - HALF_SPLINE)}
+                    width={s(w)}
+                    height={s(SPLINE_WIDTH)}
+                    fill="none"
+                    stroke={PLATE_COLOR}
+                    strokeWidth={1}
+                    strokeDasharray={DASH}
+                  />
+                );
+              });
+            });
+          })()}
+
           {/* ── Course join mid-plates (multi-course walls > 3050mm) ── */}
           {/* Rendered last so lines are visible on top of all framing detail */}
           {isMultiCourse && courses.slice(1).map((course, i) => {

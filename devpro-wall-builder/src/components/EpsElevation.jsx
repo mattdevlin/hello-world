@@ -331,8 +331,8 @@ export default function EpsElevation({ layout, wallName }) {
                     return courses.map((course, ci) => {
                       const isBottomCourse = ci === 0;
                       const isTopCourse = ci === courses.length - 1;
-                      const plateBelow = isBottomCourse ? BOTTOM_PLATE : TOP_PLATE;
-                      const plateAbove = isTopCourse ? TOP_PLATE * 2 : TOP_PLATE;
+                      const plateBelow = isBottomCourse ? BOTTOM_PLATE : (HALF_SPLINE - EPS_INSET);
+                      const plateAbove = isTopCourse ? TOP_PLATE * 2 : (HALF_SPLINE - EPS_INSET);
                       const cEpsBot = yBottom - course.y - plateBelow - EPS_INSET;
 
                       if (isRaked) {
@@ -588,45 +588,202 @@ export default function EpsElevation({ layout, wallName }) {
             }
 
             return splines.map((sp, i) => {
-              // Multi-course: split spline EPS per course
-              if (isMultiCourse && courses.length > 1) {
-                return courses.map((course, ci) => {
-                  const isBottomCourse = ci === 0;
-                  const isTopCourse = ci === courses.length - 1;
-                  const plateBelow = isBottomCourse ? BOTTOM_PLATE : TOP_PLATE;
-                  const plateAbove = isTopCourse ? TOP_PLATE * 2 : TOP_PLATE;
+              // Vertical splines run full height — no split at course joins
+              const epsXL = sp.xPos + splineEpsX;
+              const epsXR = epsXL + splineEpsW;
+              const spTopL = yTopAt(epsXL) + TOP_PLATE * 2 + EPS_INSET;
+              const spTopR = yTopAt(epsXR) + TOP_PLATE * 2 + EPS_INSET;
+              const spBot = yBottom - BOTTOM_PLATE - EPS_INSET;
+              if (spTopL >= spBot && spTopR >= spBot) return null;
 
-                  const splineWallTop = yTopAt(sp.cx);
-                  const cEpsBot = yBottom - course.y - plateBelow - EPS_INSET;
-                  const cEpsTop = isTopCourse
-                    ? splineWallTop + plateAbove + EPS_INSET
-                    : Math.max(
-                        yBottom - course.y - course.height + plateAbove + EPS_INSET,
-                        splineWallTop + TOP_PLATE * 2 + EPS_INSET
-                      );
-                  const cH = cEpsBot - cEpsTop;
-
-                  return cH > 0 ? (
-                    <rect
-                      key={`spline-eps-${i}-c${ci}`}
-                      x={s(sp.xPos + splineEpsX)} y={s(cEpsTop)}
-                      width={s(splineEpsW)} height={s(cH)}
-                      fill={SPLINE_EPS_FILL} stroke={SPLINE_EPS_STROKE} strokeWidth={1}
-                    />
-                  ) : null;
-                });
+              if (!isRaked || Math.abs(spTopL - spTopR) < 0.5) {
+                const spTop = Math.min(spTopL, spTopR);
+                return (spBot - spTop) > 0 ? (
+                  <rect
+                    key={`spline-eps-${i}`}
+                    x={s(epsXL)} y={s(spTop)}
+                    width={s(splineEpsW)} height={s(spBot - spTop)}
+                    fill={SPLINE_EPS_FILL} stroke={SPLINE_EPS_STROKE} strokeWidth={1}
+                  />
+                ) : null;
               }
 
-              const spTop = yTopAt(sp.cx) + TOP_PLATE * 2 + EPS_INSET;
-              const spH = yBottom - BOTTOM_PLATE - spTop;
-              return spH > 0 ? (
-                <rect
+              // Raked/gable: polygon with angled top
+              const pts = [];
+              pts.push(`${s(epsXL)},${s(spBot)}`);
+              pts.push(`${s(epsXR)},${s(spBot)}`);
+              if (spTopR < spBot) pts.push(`${s(epsXR)},${s(spTopR)}`);
+              if (spTopL < spBot) pts.push(`${s(epsXL)},${s(spTopL)}`);
+              return pts.length >= 3 ? (
+                <polygon
                   key={`spline-eps-${i}`}
-                  x={s(sp.xPos + splineEpsX)} y={s(spTop)}
-                  width={s(splineEpsW)} height={s(spH)}
+                  points={pts.join(' ')}
                   fill={SPLINE_EPS_FILL} stroke={SPLINE_EPS_STROKE} strokeWidth={1}
                 />
               ) : null;
+            });
+          })()}
+
+          {/* ── Horizontal spline EPS at course joints (multi-course only) ── */}
+          {isMultiCourse && courses.length > 1 && (() => {
+            const HSPLINE_CLEARANCE = 10;
+            const splineEpsInset = MAGBOARD; // 10mm magboard each face
+            const jointHasSpline = [];
+            for (let i = 0; i < panels.length - 1; i++) {
+              const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
+              const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+              const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+              jointHasSpline.push(!insideLintel && !insideFooter);
+            }
+            return courses.slice(1).map((course, ci) => {
+              const joinY = yBottom - course.y;
+              // EPS sits inside the spline, inset by magboard thickness on top/bottom
+              const epsY = joinY - HALF_SPLINE + splineEpsInset;
+              const epsH = SPLINE_WIDTH - 2 * splineEpsInset;
+              if (epsH <= 0) return null;
+              return panels.map((panel, pi) => {
+                let leftEdge;
+                if (pi > 0 && jointHasSpline[pi - 1]) {
+                  const gc = panels[pi - 1].x + panels[pi - 1].width + PANEL_GAP / 2;
+                  leftEdge = gc + HALF_SPLINE;
+                } else {
+                  // Inset past the vertical timber plate at the panel edge
+                  leftEdge = panel.x + BOTTOM_PLATE;
+                }
+                let rightEdge;
+                if (pi < panels.length - 1 && jointHasSpline[pi]) {
+                  const gc = panel.x + panel.width + PANEL_GAP / 2;
+                  rightEdge = gc - HALF_SPLINE;
+                } else {
+                  // Inset past the vertical timber plate at the panel edge
+                  rightEdge = panel.x + panel.width - BOTTOM_PLATE;
+                }
+
+                // Split around lintels (10mm clearance from lintel edges)
+                const splineLeft = leftEdge + HSPLINE_CLEARANCE;
+                const splineRight = rightEdge - HSPLINE_CLEARANCE;
+                if (splineRight <= splineLeft) return null;
+
+                // Collect lintel exclusions clipped to this spline range
+                const excl = [];
+                for (const l of lintels) {
+                  const eL = Math.max(l.x - HSPLINE_CLEARANCE, splineLeft);
+                  const eR = Math.min(l.x + l.width + HSPLINE_CLEARANCE, splineRight);
+                  if (eL < eR) excl.push([eL, eR]);
+                }
+                excl.sort((a, b) => a[0] - b[0]);
+
+                // Build segments between exclusions
+                const segs = [];
+                let cursor = splineLeft;
+                for (const [eL, eR] of excl) {
+                  if (cursor < eL) segs.push([cursor, eL]);
+                  cursor = Math.max(cursor, eR);
+                }
+                if (cursor < splineRight) segs.push([cursor, splineRight]);
+
+                return segs.map(([segL, segR], si) => {
+                  // No extra x-inset: HSPLINE_CLEARANCE already provides
+                  // EPS_INSET from boundaries, matching the panel EPS width
+                  const epsXL = segL;
+                  const epsXR = segR;
+                  if (epsXR <= epsXL) return null;
+
+                  const epsTopY = epsY;
+                  const epsBotY = epsY + epsH;
+
+                  if (!isRaked) {
+                    return (
+                      <rect
+                        key={`hspline-eps-c${ci}-p${pi}-s${si}`}
+                        x={s(epsXL)} y={s(epsTopY)}
+                        width={s(epsXR - epsXL)} height={s(epsH)}
+                        fill={SPLINE_EPS_FILL} stroke={SPLINE_EPS_STROKE} strokeWidth={1}
+                      />
+                    );
+                  }
+
+                  // Raked/gable: polygon clipped against wall clearance
+                  // (2*TOP_PLATE + EPS_INSET inset from wall top edge)
+                  const clAt = (x) => yTopAt(x) + 2 * TOP_PLATE + EPS_INSET;
+
+                  // Key x-positions where clearance slope changes (gable peak)
+                  const breakXs = [epsXL, epsXR];
+                  if (panel.peakHeight && panel.peakXLocal != null) {
+                    const px = panel.x + panel.peakXLocal;
+                    if (px > epsXL && px < epsXR) breakXs.push(px);
+                  }
+                  breakXs.sort((a, b) => a - b);
+
+                  // Find where clearance crosses epsBotY (visibility limit)
+                  // and epsTopY (where clipping starts)
+                  const botCrossings = [];
+                  const topCrossings = [];
+                  for (let k = 0; k < breakXs.length - 1; k++) {
+                    const x1 = breakXs[k], x2 = breakXs[k + 1];
+                    const c1 = clAt(x1), c2 = clAt(x2);
+                    for (const [thr, arr] of [[epsBotY, botCrossings], [epsTopY, topCrossings]]) {
+                      if ((c1 - thr) * (c2 - thr) < 0) {
+                        const t = (thr - c1) / (c2 - c1);
+                        arr.push(x1 + t * (x2 - x1));
+                      }
+                    }
+                  }
+
+                  // Determine visible x-range (where clearance < epsBotY)
+                  let vL = epsXL, vR = epsXR;
+                  if (clAt(epsXL) >= epsBotY) {
+                    if (botCrossings.length === 0) return null;
+                    vL = Math.min(...botCrossings);
+                  }
+                  if (clAt(epsXR) >= epsBotY) {
+                    if (botCrossings.length === 0) return null;
+                    vR = Math.max(...botCrossings);
+                  }
+                  if (vR <= vL) return null;
+
+                  // Build polygon clockwise: bottom edge → right → top edge → left
+                  const pts = [];
+
+                  // Bottom edge
+                  pts.push(`${s(vL)},${s(epsBotY)}`);
+                  pts.push(`${s(vR)},${s(epsBotY)}`);
+
+                  // Right edge up (skip if vR is a bottom crossing — it tapers to a point)
+                  if (clAt(vR) < epsBotY - 0.5) {
+                    pts.push(`${s(vR)},${s(Math.max(epsTopY, clAt(vR)))}`);
+                  }
+
+                  // Top edge from right to left: add peak + top crossings within visible range
+                  const topEdgeXs = [];
+                  for (const x of topCrossings) {
+                    if (x > vL + 0.5 && x < vR - 0.5) topEdgeXs.push(x);
+                  }
+                  if (panel.peakHeight && panel.peakXLocal != null) {
+                    const px = panel.x + panel.peakXLocal;
+                    if (px > vL + 0.5 && px < vR - 0.5 && clAt(px) > epsTopY) {
+                      topEdgeXs.push(px);
+                    }
+                  }
+                  topEdgeXs.sort((a, b) => b - a); // right to left
+                  for (const x of topEdgeXs) {
+                    pts.push(`${s(x)},${s(Math.max(epsTopY, clAt(x)))}`);
+                  }
+
+                  // Left edge (skip if vL is a bottom crossing — it tapers to a point)
+                  if (clAt(vL) < epsBotY - 0.5) {
+                    pts.push(`${s(vL)},${s(Math.max(epsTopY, clAt(vL)))}`);
+                  }
+
+                  return pts.length >= 3 ? (
+                    <polygon
+                      key={`hspline-eps-c${ci}-p${pi}-s${si}`}
+                      points={pts.join(' ')}
+                      fill={SPLINE_EPS_FILL} stroke={SPLINE_EPS_STROKE} strokeWidth={1}
+                    />
+                  ) : null;
+              });
+              });
             });
           })()}
 
