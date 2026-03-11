@@ -184,6 +184,26 @@ export default function EpsElevation({ layout, wallName, projectName }) {
     };
   };
 
+  // Pre-compute common label Y per course so gable/raked labels align horizontally
+  const courseList = isMultiCourse ? courses : [{ y: 0, height }];
+  const courseLabelY = courseList.map((course) => {
+    const cY = course.y;
+    const cTop = cY + course.height;
+    const midYs = [];
+    for (const p of basePanels) {
+      const cx = p.x + p.width / 2;
+      const wh = heightAt ? heightAt(cx) : height;
+      if (wh <= cY) continue;
+      const clampedTop = Math.max(Math.min(wh, cTop), cY);
+      midYs.push((yBottom - cY + yBottom - clampedTop) / 2);
+    }
+    // Use median midY for a balanced common position across panels
+    if (midYs.length === 0) return null;
+    midYs.sort((a, b) => a - b);
+    const mid = Math.floor(midYs.length / 2);
+    return midYs.length % 2 === 1 ? midYs[mid] : (midYs[mid - 1] + midYs[mid]) / 2;
+  });
+
   return (
     <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0', gap: 4 }}>
@@ -482,23 +502,36 @@ export default function EpsElevation({ layout, wallName, projectName }) {
                     />
                   ) : null;
                 })}
-                {/* Panel labels — one per course, positioned in each course's vertical region */}
-                {(isMultiCourse ? courses : [{ y: 0, height }]).map((course, ci) => {
+                {/* Panel labels — one per course, aligned to common Y across all panels */}
+                {courseList.map((course, ci) => {
                   const cY = course.y;
+                  // Centre label on EPS midpoint (midpoint of widest segment)
+                  const widestSeg = segments.reduce((best, seg) => (!best || (seg[1] - seg[0]) > (best[1] - best[0])) ? seg : best, null);
+                  const panelCenterX = widestSeg ? (widestSeg[0] + widestSeg[1]) / 2 : panel.x + panel.width / 2;
+                  // Skip label if wall height across this panel doesn't reach this course
+                  const wallHMax = heightAt ? Math.max(heightAt(panel.x), heightAt(panel.x + panel.width)) : height;
+                  if (wallHMax <= cY) return null;
+                  const commonY = courseLabelY[ci];
+                  if (commonY == null) return null;
+                  // If common Y falls outside this panel's wall area, centre on shortest vertical edge
                   const cTop = cY + course.height;
-                  const panelCenterX = panel.x + panel.width / 2;
-                  const wallHAtCenter = heightAt ? heightAt(panelCenterX) : height;
-                  // Skip label if wall height at this panel doesn't reach this course (raked walls)
-                  if (wallHAtCenter <= cY) return null;
-                  // Clamp to cY so label stays within course when wall height < course bottom (raked walls)
-                  const courseMidTop = Math.max(Math.min(wallHAtCenter, cTop), cY);
-                  const courseMidY = (yBottom - cY + yBottom - courseMidTop) / 2;
+                  const wallHAtLabel = heightAt ? heightAt(panelCenterX) : height;
+                  const clampedTop = Math.max(Math.min(wallHAtLabel, cTop), cY);
+                  const epsRegionTop = yBottom - clampedTop;
+                  const epsRegionBot = yBottom - cY;
+                  const fitsCommon = commonY <= epsRegionBot && commonY >= epsRegionTop;
+                  // Fallback: midpoint of the shorter vertical side of the EPS area
+                  const wallHL = heightAt ? Math.min(heightAt(panel.x), cTop) : height;
+                  const wallHR = heightAt ? Math.min(heightAt(panel.x + panel.width), cTop) : height;
+                  const shortSideH = Math.max(Math.min(wallHL, wallHR) - cY, 0);
+                  const fallbackY = yBottom - cY - shortSideH / 2;
+                  const labelY = fitsCommon ? commonY : fallbackY;
                   const label = isMultiCourse ? `P${i + 1}·C${ci + 1}` : `P${i + 1}`;
                   return (
                     <text
                       key={`label-c${ci}`}
                       x={s(panelCenterX)}
-                      y={s(courseMidY) + 4}
+                      y={s(labelY) + 4}
                       textAnchor="middle" fontSize={isMultiCourse ? 8 : 10} fill={LABEL_COLOR}
                     >
                       {label}
@@ -572,29 +605,21 @@ export default function EpsElevation({ layout, wallName, projectName }) {
             const op = openings.find(o => o.ref === l.ref);
             const hasSill = op && op.y > 0;
 
-            const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
+            const shortH = Math.min(hL, hR);
 
             // Timber lintel and EPS fill (only when matching opening exists)
             let lintelLeft, lintelRight, lintelTop, lintelH;
             let epsPoly = null;
             if (op) {
-              // Timber lintel spans between inner edges of opening splines/plates, with 10mm gap
+              // Timber lintel spans between inner edges of opening plates (past splines)
               lintelH = l.lintelHeight || 200;
-              lintelLeft = hasSill
-                ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET  // 10mm inside left spline outer edge
-                : op.x - BOTTOM_PLATE + EPS_INSET;                // 10mm inside left plate inner edge
-              lintelRight = hasSill
-                ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET  // 10mm inside right spline outer edge
-                : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;               // 10mm inside right plate inner edge
+              lintelLeft = op.x - BOTTOM_PLATE + EPS_INSET;   // 10mm inside plate inner edge (past spline)
+              lintelRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;  // 10mm inside plate inner edge (past spline)
               lintelTop = yBottom - l.y - lintelH;
 
-              // Lintel panel EPS: fills the area above the timber lintel, inset 10mm from spline/plate inner edges
-              const epsLeft = hasSill
-                ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET  // 10mm inside spline outer edge
-                : op.x - BOTTOM_PLATE + EPS_INSET;                // 10mm inside plate inner edge
-              const epsRight = hasSill
-                ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET  // 10mm inside spline outer edge
-                : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;               // 10mm inside plate inner edge
+              // Lintel panel EPS: fills the area above the timber lintel, inset from spline/plate inner edges
+              const epsLeft = op.x - BOTTOM_PLATE + EPS_INSET;   // 10mm inside inner edge (past spline)
+              const epsRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;  // 10mm inside inner edge (past spline)
               const epsBot = lintelTop - EPS_INSET;  // 10mm above timber lintel
 
               // EPS top follows wall slope (same as panel EPS logic)
@@ -656,7 +681,7 @@ export default function EpsElevation({ layout, wallName, projectName }) {
                 {epsPoly}
                 <text
                   x={s(l.x + l.width / 2)}
-                  y={s(yBottom - l.y - midH / 2) + 3}
+                  y={s(yBottom - l.y - shortH / 2) + 3}
                   textAnchor="middle" fontSize="8" fill={LABEL_COLOR}
                 >
                   Lintel Panel {l.ref}
