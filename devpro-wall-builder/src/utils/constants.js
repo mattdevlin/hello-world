@@ -25,6 +25,7 @@ export const DOOR_OVERHANG = 166;       // mm each side
 export const DOOR_TOP_CUTOUT = 171;     // mm
 export const LINTEL_DEPTH = 300;        // mm default
 export const WINDOW_PLATE = 45;         // mm — sill plate and jamb plate thickness
+export const DOOR_JAMB_PLATE = 45;      // mm — door jamb plate thickness
 export const CNC_KERF = 10;            // mm
 
 // Splines
