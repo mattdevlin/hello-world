@@ -9,10 +9,29 @@ const EPS_INSET = 10; // mm recess from framing (matches EpsElevation)
 
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
-const DASH = '6,3';
-const STROKE_COLOR = '#333';
+
+// ── Line hierarchy (AS1100 / ISO 128 conventions) ──
+// Heavy — primary outlines (wall boundary, openings)
+const W_HEAVY = 2;
+const C_PRIMARY = '#222';
+// Medium — visible structural timber (lintel beams, plates)
+const W_MEDIUM = 1.2;
+const C_STRUCTURE = '#444';
+// Light — panel edges, splines, zone boundaries
+const W_LIGHT = 0.75;
+const C_PANEL = '#666';
+const C_ZONE = '#888';
+// Fine — annotations, opening cross-hatching
+const W_FINE = 0.5;
+// Timber fill
+const TIMBER_FILL = '#f0f0f0';
+
+// Dash patterns
+const DASH_PANEL = '8,4';       // panel joint edges
+const DASH_HIDDEN = '4,2';      // hidden / secondary
+const DASH_DOT = '8,3,2,3';     // zone boundaries (lintel/footer panels)
+
 const LABEL_COLOR = '#555';
-const PLATE_COLOR = '#888';
 
 export default function FramingElevation({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
@@ -43,7 +62,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
       const topY = Math.min(topL, topR);
       return (bot - topY) > 0 ? (
         <rect key={key} x={s(xL)} y={s(topY)} width={s(xR - xL)} height={s(bot - topY)}
-          fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+          fill="none" stroke={C_ZONE} strokeWidth={W_LIGHT} strokeDasharray={DASH_HIDDEN} />
       ) : null;
     }
     const pts = [];
@@ -53,7 +72,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
     if (topL < bot) pts.push(`${s(xL)},${s(topL)}`);
     return pts.length >= 3 ? (
       <polygon key={key} points={pts.join(' ')}
-        fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+        fill="none" stroke={C_ZONE} strokeWidth={W_LIGHT} strokeDasharray={DASH_HIDDEN} />
     ) : null;
   };
 
@@ -93,53 +112,56 @@ export default function FramingElevation({ layout, wallName, projectName }) {
               <polygon
                 points={pts.join(' ')}
                 fill="none"
-                stroke={STROKE_COLOR}
-                strokeWidth={1.5}
+                stroke={C_PRIMARY}
+                strokeWidth={W_HEAVY}
               />
             );
           })()}
 
-          {/* ── Bottom plate line (45mm from base) ── */}
-          <line
-            x1={s(plateLeft)} y1={s(yBottom - BOTTOM_PLATE)}
-            x2={s(plateRight)} y2={s(yBottom - BOTTOM_PLATE)}
-            stroke={PLATE_COLOR}
-            strokeWidth={1}
-            strokeDasharray={DASH}
+          {/* ── Bottom plate (45mm from base) ── */}
+          <rect
+            x={s(plateLeft)} y={s(yBottom - BOTTOM_PLATE)}
+            width={s(plateRight - plateLeft)} height={s(BOTTOM_PLATE)}
+            fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM}
           />
 
           {/* ── Top plate lines (follow slope for raked/gable) ── */}
           {(() => {
             if (!isRaked) {
+              const tpY = yTop(plateLeft);
               return (
                 <>
-                  <line
-                    x1={s(plateLeft)} y1={s(yTop(plateLeft) + TOP_PLATE)}
-                    x2={s(plateRight)} y2={s(yTop(plateRight) + TOP_PLATE)}
-                    stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                  <rect
+                    x={s(plateLeft)} y={s(tpY)}
+                    width={s(plateRight - plateLeft)} height={s(TOP_PLATE)}
+                    fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM}
                   />
-                  <line
-                    x1={s(plateLeft)} y1={s(yTop(plateLeft) + TOP_PLATE * 2)}
-                    x2={s(plateRight)} y2={s(yTop(plateRight) + TOP_PLATE * 2)}
-                    stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                  <rect
+                    x={s(plateLeft)} y={s(tpY + TOP_PLATE)}
+                    width={s(plateRight - plateLeft)} height={s(TOP_PLATE)}
+                    fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM}
                   />
                 </>
               );
             }
-            // For raked/gable, draw plate lines as polylines following the slope
+            // For raked/gable, draw plate bands as filled polygons following the slope
             const steps = Math.max(20, Math.round(grossLength / 100));
-            const buildPlateLine = (offset) => {
-              const points = [];
+            const buildPlateBand = (topOffset, botOffset) => {
+              const pts = [];
               for (let i = 0; i <= steps; i++) {
                 const x = plateLeft + (i / steps) * (plateRight - plateLeft);
-                points.push(`${s(x)},${s(yTop(x) + offset)}`);
+                pts.push(`${s(x)},${s(yTop(x) + topOffset)}`);
               }
-              return points.join(' ');
+              for (let i = steps; i >= 0; i--) {
+                const x = plateLeft + (i / steps) * (plateRight - plateLeft);
+                pts.push(`${s(x)},${s(yTop(x) + botOffset)}`);
+              }
+              return pts.join(' ');
             };
             return (
               <>
-                <polyline points={buildPlateLine(TOP_PLATE)} fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                <polyline points={buildPlateLine(TOP_PLATE * 2)} fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                <polygon points={buildPlateBand(0, TOP_PLATE)} fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM} />
+                <polygon points={buildPlateBand(TOP_PLATE, TOP_PLATE * 2)} fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM} />
               </>
             );
           })()}
@@ -152,9 +174,9 @@ export default function FramingElevation({ layout, wallName, projectName }) {
               width={s(deductionLeft)}
               height={s(yBottom - yTop(0))}
               fill="none"
-              stroke={STROKE_COLOR}
-              strokeWidth={1}
-              strokeDasharray={DASH}
+              stroke={C_PANEL}
+              strokeWidth={W_LIGHT}
+              strokeDasharray={DASH_HIDDEN}
             />
           )}
           {deductionLeft > 0 && (
@@ -168,10 +190,9 @@ export default function FramingElevation({ layout, wallName, projectName }) {
               y={s(yTop(deductionLeft) + TOP_PLATE * 2)}
               width={s(BOTTOM_PLATE)}
               height={s(yBottom - BOTTOM_PLATE - yTop(deductionLeft) - TOP_PLATE * 2)}
-              fill="none"
-              stroke={PLATE_COLOR}
-              strokeWidth={1}
-              strokeDasharray={DASH}
+              fill={TIMBER_FILL}
+              stroke={C_STRUCTURE}
+              strokeWidth={W_MEDIUM}
             />
           )}
           {deductionRight > 0 && (
@@ -181,9 +202,9 @@ export default function FramingElevation({ layout, wallName, projectName }) {
               width={s(deductionRight)}
               height={s(yBottom - yTop(grossLength))}
               fill="none"
-              stroke={STROKE_COLOR}
-              strokeWidth={1}
-              strokeDasharray={DASH}
+              stroke={C_PANEL}
+              strokeWidth={W_LIGHT}
+              strokeDasharray={DASH_HIDDEN}
             />
           )}
           {deductionRight > 0 && (
@@ -197,10 +218,9 @@ export default function FramingElevation({ layout, wallName, projectName }) {
               y={s(yTop(grossLength - deductionRight) + TOP_PLATE * 2)}
               width={s(BOTTOM_PLATE)}
               height={s(yBottom - BOTTOM_PLATE - yTop(grossLength - deductionRight) - TOP_PLATE * 2)}
-              fill="none"
-              stroke={PLATE_COLOR}
-              strokeWidth={1}
-              strokeDasharray={DASH}
+              fill={TIMBER_FILL}
+              stroke={C_STRUCTURE}
+              strokeWidth={W_MEDIUM}
             />
           )}
 
@@ -259,26 +279,26 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                     <g key={`panel-edge-${i}`}>
                       {/* Top edge (sloped for raked, peaked for gable) */}
                       {panel.peakHeight ? (<>
-                        <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(panel.x + panel.peakXLocal)} y2={s(yTop(panel.x + panel.peakXLocal))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                        <line x1={s(panel.x + panel.peakXLocal)} y1={s(yTop(panel.x + panel.peakXLocal))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                        <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(panel.x + panel.peakXLocal)} y2={s(yTop(panel.x + panel.peakXLocal))} stroke={C_PANEL} strokeWidth={W_LIGHT} strokeDasharray={DASH_PANEL} />
+                        <line x1={s(panel.x + panel.peakXLocal)} y1={s(yTop(panel.x + panel.peakXLocal))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={C_PANEL} strokeWidth={W_LIGHT} strokeDasharray={DASH_PANEL} />
                       </>) : (
-                        <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                        <line x1={s(leftX)} y1={s(yTop(leftX))} x2={s(rightX)} y2={s(yTop(rightX))} stroke={C_PANEL} strokeWidth={W_LIGHT} strokeDasharray={DASH_PANEL} />
                       )}
                       {/* Bottom horizontal */}
                       <line
                         x1={s(leftX)} y1={s(yBottom)}
                         x2={s(rightX)} y2={s(yBottom)}
-                        stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                        stroke={C_PANEL} strokeWidth={W_LIGHT} strokeDasharray={DASH_PANEL}
                       />
                       {/* Left vertical segments */}
                       {leftSegs.map(([y1, y2], j) => (
                         <line key={`l-${j}`} x1={s(leftX)} y1={s(y1)} x2={s(leftX)} y2={s(y2)}
-                          stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                          stroke={C_PANEL} strokeWidth={W_LIGHT} strokeDasharray={DASH_PANEL} />
                       ))}
                       {/* Right vertical segments */}
                       {rightSegs.map(([y1, y2], j) => (
                         <line key={`r-${j}`} x1={s(rightX)} y1={s(y1)} x2={s(rightX)} y2={s(y2)}
-                          stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                          stroke={C_PANEL} strokeWidth={W_LIGHT} strokeDasharray={DASH_PANEL} />
                       ))}
                       {/* Panel base width — only from course 0 */}
                       <text
@@ -322,13 +342,18 @@ export default function FramingElevation({ layout, wallName, projectName }) {
             );
           })()}
 
-          {/* ── Vertical plates at panel outer edges (45mm) ── */}
+          {/* ── Vertical plates at wall boundary edges (45mm) ── */}
           {(() => {
             const basePanels = panels.filter(p => (p.course ?? 0) === 0);
             const plates = [];
             for (const panel of basePanels) {
+              // Edge plates only at wall boundaries — not mid-wall "end" remainder panels
               if (panel.type === 'end') {
-                plates.push(panel.x + panel.width - BOTTOM_PLATE);
+                const atLeft = deductionLeft > 0 && Math.abs(panel.x - (deductionLeft + PANEL_GAP)) < 10;
+                const atRight = Math.abs(panel.x + panel.width - grossLength) < 10;
+                if (atLeft || atRight) {
+                  plates.push(panel.x + panel.width - BOTTOM_PLATE);
+                }
               }
               if (deductionRight === 0 && Math.abs(panel.x + panel.width - grossLength) < 1) {
                 plates.push(grossLength - BOTTOM_PLATE);
@@ -348,10 +373,9 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                   y={s(pTop)}
                   width={s(BOTTOM_PLATE)}
                   height={s(pH)}
-                  fill="none"
-                  stroke={PLATE_COLOR}
-                  strokeWidth={1}
-                  strokeDasharray={DASH}
+                  fill={TIMBER_FILL}
+                  stroke={C_STRUCTURE}
+                  strokeWidth={W_MEDIUM}
                 />
               ) : null;
             });
@@ -384,19 +408,18 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                 width={s(op.drawWidth)}
                 height={s(op.drawHeight)}
                 fill="none"
-                stroke={STROKE_COLOR}
-                strokeWidth={1.5}
-                strokeDasharray={DASH}
+                stroke={C_PRIMARY}
+                strokeWidth={W_HEAVY}
               />
               <line
                 x1={s(op.x)} y1={s(yBottom - op.y - op.drawHeight)}
                 x2={s(op.x + op.drawWidth)} y2={s(yBottom - op.y)}
-                stroke="#bbb" strokeWidth={0.5} strokeDasharray="4,3"
+                stroke="#bbb" strokeWidth={W_FINE} strokeDasharray="4,3"
               />
               <line
                 x1={s(op.x + op.drawWidth)} y1={s(yBottom - op.y - op.drawHeight)}
                 x2={s(op.x)} y2={s(yBottom - op.y)}
-                stroke="#bbb" strokeWidth={0.5} strokeDasharray="4,3"
+                stroke="#bbb" strokeWidth={W_FINE} strokeDasharray="4,3"
               />
               <text
                 x={s(op.x + op.drawWidth / 2)}
@@ -427,7 +450,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                     y={s(yBottom - op.sillPlate.y)}
                     width={s(op.sillPlate.width)}
                     height={s(op.sillPlate.height)}
-                    fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                    fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM}
                   />
                 )}
                 {/* Window jamb plates — sit on sill plate, each side of opening */}
@@ -437,7 +460,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                     y={s(yBottom - op.leftJamb.y - op.leftJamb.height)}
                     width={s(op.leftJamb.width)}
                     height={s(op.leftJamb.height)}
-                    fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                    fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM}
                   />
                 )}
                 {op.rightJamb && (
@@ -446,7 +469,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                     y={s(yBottom - op.rightJamb.y - op.rightJamb.height)}
                     width={s(op.rightJamb.width)}
                     height={s(op.rightJamb.height)}
-                    fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                    fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM}
                   />
                 )}
                 {/* Door/garage jamb plates — full height of opening */}
@@ -456,13 +479,13 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                       x={s(op.x - BOTTOM_PLATE)}
                       y={s(yBottom - op.y - op.drawHeight)}
                       width={s(BOTTOM_PLATE)} height={s(op.drawHeight)}
-                      fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                      fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM}
                     />
                     <rect
                       x={s(op.x + op.drawWidth)}
                       y={s(yBottom - op.y - op.drawHeight)}
                       width={s(BOTTOM_PLATE)} height={s(op.drawHeight)}
-                      fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                      fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM}
                     />
                   </>
                 )}
@@ -491,7 +514,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                 y={s(yBottom - f.height)}
                 width={s(f.width)}
                 height={s(f.height)}
-                fill="none" stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                fill="none" stroke={C_PANEL} strokeWidth={W_LIGHT} strokeDasharray={DASH_PANEL}
               />
               <text
                 x={s(f.x + f.width / 2)}
@@ -517,18 +540,13 @@ export default function FramingElevation({ layout, wallName, projectName }) {
               : `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
             const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
 
-            // Timber lintel rect (spans between vertical plates/splines with EPS_INSET gap)
+            // Timber lintel rect (spans between jamb plates)
             const op = openings.find(o => o.ref === l.ref);
-            const hasSill = op && op.y > 0;
             const lintelH = l.lintelHeight || 200;
             let lintelEl = null;
             if (op) {
-              const lintelLeft = hasSill
-                ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET
-                : op.x - BOTTOM_PLATE + EPS_INSET;
-              const lintelRight = hasSill
-                ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET
-                : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
+              const lintelLeft = op.x - BOTTOM_PLATE + EPS_INSET;
+              const lintelRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
               const lintelTop = yBottom - l.y - lintelH;
               const lintelW = lintelRight - lintelLeft;
               if (lintelW > 0 && lintelH > 0) {
@@ -536,7 +554,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                   <rect
                     x={s(lintelLeft)} y={s(lintelTop)}
                     width={s(lintelW)} height={s(lintelH)}
-                    fill="none" stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                    fill={TIMBER_FILL} stroke={C_PRIMARY} strokeWidth={1.5}
                   />
                 );
               }
@@ -544,7 +562,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
 
             return (
               <g key={`lintel-panel-${i}`}>
-                <polygon points={pts} fill="none" stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
+                <polygon points={pts} fill="none" stroke={C_PANEL} strokeWidth={W_LIGHT} strokeDasharray={DASH_PANEL} />
                 {lintelEl}
                 <text
                   x={s(l.x + l.width / 2)}
@@ -707,9 +725,9 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                         width={s(segR - segL)}
                         height={s(SPLINE_WIDTH)}
                         fill="none"
-                        stroke={PLATE_COLOR}
-                        strokeWidth={1}
-                        strokeDasharray={DASH}
+                        stroke={C_ZONE}
+                        strokeWidth={W_LIGHT}
+                        strokeDasharray={DASH_HIDDEN}
                       />
                     );
                   }
@@ -781,9 +799,9 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                       key={`hspline-c${ci}-p${pi}-s${si}`}
                       points={pts.join(' ')}
                       fill="none"
-                      stroke={PLATE_COLOR}
-                      strokeWidth={1}
-                      strokeDasharray={DASH}
+                      stroke={C_ZONE}
+                      strokeWidth={W_LIGHT}
+                      strokeDasharray={DASH_HIDDEN}
                     />
                   ) : null;
                 });
