@@ -15,7 +15,7 @@ export default function MagboardSheetSummary({ walls }) {
     panelSheetCount, panelSheets2745, panelSheets3050,
     cutPieceCount, cutSheets2745, cutSheets3050, cutUtilization,
     total2745, total3050, totalSheets,
-    totalLintels, totalFooters, totalSplines, totalDeductions,
+    totalLintelPanels, totalFooters, totalSplines, totalDeductions,
     perWall,
   } = result;
 
@@ -83,7 +83,7 @@ export default function MagboardSheetSummary({ walls }) {
                       <td style={styles.td}>Splines (146mm wide)</td>
                       <td style={{ ...styles.td, textAlign: 'right' }}>{totalSplines}</td>
                       <td style={{ ...styles.td, textAlign: 'right' }} rowSpan={
-                        [totalSplines, totalLintels, totalFooters, totalDeductions].filter(Boolean).length
+                        [totalSplines, totalLintelPanels, totalFooters, totalDeductions].filter(Boolean).length
                       }>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
                           {cutSheets2745 + cutSheets3050}
@@ -92,10 +92,10 @@ export default function MagboardSheetSummary({ walls }) {
                       </td>
                     </tr>
                   )}
-                  {totalLintels > 0 && (
+                  {totalLintelPanels > 0 && (
                     <tr style={styles.evenRow}>
-                      <td style={styles.td}>Lintels</td>
-                      <td style={{ ...styles.td, textAlign: 'right' }}>{totalLintels}</td>
+                      <td style={styles.td}>Lintel Panels</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{totalLintelPanels}</td>
                     </tr>
                   )}
                   {totalFooters > 0 && (
@@ -124,7 +124,7 @@ export default function MagboardSheetSummary({ walls }) {
                   <th style={styles.th}>Wall</th>
                   <th style={{ ...styles.th, textAlign: 'right' }}>Panel Sheets</th>
                   <th style={{ ...styles.th, textAlign: 'right' }}>Splines</th>
-                  <th style={{ ...styles.th, textAlign: 'right' }}>Lintels</th>
+                  <th style={{ ...styles.th, textAlign: 'right' }}>Lintel Panels</th>
                   <th style={{ ...styles.th, textAlign: 'right' }}>Footers</th>
                 </tr>
               </thead>
@@ -134,7 +134,7 @@ export default function MagboardSheetSummary({ walls }) {
                     <td style={{ ...styles.td, fontWeight: 600 }}>{w.wallName}</td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>{w.panelSheetCount}</td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>{w.splineCount}</td>
-                    <td style={{ ...styles.td, textAlign: 'right' }}>{w.lintelCount}</td>
+                    <td style={{ ...styles.td, textAlign: 'right' }}>{w.lintelPanelCount}</td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>{w.footerCount}</td>
                   </tr>
                 ))}
@@ -145,7 +145,7 @@ export default function MagboardSheetSummary({ walls }) {
           <div style={styles.sheetInfo}>
             Sheets: 1200 × 2745mm or 3050mm (10mm thick).
             Each panel uses 2 full sheets (front + back face).
-            Splines, lintels, footers, and deductions are bin-packed onto additional sheets.
+            Splines, lintel panels, footers, and deductions are bin-packed onto additional sheets.
           </div>
         </div>
       )}

@@ -5,7 +5,7 @@
  * (2440mm sheets not stocked — panels use 2745 or 3050 stock sheets.)
  *
  * Each panel face requires one full sheet (2 per panel, front + back).
- * Additional pieces (lintels, footers, splines, deductions) are smaller
+ * Additional pieces (lintel panels, footers, splines, deductions) are smaller
  * and can share sheets via 2D bin packing.
  */
 
@@ -33,7 +33,7 @@ export function extractMagboardPieces(layout, wallName = '') {
   const cutPieces = [];     // smaller pieces to bin-pack
 
   const {
-    height, panels, openings, lintels, footers,
+    height, panels, openings, lintelPanels, footers,
     deductionLeft, deductionRight,
     courses, isMultiCourse,
   } = layout;
@@ -48,17 +48,17 @@ export function extractMagboardPieces(layout, wallName = '') {
     panelSheets.push({ sheetHeight: sheetH, label: `P${panel.index + 1}${courseLabel}`, wallName });
   }
 
-  // ── Lintels: 2 magboard pieces each (EPS area above timber beam) ──
-  for (const lintel of lintels) {
-    const beamH = lintel.beamHeight || 200;
-    const epsHeight = lintel.height - beamH;
+  // ── Lintel panels: 2 magboard pieces each (EPS area above timber lintel) ──
+  for (const lintel of lintelPanels) {
+    const lintelH = lintel.lintelHeight || 200;
+    const epsHeight = lintel.height - lintelH;
     if (epsHeight > 0) {
       for (let i = 0; i < 2; i++) {
         cutPieces.push({
           width: lintel.width,
           height: epsHeight,
-          type: 'lintel',
-          label: `${lintel.ref} Lintel`,
+          type: 'lintelPanel',
+          label: `${lintel.ref} Lintel Panel`,
           wallName,
         });
       }
@@ -89,7 +89,7 @@ export function extractMagboardPieces(layout, wallName = '') {
     for (let i = 0; i < basePanels.length - 1; i++) {
       const panel = basePanels[i];
       const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-      const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+      const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
       const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
       if (!insideLintel && !insideFooter) {
         jointHasSpline[i] = true;
@@ -147,7 +147,7 @@ export function extractMagboardPieces(layout, wallName = '') {
         // Split around lintels, openings, opening plates & splines
         const splineLeft = leftEdge + HSPLINE_CLEARANCE;
         const splineRight = rightEdge - HSPLINE_CLEARANCE;
-        const segs = buildHSplineSegments(splineLeft, splineRight, lintels, openings);
+        const segs = buildHSplineSegments(splineLeft, splineRight, lintelPanels, openings);
 
         for (const [segL, segR] of segs) {
           const hsplineWidth = segR - segL;
@@ -278,7 +278,7 @@ export function computeProjectMagboardSheets(walls) {
       wallId: wall.id,
       panelSheetCount: panelSheets.length,
       cutPieceCount: cutPieces.length,
-      lintelCount: cutPieces.filter(p => p.type === 'lintel').length,
+      lintelPanelCount: cutPieces.filter(p => p.type === 'lintelPanel').length,
       footerCount: cutPieces.filter(p => p.type === 'footer').length,
       splineCount: cutPieces.filter(p => p.type === 'spline').length,
       deductionCount: cutPieces.filter(p => p.type === 'deduction').length,
@@ -334,7 +334,7 @@ export function computeProjectMagboardSheets(walls) {
     totalSheets,
 
     // Breakdown
-    totalLintels: allCutPieces.filter(p => p.type === 'lintel').length,
+    totalLintelPanels: allCutPieces.filter(p => p.type === 'lintelPanel').length,
     totalFooters: allCutPieces.filter(p => p.type === 'footer').length,
     totalSplines: allCutPieces.filter(p => p.type === 'spline').length,
     totalDeductions: allCutPieces.filter(p => p.type === 'deduction').length,

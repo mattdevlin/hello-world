@@ -113,7 +113,7 @@ function computeOffcuts(layout) {
     }
   }
 
-  // ── Lintel & footer offcuts (cut from 2440 × 1200 sheets) ──
+  // ── Lintel panel & footer offcuts (cut from 2440 × 1200 sheets) ──
   // Piece is rotated so its long dimension runs along the 2440mm sheet height.
   // Two rectangular offcuts from the L-shaped remainder:
   //   Strip A (full-width beside): sheetH × (sheetW - shortDim)
@@ -122,7 +122,7 @@ function computeOffcuts(layout) {
   const SHEET_W = PANEL_WIDTH;    // 1200
 
   const sheetPieces = [
-    ...(layout.lintels || []).map(l => ({ w: l.width, h: l.height, source: `Lintel ${l.ref}` })),
+    ...(layout.lintelPanels || []).map(l => ({ w: l.width, h: l.height, source: `Lintel Panel ${l.ref}` })),
     ...(layout.footers || []).map(f => ({ w: f.width, h: f.height, source: `Footer ${f.ref}` })),
   ];
 

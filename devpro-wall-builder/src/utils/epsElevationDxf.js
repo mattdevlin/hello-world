@@ -23,7 +23,7 @@ const MAGBOARD = 10;
 export function buildEpsElevationDxf(layout, wallName) {
   const d = createDrawing();
   const {
-    grossLength, height, maxHeight, panels, openings, footers, lintels,
+    grossLength, height, maxHeight, panels, openings, footers, lintelPanels,
     deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse,
   } = layout;
 
@@ -65,7 +65,7 @@ export function buildEpsElevationDxf(layout, wallName) {
   for (let i = 0; i < basePanels.length - 1; i++) {
     const panel = basePanels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (!insideLintel && !insideFooter) {
       exclusions.push([gapCentre - HALF_SPLINE, gapCentre + HALF_SPLINE]);
@@ -87,7 +87,7 @@ export function buildEpsElevationDxf(layout, wallName) {
     if (deductionLeft === 0 && Math.abs(p.x) < 1) exclusions.push([0, BOTTOM_PLATE]);
   }
 
-  for (const l of lintels) exclusions.push([l.x, l.x + l.width]);
+  for (const l of lintelPanels) exclusions.push([l.x, l.x + l.width]);
   exclusions.sort((a, b) => a[0] - b[0]);
 
   const getEpsSegments = (panelLeft, panelRight) => {
@@ -248,8 +248,8 @@ export function buildEpsElevationDxf(layout, wallName) {
     d.drawText(f.x + f.width / 2 - 40, f.height / 2, 30, 0, `Footer ${f.ref}`);
   });
 
-  // ── Lintels ──
-  lintels.forEach((l) => {
+  // ── Lintel panels ──
+  lintelPanels.forEach((l) => {
     const hL = l.heightLeft != null ? l.heightLeft : l.height;
     const hR = l.heightRight != null ? l.heightRight : l.height;
     const yBase = l.y;
@@ -262,24 +262,24 @@ export function buildEpsElevationDxf(layout, wallName) {
       : [[l.x, yBase], [l.x, yTopL], [l.x + l.width, yTopR], [l.x + l.width, yBase]];
     d.drawPolyline(pts, true);
 
-    // Timber beam
+    // Timber lintel
     const op = openings.find(o => o.ref === l.ref);
     if (op) {
       const hasSill = op.y > 0;
-      const beamH = l.beamHeight || 200;
-      const beamLeft = hasSill ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET : op.x - BOTTOM_PLATE + EPS_INSET;
-      const beamRight = hasSill ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
-      const beamBot = l.y;
-      const beamTop = l.y + beamH;
+      const lintelH = l.lintelHeight || 200;
+      const lintelLeft = hasSill ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET : op.x - BOTTOM_PLATE + EPS_INSET;
+      const lintelRight = hasSill ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
+      const lintelBot = l.y;
+      const lintelTop = l.y + lintelH;
       d.drawPolyline([
-        [beamLeft, beamBot], [beamRight, beamBot],
-        [beamRight, beamTop], [beamLeft, beamTop],
+        [lintelLeft, lintelBot], [lintelRight, lintelBot],
+        [lintelRight, lintelTop], [lintelLeft, lintelTop],
       ], true);
 
-      // EPS above beam
-      const epsBot = beamTop + EPS_INSET;
-      const epsLeft = beamLeft;
-      const epsRight = beamRight;
+      // EPS above timber lintel
+      const epsBot = lintelTop + EPS_INSET;
+      const epsLeft = lintelLeft;
+      const epsRight = lintelRight;
       const epsTopAtX = (x) => hAt(x) - TOP_PLATE * 2 - EPS_INSET;
       const epsTopL = epsTopAtX(epsLeft);
       const epsTopR = epsTopAtX(epsRight);
@@ -321,7 +321,7 @@ export function buildEpsElevationDxf(layout, wallName) {
   for (let i = 0; i < basePanels.length - 1; i++) {
     const panel = basePanels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (insideLintel || insideFooter) continue;
 

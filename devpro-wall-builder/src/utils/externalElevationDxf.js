@@ -16,7 +16,7 @@ import {
 export function buildExternalElevationDxf(layout, wallName) {
   const d = createDrawing();
   const {
-    grossLength, height, maxHeight, panels, openings, footers, lintels,
+    grossLength, height, maxHeight, panels, openings, footers, lintelPanels,
     deductionLeft, deductionRight, isRaked, heightAt, profile,
     courses, isMultiCourse,
   } = layout;
@@ -123,8 +123,8 @@ export function buildExternalElevationDxf(layout, wallName) {
     d.drawText(f.x + f.width / 2 - 20, -40, 30, 0, `${f.width}`);
   }
 
-  // ── Lintels ──
-  for (const l of lintels) {
+  // ── Lintel panels ──
+  for (const l of lintelPanels) {
     const hL = l.heightLeft != null ? l.heightLeft : l.height;
     const hR = l.heightRight != null ? l.heightRight : l.height;
     const yBase = l.y;

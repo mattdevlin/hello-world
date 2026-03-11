@@ -90,7 +90,7 @@ export default function EpsCutPlans({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
-  const { height, panels, openings, footers, lintels, deductionLeft, deductionRight, courses, isMultiCourse } = layout;
+  const { height, panels, openings, footers, lintelPanels, deductionLeft, deductionRight, courses, isMultiCourse } = layout;
 
   const isRaked = layout.isRaked;
 
@@ -113,7 +113,7 @@ export default function EpsCutPlans({ layout, wallName, projectName }) {
   for (let i = 0; i < panels.length - 1; i++) {
     const panel = panels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (!insideLintel && !insideFooter) {
       exclusions.push([gapCentre - HALF_SPLINE, gapCentre + HALF_SPLINE]);
@@ -145,7 +145,7 @@ export default function EpsCutPlans({ layout, wallName, projectName }) {
     }
   }
 
-  for (const l of lintels) {
+  for (const l of lintelPanels) {
     exclusions.push([l.x, l.x + l.width]);
   }
 
@@ -249,7 +249,7 @@ export default function EpsCutPlans({ layout, wallName, projectName }) {
   for (let i = 0; i < panels.length - 1; i++) {
     const panel = panels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (!insideLintel && !insideFooter) {
       splinePieces.push({ label: `Joint P${panels[i].index + 1}/P${panels[i + 1].index + 1}`, width: SPLINE_WIDTH, height: splineH });
