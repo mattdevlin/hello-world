@@ -553,7 +553,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                     />
                   </>
                 )}
-                {hasSill && (() => {
+                {(() => {
                   const spBot = yBottom - BOTTOM_PLATE;
                   const lSpXL = op.x - BOTTOM_PLATE - SPLINE_WIDTH;
                   const lSpXR = op.x - BOTTOM_PLATE;

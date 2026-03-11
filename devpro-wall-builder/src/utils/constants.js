@@ -97,9 +97,8 @@ export function buildHSplineSegments(splineLeft, splineRight, lintelPanels, open
     if (eL < eR) excl.push([eL, eR]);
   }
   for (const op of openings) {
-    const hasSill = op.y > 0;
-    const oL = op.x - BOTTOM_PLATE - (hasSill ? SPLINE_WIDTH : 0) - HSPLINE_CLEARANCE;
-    const oR = op.x + op.drawWidth + BOTTOM_PLATE + (hasSill ? SPLINE_WIDTH : 0) + HSPLINE_CLEARANCE;
+    const oL = op.x - BOTTOM_PLATE - SPLINE_WIDTH - HSPLINE_CLEARANCE;
+    const oR = op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH + HSPLINE_CLEARANCE;
     const eL = Math.max(oL, splineLeft);
     const eR = Math.min(oR, splineRight);
     if (eL < eR) excl.push([eL, eR]);

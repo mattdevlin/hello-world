@@ -277,38 +277,36 @@ export function buildFramingElevationDxf(layout, wallName) {
       [op.x + op.drawWidth + BOTTOM_PLATE, opTop], [op.x + op.drawWidth, opTop],
     ], true);
 
-    // Opening splines (for windows with sills)
-    if (hasSill) {
-      const spBot = BOTTOM_PLATE;
-      // Left spline
-      const lSpXL = op.x - BOTTOM_PLATE - SPLINE_WIDTH;
-      const lSpXR = op.x - BOTTOM_PLATE;
-      const lSpTopL = hAt(lSpXL) - TOP_PLATE * 2;
-      const lSpTopR = hAt(lSpXR) - TOP_PLATE * 2;
-      if (!isRaked || Math.abs(lSpTopL - lSpTopR) < 0.5) {
-        const spTop = Math.max(lSpTopL, lSpTopR);
-        if (spTop > spBot) d.drawPolyline([[lSpXL, spBot], [lSpXR, spBot], [lSpXR, spTop], [lSpXL, spTop]], true);
-      } else {
-        const pts = [[lSpXL, spBot], [lSpXR, spBot]];
-        if (lSpTopR > spBot) pts.push([lSpXR, lSpTopR]);
-        if (lSpTopL > spBot) pts.push([lSpXL, lSpTopL]);
-        if (pts.length >= 3) d.drawPolyline(pts, true);
-      }
+    // Opening splines
+    const spBot = BOTTOM_PLATE;
+    // Left spline
+    const lSpXL = op.x - BOTTOM_PLATE - SPLINE_WIDTH;
+    const lSpXR = op.x - BOTTOM_PLATE;
+    const lSpTopL = hAt(lSpXL) - TOP_PLATE * 2;
+    const lSpTopR = hAt(lSpXR) - TOP_PLATE * 2;
+    if (!isRaked || Math.abs(lSpTopL - lSpTopR) < 0.5) {
+      const spTop = Math.max(lSpTopL, lSpTopR);
+      if (spTop > spBot) d.drawPolyline([[lSpXL, spBot], [lSpXR, spBot], [lSpXR, spTop], [lSpXL, spTop]], true);
+    } else {
+      const pts = [[lSpXL, spBot], [lSpXR, spBot]];
+      if (lSpTopR > spBot) pts.push([lSpXR, lSpTopR]);
+      if (lSpTopL > spBot) pts.push([lSpXL, lSpTopL]);
+      if (pts.length >= 3) d.drawPolyline(pts, true);
+    }
 
-      // Right spline
-      const rSpXL = op.x + op.drawWidth + BOTTOM_PLATE;
-      const rSpXR = rSpXL + SPLINE_WIDTH;
-      const rSpTopL = hAt(rSpXL) - TOP_PLATE * 2;
-      const rSpTopR = hAt(rSpXR) - TOP_PLATE * 2;
-      if (!isRaked || Math.abs(rSpTopL - rSpTopR) < 0.5) {
-        const spTop = Math.max(rSpTopL, rSpTopR);
-        if (spTop > spBot) d.drawPolyline([[rSpXL, spBot], [rSpXR, spBot], [rSpXR, spTop], [rSpXL, spTop]], true);
-      } else {
-        const pts = [[rSpXL, spBot], [rSpXR, spBot]];
-        if (rSpTopR > spBot) pts.push([rSpXR, rSpTopR]);
-        if (rSpTopL > spBot) pts.push([rSpXL, rSpTopL]);
-        if (pts.length >= 3) d.drawPolyline(pts, true);
-      }
+    // Right spline
+    const rSpXL = op.x + op.drawWidth + BOTTOM_PLATE;
+    const rSpXR = rSpXL + SPLINE_WIDTH;
+    const rSpTopL = hAt(rSpXL) - TOP_PLATE * 2;
+    const rSpTopR = hAt(rSpXR) - TOP_PLATE * 2;
+    if (!isRaked || Math.abs(rSpTopL - rSpTopR) < 0.5) {
+      const spTop = Math.max(rSpTopL, rSpTopR);
+      if (spTop > spBot) d.drawPolyline([[rSpXL, spBot], [rSpXR, spBot], [rSpXR, spTop], [rSpXL, spTop]], true);
+    } else {
+      const pts = [[rSpXL, spBot], [rSpXR, spBot]];
+      if (rSpTopR > spBot) pts.push([rSpXR, rSpTopR]);
+      if (rSpTopL > spBot) pts.push([rSpXL, rSpTopL]);
+      if (pts.length >= 3) d.drawPolyline(pts, true);
     }
   }
 
@@ -337,10 +335,9 @@ export function buildFramingElevationDxf(layout, wallName) {
     // Timber lintel
     const op = openings.find(o => o.ref === l.ref);
     if (op) {
-      const hasSill = op.y > 0;
       const lintelH = l.lintelHeight || 200;
-      const lintelLeft = hasSill ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET : op.x - BOTTOM_PLATE + EPS_INSET;
-      const lintelRight = hasSill ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
+      const lintelLeft = op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET;
+      const lintelRight = op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET;
       const lintelBot = l.y;
       const lintelTop = l.y + lintelH;
       d.drawPolyline([
