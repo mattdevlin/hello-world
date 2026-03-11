@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { COLORS, WALL_THICKNESS, PANEL_GAP, WINDOW_OVERHANG } from '../utils/constants.js';
+import { COLORS, WALL_THICKNESS, PANEL_GAP, WINDOW_OVERHANG, OPENING_TYPES } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
 import ExportDxfButton from './ExportDxfButton.jsx';
 
@@ -129,7 +129,90 @@ export default function WallDrawing({ layout, wallName, projectName }) {
                 const peakH = Math.max(Math.min(heightAt ? heightAt(peakX) : height, cTop), cY);
                 peakPt = `${s(peakX)},${yBottom - s(peakH)} `;
               }
-              const pts = `${s(pLeft)},${pBot} ${s(pLeft)},${pTopL} ${peakPt}${s(pRight)},${pTopR} ${s(pRight)},${pBot}`;
+              // For multi-course L-cuts, openBottom/openTop are course-relative.
+              // Convert to absolute by adding courseY, then to SVG y.
+              const courseY = panel.courseY ?? cY;
+              let pts;
+              if (panel.type === 'lcut' && panel.side !== 'pier') {
+                const ovh = WINDOW_OVERHANG;
+                const isWindow = panel.openingType === OPENING_TYPES.WINDOW;
+                const absOpenTop = (panel.openTop ?? 0) + courseY;
+                const absOpenBot = (panel.openBottom ?? 0) + courseY;
+                const oTop = yBottom - s(Math.min(absOpenTop, cTop));
+                const oBot = yBottom - s(Math.max(absOpenBot, cY));
+                // Does the return exist? (opening top below course top)
+                const hasReturn = absOpenTop < cTop;
+
+                if (panel.side === 'right') {
+                  // Panel is right of opening — cutout on left side
+                  const bL = pLeft + ovh;
+                  const bLs = s(bL);
+                  const bLTop = yBottom - s(Math.max(Math.min(heightAt ? heightAt(bL) : height, cTop), cY));
+                  if (!hasReturn) {
+                    // Opening fills full course height on this side — just draw body rect
+                    pts = `${bLs},${pBot} ${bLs},${bLTop} ${peakPt}${s(pRight)},${pTopR} ${s(pRight)},${pBot}`;
+                  } else if (isWindow && absOpenBot > cY) {
+                    pts = `${bLs},${pBot} ${bLs},${oBot} ${s(pLeft)},${oBot} ${s(pLeft)},${oTop} ${bLs},${oTop} ${bLs},${bLTop} ${peakPt}${s(pRight)},${pTopR} ${s(pRight)},${pBot}`;
+                  } else {
+                    pts = `${bLs},${pBot} ${s(pLeft)},${pBot} ${s(pLeft)},${oTop} ${bLs},${oTop} ${bLs},${bLTop} ${peakPt}${s(pRight)},${pTopR} ${s(pRight)},${pBot}`;
+                  }
+                } else {
+                  // side === 'left' — panel is left of opening — cutout on right side
+                  const bR = pRight - ovh;
+                  const bRs = s(bR);
+                  const bRTop = yBottom - s(Math.max(Math.min(heightAt ? heightAt(bR) : height, cTop), cY));
+                  if (!hasReturn) {
+                    pts = `${s(pLeft)},${pBot} ${s(pLeft)},${pTopL} ${peakPt}${bRs},${bRTop} ${bRs},${pBot}`;
+                  } else if (isWindow && absOpenBot > cY) {
+                    pts = `${s(pLeft)},${pBot} ${s(pLeft)},${pTopL} ${peakPt}${bRs},${bRTop} ${bRs},${oTop} ${s(pRight)},${oTop} ${s(pRight)},${oBot} ${bRs},${oBot} ${bRs},${pBot}`;
+                  } else {
+                    pts = `${s(pLeft)},${pBot} ${s(pLeft)},${pTopL} ${peakPt}${bRs},${bRTop} ${bRs},${oTop} ${s(pRight)},${oTop} ${s(pRight)},${pBot}`;
+                  }
+                }
+              } else if (panel.type === 'lcut' && panel.side === 'pier') {
+                const ovh = WINDOW_OVERHANG;
+                const absOpenTop = (panel.openTop ?? 0) + courseY;
+                const absOpenBot = (panel.openBottom ?? 0) + courseY;
+                const absROpenTop = ((panel.rightOpenTop ?? panel.openTop) ?? 0) + courseY;
+                const absROpenBot = ((panel.rightOpenBottom ?? panel.openBottom) ?? 0) + courseY;
+                const oTop = yBottom - s(Math.min(absOpenTop, cTop));
+                const oBot = yBottom - s(Math.max(absOpenBot, cY));
+                const rOTop = yBottom - s(Math.min(absROpenTop, cTop));
+                const rOBot = yBottom - s(Math.max(absROpenBot, cY));
+                const isWindowL = panel.openingType === OPENING_TYPES.WINDOW;
+                const isWindowR = (panel.rightOpeningType ?? panel.openingType) === OPENING_TYPES.WINDOW;
+                const hasReturnL = absOpenTop < cTop;
+                const hasReturnR = absROpenTop < cTop;
+                const bL = pLeft + ovh;
+                const bR = pRight - ovh;
+                const bLs = s(bL);
+                const bRs = s(bR);
+                const bLTop = yBottom - s(Math.max(Math.min(heightAt ? heightAt(bL) : height, cTop), cY));
+                const bRTop = yBottom - s(Math.max(Math.min(heightAt ? heightAt(bR) : height, cTop), cY));
+
+                const p = [];
+                // Left side (bottom up)
+                if (!hasReturnL) {
+                  p.push(`${bLs},${pBot}`);
+                } else if (isWindowL && absOpenBot > cY) {
+                  p.push(`${bLs},${pBot}`, `${bLs},${oBot}`, `${s(pLeft)},${oBot}`, `${s(pLeft)},${oTop}`, `${bLs},${oTop}`);
+                } else {
+                  p.push(`${bLs},${pBot}`, `${s(pLeft)},${pBot}`, `${s(pLeft)},${oTop}`, `${bLs},${oTop}`);
+                }
+                // Top edge
+                p.push(`${bLs},${bLTop}`, `${peakPt}${bRs},${bRTop}`);
+                // Right side (top down)
+                if (!hasReturnR) {
+                  p.push(`${bRs},${pBot}`);
+                } else if (isWindowR && absROpenBot > cY) {
+                  p.push(`${bRs},${rOTop}`, `${s(pRight)},${rOTop}`, `${s(pRight)},${rOBot}`, `${bRs},${rOBot}`, `${bRs},${pBot}`);
+                } else {
+                  p.push(`${bRs},${rOTop}`, `${s(pRight)},${rOTop}`, `${s(pRight)},${pBot}`);
+                }
+                pts = p.join(' ');
+              } else {
+                pts = `${s(pLeft)},${pBot} ${s(pLeft)},${pTopL} ${peakPt}${s(pRight)},${pTopR} ${s(pRight)},${pBot}`;
+              }
 
               // Label: use horizontal position index + course suffix for multi-course
               const posIdx = posMap.get(panel.x) ?? 0;
@@ -144,6 +227,37 @@ export default function WallDrawing({ layout, wallName, projectName }) {
               return (
                 <g key={`panel-${i}`}>
                   <polygon points={pts} fill={fill} stroke={stroke} strokeWidth={1} opacity={0.7} />
+                  {isMultiCourse && courseIdx < courses.length - 1 && (() => {
+                    const bndY = yBottom - s(cTop);
+                    // Clip to wall extents for raked/gable walls
+                    const wallTopL = yTop(pLeft);
+                    const wallTopR = yTop(pRight);
+                    // Skip if wall is shorter than this course boundary at both edges
+                    if (wallTopL >= bndY && wallTopR >= bndY) return null;
+                    // Clamp x-range to where wall extends above the boundary
+                    let xL = pLeft;
+                    let xR = pRight;
+                    if (heightAt) {
+                      if (wallTopL >= bndY) {
+                        for (let x = pLeft; x <= pRight; x += 1) {
+                          if (yTop(x) < bndY) { xL = x; break; }
+                        }
+                      }
+                      if (wallTopR >= bndY) {
+                        for (let x = pRight; x >= pLeft; x -= 1) {
+                          if (yTop(x) < bndY) { xR = x; break; }
+                        }
+                      }
+                    }
+                    if (xR <= xL) return null;
+                    return (
+                      <line
+                        x1={s(xL)} y1={bndY}
+                        x2={s(xR)} y2={bndY}
+                        stroke={stroke} strokeWidth={1.5}
+                      />
+                    );
+                  })()}
                   {isCourse0 && i < basePanels.length - 1 && (
                     <line
                       x1={s(pRight)} y1={yTop(pRight)}
@@ -160,7 +274,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
                   </text>
                   {isCourse0 && (
                     <text x={s(pLeft + panel.width / 2)} y={yBottom + 14} textAnchor="middle" fontSize="9" fill="#999">
-                      {panel.width}
+                      {panel.baseWidth}
                     </text>
                   )}
                 </g>
@@ -208,7 +322,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
                 Footer Panel {f.ref}
               </text>
               <text x={s(f.x + f.width / 2)} y={yBottom + 14} textAnchor="middle" fontSize="9" fill="#999">
-                {f.width}
+                {f.baseWidth}
               </text>
             </g>
           ))}

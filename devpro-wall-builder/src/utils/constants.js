@@ -25,6 +25,7 @@ export const DOOR_OVERHANG = 166;       // mm each side
 export const DOOR_TOP_CUTOUT = 171;     // mm
 export const LINTEL_DEPTH = 300;        // mm default
 export const WINDOW_PLATE = 45;         // mm — sill plate and jamb plate thickness
+export const DOOR_JAMB_PLATE = 45;      // mm — door jamb plate thickness
 export const CNC_KERF = 10;            // mm
 
 // Splines
@@ -96,9 +97,8 @@ export function buildHSplineSegments(splineLeft, splineRight, lintelPanels, open
     if (eL < eR) excl.push([eL, eR]);
   }
   for (const op of openings) {
-    const hasSill = op.y > 0;
-    const oL = op.x - BOTTOM_PLATE - (hasSill ? SPLINE_WIDTH : 0) - HSPLINE_CLEARANCE;
-    const oR = op.x + op.drawWidth + BOTTOM_PLATE + (hasSill ? SPLINE_WIDTH : 0) + HSPLINE_CLEARANCE;
+    const oL = op.x - BOTTOM_PLATE - SPLINE_WIDTH - HSPLINE_CLEARANCE;
+    const oR = op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH + HSPLINE_CLEARANCE;
     const eL = Math.max(oL, splineLeft);
     const eR = Math.min(oR, splineRight);
     if (eL < eR) excl.push([eL, eR]);
