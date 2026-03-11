@@ -19,7 +19,7 @@ const EPS_INSET = 10;
 export function buildFramingElevationDxf(layout, wallName) {
   const d = createDrawing();
   const {
-    grossLength, height, maxHeight, panels, openings, footers, lintels,
+    grossLength, height, maxHeight, panels, openings, footerPanels, lintelPanels,
     deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse,
   } = layout;
 
@@ -115,10 +115,10 @@ export function buildFramingElevationDxf(layout, wallName) {
 
     d.setActiveLayer('FRAMING');
 
-    // Vertical edge helper: compute segments excluding lintel/footer zones
+    // Vertical edge helper: compute segments excluding lintel panel/footer panel zones
     const getExclusions = (xEdge) => {
       const zones = [];
-      for (const l of lintels) {
+      for (const l of lintelPanels) {
         if (l.x < xEdge && xEdge < l.x + l.width) {
           const hL = l.heightLeft != null ? l.heightLeft : l.height;
           const hR = l.heightRight != null ? l.heightRight : l.height;
@@ -127,7 +127,7 @@ export function buildFramingElevationDxf(layout, wallName) {
           zones.push([l.y, l.y + hAtX]); // DXF Y
         }
       }
-      for (const f of footers) {
+      for (const f of footerPanels) {
         if (f.x < xEdge && xEdge < f.x + f.width) {
           zones.push([0, f.height]);
         }
@@ -206,9 +206,9 @@ export function buildFramingElevationDxf(layout, wallName) {
   for (let i = 0; i < basePanels.length - 1; i++) {
     const panel = basePanels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-    if (insideLintel || insideFooter) continue;
+    const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (insideLintelPanel || insideFooterPanel) continue;
 
     const spXL = gapCentre - HALF_SPLINE;
     const spXR = gapCentre + HALF_SPLINE;
@@ -313,15 +313,15 @@ export function buildFramingElevationDxf(layout, wallName) {
   }
 
   // ── Footer panels ──
-  for (const f of footers) {
+  for (const f of footerPanels) {
     d.setActiveLayer('FRAMING');
     d.drawPolyline([[f.x, 0], [f.x + f.width, 0], [f.x + f.width, f.height], [f.x, f.height]], true);
     d.setActiveLayer('LABELS');
-    d.drawText(f.x + f.width / 2 - 40, f.height / 2, 28, 0, `Footer ${f.ref}`);
+    d.drawText(f.x + f.width / 2 - 40, f.height / 2, 28, 0, `Footer Panel ${f.ref}`);
   }
 
-  // ── Lintels ──
-  for (const l of lintels) {
+  // ── Lintel panels ──
+  for (const l of lintelPanels) {
     const hL = l.heightLeft != null ? l.heightLeft : l.height;
     const hR = l.heightRight != null ? l.heightRight : l.height;
     const yBase = l.y;
@@ -351,7 +351,7 @@ export function buildFramingElevationDxf(layout, wallName) {
 
     d.setActiveLayer('LABELS');
     const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
-    d.drawText(l.x + l.width / 2 - 40, l.y + midH / 2, 28, 0, `Lintel ${l.ref}`);
+    d.drawText(l.x + l.width / 2 - 40, l.y + midH / 2, 28, 0, `Lintel Panel ${l.ref}`);
   }
 
   // ── Horizontal splines at course joints ──
@@ -360,9 +360,9 @@ export function buildFramingElevationDxf(layout, wallName) {
     const jointHasSpline = [];
     for (let i = 0; i < basePanels.length - 1; i++) {
       const gapCentre = basePanels[i].x + basePanels[i].width + PANEL_GAP / 2;
-      const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-      const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-      jointHasSpline.push(!insideLintel && !insideFooter);
+      const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+      const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+      jointHasSpline.push(!insideLintelPanel && !insideFooterPanel);
     }
 
     courses.slice(1).forEach((course) => {
@@ -388,7 +388,7 @@ export function buildFramingElevationDxf(layout, wallName) {
 
         const splineLeft = leftEdge + HSPLINE_CLEARANCE;
         const splineRight = rightEdge - HSPLINE_CLEARANCE;
-        const segs = buildHSplineSegments(splineLeft, splineRight, lintels, openings);
+        const segs = buildHSplineSegments(splineLeft, splineRight, lintelPanels, openings);
 
         segs.forEach(([segL, segR]) => {
           if (segR <= segL) return;

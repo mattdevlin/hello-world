@@ -35,7 +35,7 @@ export default function WallSummary({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
-  const { panels, openings, lintels, footers, height, deductionLeft, deductionRight, grossLength, isRaked, courses, isMultiCourse } = layout;
+  const { panels, openings, lintelPanels, footerPanels, height, deductionLeft, deductionRight, grossLength, isRaked, courses, isMultiCourse } = layout;
 
   // ── Count splines ──
   // Use course 0 panels for joint detection (same x-positions across courses)
@@ -43,9 +43,9 @@ export default function WallSummary({ layout, wallName, projectName }) {
   const jointSplines = [];
   for (let i = 0; i < basePanels.length - 1; i++) {
     const gapCentre = basePanels[i].x + basePanels[i].width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-    if (!insideLintel && !insideFooter) jointSplines.push(gapCentre);
+    const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintelPanel && !insideFooterPanel) jointSplines.push(gapCentre);
   }
   let openingSplineCount = 0;
   for (const op of openings) {
@@ -77,7 +77,7 @@ export default function WallSummary({ layout, wallName, projectName }) {
     if (deductionLeft === 0 && Math.abs(p.x) < 1) exclusions.push([0, BOTTOM_PLATE]);
   }
 
-  for (const l of lintels) exclusions.push([l.x, l.x + l.width]);
+  for (const l of lintelPanels) exclusions.push([l.x, l.x + l.width]);
 
   exclusions.sort((a, b) => a[0] - b[0]);
 
@@ -132,9 +132,9 @@ export default function WallSummary({ layout, wallName, projectName }) {
   const splineEpsVol = splineCount * SPLINE_WIDTH * splineH * SPLINE_EPS_DEPTH;
   const splineEpsSA = splineCount * SPLINE_WIDTH * splineH;
 
-  let footerEpsVol = 0;
-  let footerEpsSA = 0;
-  for (const f of footers) {
+  let footerPanelEpsVol = 0;
+  let footerPanelEpsSA = 0;
+  for (const f of footerPanels) {
     const op = openings.find(o => o.ref === f.ref);
     if (!op) continue;
     const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_INSET;
@@ -147,14 +147,14 @@ export default function WallSummary({ layout, wallName, projectName }) {
     if (fEpsRight <= fEpsLeft) continue;
     const fW = Math.round(fEpsRight - fEpsLeft);
     const fH = Math.round(fEpsBot - fEpsTop);
-    footerEpsVol += fW * fH * PANEL_EPS_DEPTH;
-    footerEpsSA += fW * fH;
+    footerPanelEpsVol += fW * fH * PANEL_EPS_DEPTH;
+    footerPanelEpsSA += fW * fH;
   }
 
-  const totalEpsVol = panelEpsVol + splineEpsVol + footerEpsVol;
+  const totalEpsVol = panelEpsVol + splineEpsVol + footerPanelEpsVol;
   const totalEpsM3 = (totalEpsVol / 1e9).toFixed(3);
 
-  const totalGlueArea = (panelEpsSA + splineEpsSA + footerEpsSA) * 2;
+  const totalGlueArea = (panelEpsSA + splineEpsSA + footerPanelEpsSA) * 2;
   const totalGlueM2 = (totalGlueArea / 1e6).toFixed(2);
 
   const profileLabel = layout.profile === 'raked' ? 'Raked' : layout.profile === 'gable' ? 'Gable' : 'Standard';
@@ -215,8 +215,8 @@ export default function WallSummary({ layout, wallName, projectName }) {
               <Row label="L-Cut Panels" value={layout.lcutPanels} />
               <Row label="End Panels" value={layout.endPanels} />
               <Row label="Openings" value={openings.length} />
-              <Row label="Footers" value={footers.length} />
-              <Row label="Lintels" value={lintels.length} />
+              <Row label="Footer Panels" value={footerPanels.length} />
+              <Row label="Lintel Panels" value={lintelPanels.length} />
               <Row label="Splines" value={splineCount} />
             </tbody>
           </table>

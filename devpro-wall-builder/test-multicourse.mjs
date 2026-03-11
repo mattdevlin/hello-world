@@ -258,7 +258,7 @@ section('Test 8: 3+ course wall (6500mm)');
 section('SVG Rendering — Static Analysis');
 
 console.log('\n  WallDrawing.jsx:');
-console.log('    Course join line paint order: AFTER panels, openings, footers, lintels ✓');
+console.log('    Course join line paint order: AFTER panels, openings, footer panels, lintel panels ✓');
 console.log('    x-extent: s(0) to s(grossLength) — NO clipping for raked/gable ✗');
 console.log('    Coordinate: joinY = yBottom - s(course.y) — correct ✓');
 

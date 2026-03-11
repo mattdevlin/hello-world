@@ -18,7 +18,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
-  const { grossLength, height, maxHeight, panels, openings, footers, lintels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
+  const { grossLength, height, maxHeight, panels, openings, footerPanels, lintelPanels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
 
   const drawWidth = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
   const scale = drawWidth / grossLength;
@@ -205,7 +205,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
           )}
 
           {/* ── Panels ── */}
-          {/* Draw panel edges as individual lines, skipping lintel/footer zones */}
+          {/* Draw panel edges as individual lines, skipping lintel panel/footer panel zones */}
           {/* Use course 0 panels for structural lines (same x-positions across courses) */}
           {(() => {
             const basePanels = panels.filter(p => (p.course ?? 0) === 0);
@@ -217,7 +217,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                 {basePanels.map((panel, i) => {
                   const getExclusions = (xEdge) => {
                     const zones = [];
-                    for (const l of lintels) {
+                    for (const l of lintelPanels) {
                       if (l.x < xEdge && xEdge < l.x + l.width) {
                         const hL = l.heightLeft != null ? l.heightLeft : l.height;
                         const hR = l.heightRight != null ? l.heightRight : l.height;
@@ -228,7 +228,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                         zones.push([eTop, eBot]);
                       }
                     }
-                    for (const f of footers) {
+                    for (const f of footerPanels) {
                       if (f.x < xEdge && xEdge < f.x + f.width) {
                         zones.push([yBottom - f.height, yBottom]);
                       }
@@ -358,13 +358,13 @@ export default function FramingElevation({ layout, wallName, projectName }) {
           })()}
 
           {/* ── Panel joint splines (146mm centred on 5mm gap) ── */}
-          {/* Skip joints that fall inside a lintel or footer (opening zones) */}
+          {/* Skip joints that fall inside a lintel panel or footer panel (opening zones) */}
           {/* Use course 0 panels — x-positions are identical across courses */}
           {panels.filter(p => (p.course ?? 0) === 0).slice(0, -1).map((panel, i) => {
             const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-            const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-            const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-            if (insideLintel || insideFooter) return null;
+            const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+            const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+            if (insideLintelPanel || insideFooterPanel) return null;
 
             const spXL = gapCentre - HALF_SPLINE;
             const spXR = gapCentre + HALF_SPLINE;
@@ -417,33 +417,55 @@ export default function FramingElevation({ layout, wallName, projectName }) {
 
           {/* ── Plates around openings ── */}
           {openings.map((op, i) => {
-            const opTopY = s(yBottom - op.y - op.drawHeight);
-            const opH = s(op.drawHeight);
             const hasSill = op.y > 0;
-            const opMidX = op.x + op.drawWidth / 2;
-            const splineTopY = yTop(opMidX) + TOP_PLATE * 2;
-            const splineH = yBottom - BOTTOM_PLATE - splineTopY;
             return (
               <g key={`op-plates-${i}`}>
-                {hasSill && (
+                {/* Window sill plate — sits at sill height, opening width + 45mm each end */}
+                {op.sillPlate && (
                   <rect
-                    x={s(op.x - BOTTOM_PLATE)}
-                    y={s(yBottom - op.y)}
-                    width={s(op.drawWidth + BOTTOM_PLATE * 2)}
-                    height={s(BOTTOM_PLATE)}
+                    x={s(op.sillPlate.x)}
+                    y={s(yBottom - op.sillPlate.y)}
+                    width={s(op.sillPlate.width)}
+                    height={s(op.sillPlate.height)}
                     fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
                   />
                 )}
-                <rect
-                  x={s(op.x - BOTTOM_PLATE)} y={opTopY}
-                  width={s(BOTTOM_PLATE)} height={opH}
-                  fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-                />
-                <rect
-                  x={s(op.x + op.drawWidth)} y={opTopY}
-                  width={s(BOTTOM_PLATE)} height={opH}
-                  fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
-                />
+                {/* Window jamb plates — sit on sill plate, each side of opening */}
+                {op.leftJamb && (
+                  <rect
+                    x={s(op.leftJamb.x)}
+                    y={s(yBottom - op.leftJamb.y - op.leftJamb.height)}
+                    width={s(op.leftJamb.width)}
+                    height={s(op.leftJamb.height)}
+                    fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                  />
+                )}
+                {op.rightJamb && (
+                  <rect
+                    x={s(op.rightJamb.x)}
+                    y={s(yBottom - op.rightJamb.y - op.rightJamb.height)}
+                    width={s(op.rightJamb.width)}
+                    height={s(op.rightJamb.height)}
+                    fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                  />
+                )}
+                {/* Door/garage jamb plates — full height of opening */}
+                {!hasSill && (
+                  <>
+                    <rect
+                      x={s(op.x - BOTTOM_PLATE)}
+                      y={s(yBottom - op.y - op.drawHeight)}
+                      width={s(BOTTOM_PLATE)} height={s(op.drawHeight)}
+                      fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                    />
+                    <rect
+                      x={s(op.x + op.drawWidth)}
+                      y={s(yBottom - op.y - op.drawHeight)}
+                      width={s(BOTTOM_PLATE)} height={s(op.drawHeight)}
+                      fill="none" stroke={PLATE_COLOR} strokeWidth={1} strokeDasharray={DASH}
+                    />
+                  </>
+                )}
                 {hasSill && (() => {
                   const spBot = yBottom - BOTTOM_PLATE;
                   const lSpXL = op.x - BOTTOM_PLATE - SPLINE_WIDTH;
@@ -462,8 +484,8 @@ export default function FramingElevation({ layout, wallName, projectName }) {
           })}
 
           {/* ── Footer panels ── */}
-          {footers.map((f, i) => (
-            <g key={`footer-${i}`}>
+          {footerPanels.map((f, i) => (
+            <g key={`footer-panel-${i}`}>
               <rect
                 x={s(f.x)}
                 y={s(yBottom - f.height)}
@@ -476,13 +498,13 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                 y={s(yBottom - f.height / 2) + 3}
                 textAnchor="middle" fontSize="8" fill={LABEL_COLOR}
               >
-                Footer {f.ref}
+                Footer Panel {f.ref}
               </text>
             </g>
           ))}
 
-          {/* ── Lintels (trapezoid for raked/gable, with timber beam) ── */}
-          {lintels.map((l, i) => {
+          {/* ── Lintel panels (trapezoid for raked/gable, with timber beam) ── */}
+          {lintelPanels.map((l, i) => {
             const hL = l.heightLeft != null ? l.heightLeft : l.height;
             const hR = l.heightRight != null ? l.heightRight : l.height;
             const x1 = s(l.x);
@@ -521,7 +543,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
             }
 
             return (
-              <g key={`lintel-${i}`}>
+              <g key={`lintel-panel-${i}`}>
                 <polygon points={pts} fill="none" stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
                 {beamEl}
                 <text
@@ -529,7 +551,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                   y={s(yBottom - l.y - midH / 2) + 3}
                   textAnchor="middle" fontSize="8" fill={LABEL_COLOR}
                 >
-                  Lintel {l.ref}
+                  Lintel Panel {l.ref}
                 </text>
               </g>
             );
@@ -558,7 +580,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                   points.add(Math.round(p.x + p.width));
                 }
               });
-              footers.forEach(f => points.add(Math.round(f.x + f.width)));
+              footerPanels.forEach(f => points.add(Math.round(f.x + f.width)));
 
               const sorted = [...points].sort((a, b) => a - b);
               const tickY = s(yBottom) + 22;
@@ -642,9 +664,9 @@ export default function FramingElevation({ layout, wallName, projectName }) {
             const jointHasSpline = [];
             for (let i = 0; i < basePanels.length - 1; i++) {
               const gapCentre = basePanels[i].x + basePanels[i].width + PANEL_GAP / 2;
-              const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-              const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-              jointHasSpline.push(!insideLintel && !insideFooter);
+              const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+              const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+              jointHasSpline.push(!insideLintelPanel && !insideFooterPanel);
             }
             return courses.slice(1).map((course, ci) => {
               const joinY = yBottom - course.y;
@@ -670,7 +692,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
 
                 const splineLeft = leftEdge + HSPLINE_CLEARANCE;
                 const splineRight = rightEdge - HSPLINE_CLEARANCE;
-                const segs = buildHSplineSegments(splineLeft, splineRight, lintels, openings);
+                const segs = buildHSplineSegments(splineLeft, splineRight, lintelPanels, openings);
                 if (segs.length === 0) return null;
 
                 return segs.map(([segL, segR], si) => {

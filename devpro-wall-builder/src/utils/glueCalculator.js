@@ -27,12 +27,12 @@ const DRUM_LITRES = 200;
 
 export function computeWallGlueArea(layout) {
   const {
-    panels = [], openings = [], lintels = [], footers = [], height = 0,
+    panels = [], openings = [], lintelPanels = [], footerPanels = [], height = 0,
     deductionLeft = 0, deductionRight = 0, grossLength = 0, isRaked = false,
   } = layout || {};
 
   if (panels.length === 0 || height <= 0 || grossLength <= 0) {
-    return { panelAreaMm2: 0, splineAreaMm2: 0, footerAreaMm2: 0, totalAreaMm2: 0 };
+    return { panelAreaMm2: 0, splineAreaMm2: 0, footerPanelAreaMm2: 0, totalAreaMm2: 0 };
   }
 
   const HALF_SPLINE = SPLINE_WIDTH / 2;
@@ -41,9 +41,9 @@ export function computeWallGlueArea(layout) {
   const jointSplines = [];
   for (let i = 0; i < panels.length - 1; i++) {
     const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-    if (!insideLintel && !insideFooter) jointSplines.push(gapCentre);
+    const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintelPanel && !insideFooterPanel) jointSplines.push(gapCentre);
   }
   let openingSplineCount = 0;
   for (const op of openings) {
@@ -75,7 +75,7 @@ export function computeWallGlueArea(layout) {
     if (deductionLeft === 0 && Math.abs(p.x) < 1) exclusions.push([0, BOTTOM_PLATE]);
   }
 
-  for (const l of lintels) exclusions.push([l.x, l.x + l.width]);
+  for (const l of lintelPanels) exclusions.push([l.x, l.x + l.width]);
   exclusions.sort((a, b) => a[0] - b[0]);
 
   const getEpsSegments = (panelLeft, panelRight) => {
@@ -126,9 +126,9 @@ export function computeWallGlueArea(layout) {
   const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2 - 10;
   const splineEpsSA = splineCount * SPLINE_WIDTH * splineH;
 
-  // ── Footer EPS surface area ──
-  let footerEpsSA = 0;
-  for (const f of footers) {
+  // ── Footer panel EPS surface area ──
+  let footerPanelEpsSA = 0;
+  for (const f of footerPanels) {
     const op = openings.find(o => o.ref === f.ref);
     if (!op || op.x == null || f.x == null) continue;
     const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_INSET;
@@ -141,16 +141,16 @@ export function computeWallGlueArea(layout) {
     if (fEpsRight <= fEpsLeft) continue;
     const fW = Math.round(fEpsRight - fEpsLeft);
     const fH = Math.round(fEpsBot - fEpsTop);
-    if (fW > 0 && fH > 0) footerEpsSA += fW * fH;
+    if (fW > 0 && fH > 0) footerPanelEpsSA += fW * fH;
   }
 
   // Both faces of every EPS piece
-  const totalGlueAreaMm2 = (panelEpsSA + splineEpsSA + footerEpsSA) * 2;
+  const totalGlueAreaMm2 = (panelEpsSA + splineEpsSA + footerPanelEpsSA) * 2;
 
   return {
     panelAreaMm2: panelEpsSA * 2,
     splineAreaMm2: splineEpsSA * 2,
-    footerAreaMm2: footerEpsSA * 2,
+    footerPanelAreaMm2: footerPanelEpsSA * 2,
     totalAreaMm2: totalGlueAreaMm2,
   };
 }
@@ -163,7 +163,7 @@ export function computeProjectGlue(walls) {
   let totalAreaMm2 = 0;
   let panelAreaMm2 = 0;
   let splineAreaMm2 = 0;
-  let footerAreaMm2 = 0;
+  let footerPanelAreaMm2 = 0;
   const perWall = [];
 
   for (const wall of walls) {
@@ -172,7 +172,7 @@ export function computeProjectGlue(walls) {
     totalAreaMm2 += area.totalAreaMm2;
     panelAreaMm2 += area.panelAreaMm2;
     splineAreaMm2 += area.splineAreaMm2;
-    footerAreaMm2 += area.footerAreaMm2;
+    footerPanelAreaMm2 += area.footerPanelAreaMm2;
 
     const wallM2 = area.totalAreaMm2 / 1e6;
     perWall.push({
@@ -195,7 +195,7 @@ export function computeProjectGlue(walls) {
     totalAreaM2: totalM2,
     panelAreaM2: panelAreaMm2 / 1e6,
     splineAreaM2: splineAreaMm2 / 1e6,
-    footerAreaM2: footerAreaMm2 / 1e6,
+    footerPanelAreaM2: footerPanelAreaMm2 / 1e6,
 
     // Glue quantities
     totalKg,

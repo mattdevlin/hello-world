@@ -347,7 +347,7 @@ function LcutPlanCard({ panel, courseLineY }) {
 /**
  * Lintel plan card — trapezoid for raked/gable, pentagon if straddling gable peak.
  */
-function LintelPlanCard({ lintel }) {
+function LintelPanelPlanCard({ lintel }) {
   const W = lintel.width;
   const hL = lintel.heightLeft != null ? lintel.heightLeft : lintel.height;
   const hR = lintel.heightRight != null ? lintel.heightRight : lintel.height;
@@ -373,7 +373,7 @@ function LintelPlanCard({ lintel }) {
       profileWidth={W}
       profileHeight={H}
       fill={COLORS.LINTEL}
-      title={`${lintel.ref} — Lintel`}
+      title={`${lintel.ref} — Lintel Panel`}
       qty={2}
       peakXLocal={lintel.peakHeight ? lintel.peakXLocal : undefined}
       peakHeight={lintel.peakHeight}
@@ -384,7 +384,7 @@ function LintelPlanCard({ lintel }) {
 /**
  * Footer plan card — simple rectangle.
  */
-function FooterPlanCard({ footer }) {
+function FooterPanelPlanCard({ footer }) {
   const W = footer.width;
   const H = footer.height;
   const verts = [
@@ -399,7 +399,7 @@ function FooterPlanCard({ footer }) {
       profileWidth={W}
       profileHeight={H}
       fill={COLORS.FOOTER}
-      title={`${footer.ref} — Footer`}
+      title={`${footer.ref} — Footer Panel`}
       qty={2}
     />
   );
@@ -609,8 +609,8 @@ export default function PanelPlans({ layout, wallName, projectName }) {
   const rakedFullPanels = isRaked
     ? panels.filter(p => p.type === 'full' && (p.heightLeft !== p.heightRight || p.peakHeight))
     : [];
-  const lintels = layout.lintels || [];
-  const footers = layout.footers || [];
+  const lintelPanels = layout.lintelPanels || [];
+  const footerPanels = layout.footerPanels || [];
   const openings = layout.openings || [];
   const dedLeft = layout.deductionLeft || 0;
   const dedRight = layout.deductionRight || 0;
@@ -624,9 +624,9 @@ export default function PanelPlans({ layout, wallName, projectName }) {
   for (let i = 0; i < panels.length - 1; i++) {
     const panel = panels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-    if (!insideLintel && !insideFooter) {
+    const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintelPanel && !insideFooterPanel) {
       splinePieces.push({ label: `Spline P${panels[i].index + 1}/P${panels[i + 1].index + 1}` });
     }
   }
@@ -646,9 +646,9 @@ export default function PanelPlans({ layout, wallName, projectName }) {
     const jointHasSpline = [];
     for (let i = 0; i < panels.length - 1; i++) {
       const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
-      const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-      const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-      jointHasSpline.push(!insideLintel && !insideFooter);
+      const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+      const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+      jointHasSpline.push(!insideLintelPanel && !insideFooterPanel);
     }
     for (let ci = 0; ci < courses.length - 1; ci++) {
       for (let pi = 0; pi < panels.length; pi++) {
@@ -679,7 +679,7 @@ export default function PanelPlans({ layout, wallName, projectName }) {
   const upperCourses = courses.length > 1 ? courses.slice(1) : [];
 
   const hasContent = lcutPanels.length || endPanels.length || rakedFullPanels.length
-    || lintels.length || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length
+    || lintelPanels.length || footerPanels.length || dedLeft > 0 || dedRight > 0 || splinePieces.length
     || topCoursePanels.length || hsplinePieces.length;
   if (!hasContent) return null;
 
@@ -728,11 +728,11 @@ export default function PanelPlans({ layout, wallName, projectName }) {
         {dedRight > 0 && (
           <DeductionCard side="right" width={dedRight} height={wallH} />
         )}
-        {lintels.map((lintel, i) => (
-          <LintelPlanCard key={`lintel-${i}`} lintel={lintel} />
+        {lintelPanels.map((lintel, i) => (
+          <LintelPanelPlanCard key={`lintelPanel-${i}`} lintel={lintel} />
         ))}
-        {footers.map((footer, i) => (
-          <FooterPlanCard key={`footer-${i}`} footer={footer} />
+        {footerPanels.map((footer, i) => (
+          <FooterPanelPlanCard key={`footerPanel-${i}`} footer={footer} />
         ))}
         {splinePieces.length > 0 && (
           <SplineMagboardCard label="Splines" splineHeight={splineH} totalQty={splinePieces.length * 2} />

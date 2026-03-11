@@ -8,6 +8,7 @@ import {
   WINDOW_OVERHANG,
   DOOR_TOP_CUTOUT,
   LINTEL_DEPTH,
+  WINDOW_PLATE,
   OPENING_TYPES,
   WALL_PROFILES,
   STOCK_SHEET_HEIGHTS,
@@ -160,8 +161,8 @@ export function calculateWallLayout(wall) {
 
   // Process openings
   const openingDetails = [];
-  const footers = [];
-  const lintels = [];
+  const footerPanels = [];
+  const lintelPanels = [];
   const sortedOpenings = [...(wall.openings || [])].sort(
     (a, b) => a.position_from_left_mm - b.position_from_left_mm
   );
@@ -173,22 +174,48 @@ export function calculateWallLayout(wall) {
     const openBottom = opening.sill_mm || 0;
     const openTop = openBottom + opening.height_mm;
 
+    // Window sill plate and jamb plates (windows only)
+    let sillPlate, leftJamb, rightJamb;
+    if (isWindow && openBottom > 0) {
+      sillPlate = {
+        x: openLeft - WINDOW_PLATE,
+        y: openBottom,
+        width: opening.width_mm + 2 * WINDOW_PLATE,
+        height: WINDOW_PLATE,
+      };
+      leftJamb = {
+        x: openLeft - WINDOW_PLATE,
+        y: openBottom + WINDOW_PLATE,
+        width: WINDOW_PLATE,
+        height: opening.height_mm - WINDOW_PLATE,
+      };
+      rightJamb = {
+        x: openRight,
+        y: openBottom + WINDOW_PLATE,
+        width: WINDOW_PLATE,
+        height: opening.height_mm - WINDOW_PLATE,
+      };
+    }
+
     openingDetails.push({
       ...opening,
       x: openLeft,
       y: openBottom,
       drawWidth: opening.width_mm,
       drawHeight: opening.height_mm,
+      sillPlate,
+      leftJamb,
+      rightJamb,
     });
 
     if (isWindow && openBottom > 0) {
-      footers.push({
+      footerPanels.push({
         ref: opening.ref,
         x: openLeft - WINDOW_OVERHANG,
         y: 0,
         width: opening.width_mm + 2 * WINDOW_OVERHANG,
         height: openBottom,
-        type: 'footer',
+        type: 'footerPanel',
       });
     }
 
@@ -209,7 +236,7 @@ export function calculateWallLayout(wall) {
       }
     }
 
-    lintels.push({
+    lintelPanels.push({
       ref: opening.ref,
       x: lintelLeft,
       y: openTop,
@@ -220,7 +247,7 @@ export function calculateWallLayout(wall) {
       peakHeight: lPeakHeight,
       peakXLocal: lPeakXLocal,
       beamHeight: opening.lintel_height_mm ?? 200,
-      type: 'lintel',
+      type: 'lintelPanel',
     });
   }
 
@@ -597,8 +624,8 @@ export function calculateWallLayout(wall) {
     deductionRight: dedRight,
     panels: allPanels,
     openings: openingDetails,
-    footers,
-    lintels,
+    footerPanels,
+    lintelPanels,
     courses,
     isMultiCourse,
     totalPanels: allPanels.length,

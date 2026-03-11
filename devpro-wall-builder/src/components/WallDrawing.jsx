@@ -11,7 +11,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
   if (!layout) return null;
 
   const {
-    grossLength, height, maxHeight, panels, openings, footers, lintels,
+    grossLength, height, maxHeight, panels, openings, footerPanels, lintelPanels,
     deductionLeft, deductionRight, isRaked, heightAt, profile,
     courses, isMultiCourse,
   } = layout;
@@ -194,8 +194,8 @@ export default function WallDrawing({ layout, wallName, projectName }) {
           ))}
 
           {/* Footers */}
-          {footers.map((f, i) => (
-            <g key={`footer-${i}`}>
+          {footerPanels.map((f, i) => (
+            <g key={`footerPanel-${i}`}>
               <rect
                 x={s(f.x)} y={yBottom - s(f.height)}
                 width={s(f.width)} height={s(f.height)}
@@ -205,7 +205,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
                 x={s(f.x + f.width / 2)} y={yBottom - s(f.height / 2) + 4}
                 textAnchor="middle" fontSize="8" fill="#2a5f2a" fontWeight="bold"
               >
-                Footer {f.ref}
+                Footer Panel {f.ref}
               </text>
               <text x={s(f.x + f.width / 2)} y={yBottom + 14} textAnchor="middle" fontSize="9" fill="#999">
                 {f.width}
@@ -214,7 +214,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
           ))}
 
           {/* Lintels (trapezoid for raked/gable) */}
-          {lintels.map((l, i) => {
+          {lintelPanels.map((l, i) => {
             const hL = l.heightLeft != null ? l.heightLeft : l.height;
             const hR = l.heightRight != null ? l.heightRight : l.height;
             const x1 = s(l.x);
@@ -227,13 +227,13 @@ export default function WallDrawing({ layout, wallName, projectName }) {
               : `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
             const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
             return (
-              <g key={`lintel-${i}`}>
+              <g key={`lintelPanel-${i}`}>
                 <polygon points={pts} fill={COLORS.LINTEL} stroke={COLORS.LINTEL_STROKE} strokeWidth={1.5} />
                 <text
                   x={s(l.x + l.width / 2)} y={yBottom - s(l.y + midH / 2) + 4}
                   textAnchor="middle" fontSize="8" fill="#fff" fontWeight="bold"
                 >
-                  Lintel {l.ref}
+                  Lintel Panel {l.ref}
                 </text>
               </g>
             );
@@ -294,7 +294,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
               if (deductionRight > 0) points.add(grossLength - deductionRight);
               // Use course 0 panels for measurement ticks (same x-positions across courses)
               panels.filter(p => (p.course ?? 0) === 0).forEach(p => points.add(Math.round(p.x + p.width)));
-              footers.forEach(f => points.add(Math.round(f.x + f.width)));
+              footerPanels.forEach(f => points.add(Math.round(f.x + f.width)));
               const sorted = [...points].sort((a, b) => a - b);
               const tickY = yBottom + 22;
               return sorted.map((pt, i) => (

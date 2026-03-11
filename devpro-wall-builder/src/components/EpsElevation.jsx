@@ -21,7 +21,7 @@ export default function EpsElevation({ layout, wallName, projectName }) {
   const clipId = useRef(`eps-clip-${Math.random().toString(36).slice(2, 8)}`).current;
   if (!layout) return null;
 
-  const { grossLength, height, maxHeight, panels, openings, footers, lintels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
+  const { grossLength, height, maxHeight, panels, openings, footerPanels, lintelPanels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
 
   const useHeight = maxHeight || height;
   const drawWidth = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
@@ -58,9 +58,9 @@ export default function EpsElevation({ layout, wallName, projectName }) {
     const panel = basePanels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
     // Skip if inside opening zone (same logic as framing elevation)
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-    if (!insideLintel && !insideFooter) {
+    const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintelPanel && !insideFooterPanel) {
       exclusions.push([gapCentre - HALF_SPLINE, gapCentre + HALF_SPLINE]);
     }
   }
@@ -97,8 +97,8 @@ export default function EpsElevation({ layout, wallName, projectName }) {
     }
   }
 
-  // 5. Lintel areas (no EPS — timber lintels)
-  for (const l of lintels) {
+  // 5. Lintel panel areas (no EPS — timber lintels)
+  for (const l of lintelPanels) {
     exclusions.push([l.x, l.x + l.width]);
   }
 
@@ -255,7 +255,7 @@ export default function EpsElevation({ layout, wallName, projectName }) {
 
             const getVertExclusions = (xEdge) => {
               const zones = [];
-              for (const l of lintels) {
+              for (const l of lintelPanels) {
                 if (l.x < xEdge && xEdge < l.x + l.width) {
                   const hL = l.heightLeft != null ? l.heightLeft : l.height;
                   const hR = l.heightRight != null ? l.heightRight : l.height;
@@ -264,7 +264,7 @@ export default function EpsElevation({ layout, wallName, projectName }) {
                   zones.push([yBottom - l.y - hAtX, yBottom - l.y]);
                 }
               }
-              for (const f of footers) {
+              for (const f of footerPanels) {
                 if (f.x < xEdge && xEdge < f.x + f.width) {
                   zones.push([yBottom - f.height, yBottom]);
                 }
@@ -528,10 +528,10 @@ export default function EpsElevation({ layout, wallName, projectName }) {
           ))}
 
           {/* ── Footer panels with EPS ── */}
-          {footers.map((f, i) => {
+          {footerPanels.map((f, i) => {
             const fEps = getFooterEps(f);
             return (
-              <g key={`footer-${i}`}>
+              <g key={`footer-panel-${i}`}>
                 <rect
                   x={s(f.x)} y={s(yBottom - f.height)}
                   width={s(f.width)} height={s(f.height)}
@@ -549,14 +549,14 @@ export default function EpsElevation({ layout, wallName, projectName }) {
                   y={s(yBottom - f.height / 2) + 3}
                   textAnchor="middle" fontSize="8" fill={LABEL_COLOR}
                 >
-                  Footer {f.ref}
+                  Footer Panel {f.ref}
                 </text>
               </g>
             );
           })}
 
-          {/* ── Lintels (timber beam + EPS fill above) ── */}
-          {lintels.map((l, i) => {
+          {/* ── Lintel panels (timber beam + EPS fill above) ── */}
+          {lintelPanels.map((l, i) => {
             const hL = l.heightLeft != null ? l.heightLeft : l.height;
             const hR = l.heightRight != null ? l.heightRight : l.height;
             const x1 = s(l.x);
@@ -641,8 +641,8 @@ export default function EpsElevation({ layout, wallName, projectName }) {
             }
 
             return (
-              <g key={`lintel-${i}`}>
-                {/* Lintel outline */}
+              <g key={`lintel-panel-${i}`}>
+                {/* Lintel panel outline */}
                 <polygon points={outlinePts} fill="none" stroke={STROKE_COLOR} strokeWidth={1} />
                 {/* Timber beam */}
                 {op && (
@@ -659,7 +659,7 @@ export default function EpsElevation({ layout, wallName, projectName }) {
                   y={s(yBottom - l.y - midH / 2) + 3}
                   textAnchor="middle" fontSize="8" fill={LABEL_COLOR}
                 >
-                  Lintel {l.ref}
+                  Lintel Panel {l.ref}
                 </text>
               </g>
             );
@@ -674,9 +674,9 @@ export default function EpsElevation({ layout, wallName, projectName }) {
             for (let i = 0; i < basePanels.length - 1; i++) {
               const panel = basePanels[i];
               const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-              const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-              const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-              if (!insideLintel && !insideFooter) {
+              const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+              const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+              if (!insideLintelPanel && !insideFooterPanel) {
                 splines.push({ xPos: gapCentre - HALF_SPLINE, cx: gapCentre });
               }
             }
@@ -733,9 +733,9 @@ export default function EpsElevation({ layout, wallName, projectName }) {
             const jointHasSpline = [];
             for (let i = 0; i < basePanels.length - 1; i++) {
               const gapCentre = basePanels[i].x + basePanels[i].width + PANEL_GAP / 2;
-              const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-              const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-              jointHasSpline.push(!insideLintel && !insideFooter);
+              const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+              const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+              jointHasSpline.push(!insideLintelPanel && !insideFooterPanel);
             }
             return courses.slice(1).map((course, ci) => {
               const joinY = yBottom - course.y;
@@ -759,10 +759,10 @@ export default function EpsElevation({ layout, wallName, projectName }) {
                   rightEdge = panel.x + panel.width - BOTTOM_PLATE;
                 }
 
-                // Split around lintels, openings, opening plates & splines
+                // Split around lintel panels, openings, opening plates & splines
                 const splineLeft = leftEdge + HSPLINE_CLEARANCE;
                 const splineRight = rightEdge - HSPLINE_CLEARANCE;
-                const segs = buildHSplineSegments(splineLeft, splineRight, lintels, openings);
+                const segs = buildHSplineSegments(splineLeft, splineRight, lintelPanels, openings);
                 if (segs.length === 0) return null;
 
                 return segs.map(([segL, segR], si) => {
@@ -896,7 +896,7 @@ export default function EpsElevation({ layout, wallName, projectName }) {
                   points.add(Math.round(p.x + p.width));
                 }
               });
-              footers.forEach(f => points.add(Math.round(f.x + f.width)));
+              footerPanels.forEach(f => points.add(Math.round(f.x + f.width)));
               const sorted = [...points].sort((a, b) => a - b);
               const tickY = s(yBottom) + 22;
               return sorted.map((pt, j) => (

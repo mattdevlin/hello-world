@@ -142,7 +142,7 @@ export function drawDimensions(d, layout) {
  * Draw running measurement ticks along the bottom.
  */
 export function drawRunningMeasurement(d, layout) {
-  const { grossLength, panels, footers, deductionLeft, deductionRight } = layout;
+  const { grossLength, panels, footerPanels, deductionLeft, deductionRight } = layout;
   const basePanels = panels.filter(p => (p.course ?? 0) === 0);
   d.setActiveLayer('DIMENSIONS');
 
@@ -150,7 +150,7 @@ export function drawRunningMeasurement(d, layout) {
   if (deductionLeft > 0) points.add(deductionLeft);
   if (deductionRight > 0) points.add(grossLength - deductionRight);
   basePanels.forEach(p => points.add(Math.round(p.x + p.width)));
-  footers.forEach(f => points.add(Math.round(f.x + f.width)));
+  footerPanels.forEach(f => points.add(Math.round(f.x + f.width)));
 
   const tickY = -60;
   const sorted = [...points].sort((a, b) => a - b);

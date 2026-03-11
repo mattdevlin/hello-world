@@ -23,7 +23,7 @@ const MAGBOARD = 10;
 export function buildEpsElevationDxf(layout, wallName) {
   const d = createDrawing();
   const {
-    grossLength, height, maxHeight, panels, openings, footers, lintels,
+    grossLength, height, maxHeight, panels, openings, footerPanels, lintelPanels,
     deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse,
   } = layout;
 
@@ -65,9 +65,9 @@ export function buildEpsElevationDxf(layout, wallName) {
   for (let i = 0; i < basePanels.length - 1; i++) {
     const panel = basePanels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-    if (!insideLintel && !insideFooter) {
+    const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintelPanel && !insideFooterPanel) {
       exclusions.push([gapCentre - HALF_SPLINE, gapCentre + HALF_SPLINE]);
     }
   }
@@ -87,7 +87,7 @@ export function buildEpsElevationDxf(layout, wallName) {
     if (deductionLeft === 0 && Math.abs(p.x) < 1) exclusions.push([0, BOTTOM_PLATE]);
   }
 
-  for (const l of lintels) exclusions.push([l.x, l.x + l.width]);
+  for (const l of lintelPanels) exclusions.push([l.x, l.x + l.width]);
   exclusions.sort((a, b) => a[0] - b[0]);
 
   const getEpsSegments = (panelLeft, panelRight) => {
@@ -221,7 +221,7 @@ export function buildEpsElevationDxf(layout, wallName) {
   drawOpeningLabels(d, openings);
 
   // ── Footer panels with EPS ──
-  footers.forEach((f) => {
+  footerPanels.forEach((f) => {
     d.setActiveLayer('OUTLINE');
     d.drawPolyline([[f.x, 0], [f.x + f.width, 0], [f.x + f.width, f.height], [f.x, f.height]], true);
 
@@ -245,11 +245,11 @@ export function buildEpsElevationDxf(layout, wallName) {
     }
 
     d.setActiveLayer('LABELS');
-    d.drawText(f.x + f.width / 2 - 40, f.height / 2, 30, 0, `Footer ${f.ref}`);
+    d.drawText(f.x + f.width / 2 - 40, f.height / 2, 30, 0, `Footer Panel ${f.ref}`);
   });
 
-  // ── Lintels ──
-  lintels.forEach((l) => {
+  // ── Lintel panels ──
+  lintelPanels.forEach((l) => {
     const hL = l.heightLeft != null ? l.heightLeft : l.height;
     const hR = l.heightRight != null ? l.heightRight : l.height;
     const yBase = l.y;
@@ -309,7 +309,7 @@ export function buildEpsElevationDxf(layout, wallName) {
 
     d.setActiveLayer('LABELS');
     const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
-    d.drawText(l.x + l.width / 2 - 40, l.y + midH / 2, 30, 0, `Lintel ${l.ref}`);
+    d.drawText(l.x + l.width / 2 - 40, l.y + midH / 2, 30, 0, `Lintel Panel ${l.ref}`);
   });
 
   // ── Spline EPS (120mm inside 146mm splines) ──
@@ -321,9 +321,9 @@ export function buildEpsElevationDxf(layout, wallName) {
   for (let i = 0; i < basePanels.length - 1; i++) {
     const panel = basePanels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-    if (insideLintel || insideFooter) continue;
+    const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (insideLintelPanel || insideFooterPanel) continue;
 
     const epsXL = gapCentre - HALF_SPLINE + splineEpsX;
     const epsXR = epsXL + splineEpsW;

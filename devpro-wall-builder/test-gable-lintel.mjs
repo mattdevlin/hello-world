@@ -1,9 +1,9 @@
 /**
  * Gable wall lintel profile — comprehensive test suite.
  *
- * Verifies that lintels on gable walls get correct peakHeight/peakXLocal
+ * Verifies that lintel panels on gable walls get correct peakHeight/peakXLocal
  * when straddling the gable peak, correct height for magboard sizing,
- * and that non-gable lintels are unaffected.
+ * and that non-gable lintel panels are unaffected.
  *
  * Run: node test-gable-lintel.mjs
  */
@@ -48,8 +48,8 @@ section('Test 1: User scenario — gable lintel straddling peak');
     }],
   });
 
-  assert(layout.lintels.length === 1, `should have 1 lintel, got ${layout.lintels.length}`);
-  const lintel = layout.lintels[0];
+  assert(layout.lintelPanels.length === 1, `should have 1 lintel, got ${layout.lintelPanels.length}`);
+  const lintel = layout.lintelPanels[0];
 
   // Lintel spans x=2879 to x=4321, peak at x=3600
   const expectedPeakXLocal = 3600 - (3000 - WINDOW_OVERHANG);
@@ -95,7 +95,7 @@ section('Test 2: Window on ascending side — no peak in lintel');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   // Lintel right = 500 + 1200 + 121 = 1821, peak at 3600 → no straddle
   assert(lintel.peakHeight == null, 'lintel should NOT have peakHeight');
   assert(lintel.peakXLocal == null, 'lintel should NOT have peakXLocal');
@@ -122,7 +122,7 @@ section('Test 3: Window on descending side — no peak in lintel');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   // Lintel left = 5500 - 121 = 5379, peak at 3600 → no straddle
   assert(lintel.peakHeight == null, 'lintel should NOT have peakHeight');
   // Descending side: left should be taller
@@ -148,7 +148,7 @@ section('Test 4: Window centered exactly at peak');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   assert(lintel.peakHeight != null, 'lintel straddling peak should have peakHeight');
   // Lintel should be symmetric-ish (3600 is center of 3000..4200)
   const diff = Math.abs(lintel.heightLeft - lintel.heightRight);
@@ -171,7 +171,7 @@ section('Test 5: Standard wall — no peak on lintel');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   assert(lintel.peakHeight == null, 'standard wall lintel should NOT have peakHeight');
   assert(lintel.heightLeft === lintel.heightRight,
     `standard wall: heightLeft (${lintel.heightLeft}) === heightRight (${lintel.heightRight})`);
@@ -194,7 +194,7 @@ section('Test 6: Raked wall — trapezoid lintel, no peak');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   assert(lintel.peakHeight == null, 'raked wall lintel should NOT have peakHeight');
   // Raked ascending: right side taller
   assert(lintel.heightRight > lintel.heightLeft,
@@ -223,7 +223,7 @@ section('Test 7: Peak at lintel left edge (boundary)');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   // lintelLeft = 3721 - 121 = 3600 = peakX → strict inequality fails
   assert(lintel.peakHeight == null,
     'peak at lintel left edge (strict inequality) → no peakHeight');
@@ -250,7 +250,7 @@ section('Test 8: Peak at lintel right edge (boundary)');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   // lintelRight = 2279 + 1200 + 121 = 3600 = peakX → strict inequality fails
   assert(lintel.peakHeight == null,
     'peak at lintel right edge (strict inequality) → no peakHeight');
@@ -274,7 +274,7 @@ section('Test 9: Wide window spanning peak');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   assert(lintel.peakHeight != null, 'wide window lintel should straddle peak');
   // Large difference between edge heights and peak
   const edgeMax = Math.max(lintel.heightLeft, lintel.heightRight);
@@ -300,14 +300,14 @@ section('Test 10: Door on gable wall — lintel with peak');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   assert(lintel.peakHeight != null, 'door lintel straddling peak should have peakHeight');
   // Door is taller (2100mm), so lintel height is less
   const expectedPeakH = 4890 - 2100;
   assert(lintel.peakHeight === expectedPeakH,
     `door lintel peakHeight should be ${expectedPeakH}, got ${lintel.peakHeight}`);
-  // Should have no footer for door
-  assert(layout.footers.length === 0, 'door should have no footer');
+  // Should have no footer panel for door
+  assert(layout.footerPanels.length === 0, 'door should have no footer panel');
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -328,7 +328,7 @@ section('Test 11: lintel.height includes peak height');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   assert(lintel.height >= lintel.heightLeft,
     `height (${lintel.height}) >= heightLeft (${lintel.heightLeft})`);
   assert(lintel.height >= lintel.heightRight,
@@ -358,11 +358,11 @@ section('Test 12: Magboard optimizer bins lintel with peak height');
   });
 
   const { cutPieces } = extractMagboardPieces(layout, 'N-W1');
-  const lintelPieces = cutPieces.filter(p => p.type === 'lintel');
-  assert(lintelPieces.length === 2, `should have 2 lintel pieces (front+back), got ${lintelPieces.length}`);
+  const lintelPieces = cutPieces.filter(p => p.type === 'lintelPanel');
+  assert(lintelPieces.length === 2, `should have 2 lintel panel pieces (front+back), got ${lintelPieces.length}`);
 
   // The lintel piece height should include the peak
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   for (const piece of lintelPieces) {
     assert(piece.height === lintel.height,
       `lintel piece height (${piece.height}) should match lintel.height (${lintel.height})`);
@@ -390,7 +390,7 @@ section('Test 13: Short gable — lintel peak fits on 2745mm sheet');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   if (lintel.peakHeight) {
     // Peak height from opening top: 2700 - (600+800) = 1300mm → fits on 2745mm sheet
     assert(lintel.peakHeight <= 2745,
@@ -417,7 +417,7 @@ section('Test 14: Tall gable — lintel peak needs 3050mm sheet');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   assert(lintel.height > 2745,
     `lintel height (${lintel.height}) > 2745 → needs 3050mm sheet`);
   assert(lintel.height <= 3050,
@@ -440,7 +440,7 @@ section('Test 15: Standard wall lintel — rectangle');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   assert(lintel.peakHeight == null, 'no peakHeight on standard wall');
   assert(lintel.heightLeft === lintel.heightRight, 'heights equal on standard wall');
   assert(lintel.height === lintel.heightLeft, 'height equals heightLeft');
@@ -463,7 +463,7 @@ section('Test 16: Raked wall lintel — trapezoid');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   assert(lintel.peakHeight == null, 'no peakHeight on raked wall');
   assert(lintel.heightRight > lintel.heightLeft,
     `raked: heightRight (${lintel.heightRight}) > heightLeft (${lintel.heightLeft})`);
@@ -501,18 +501,18 @@ section('Test 17: Multiple windows on gable wall');
     ],
   });
 
-  assert(layout.lintels.length === 3, `should have 3 lintels, got ${layout.lintels.length}`);
+  assert(layout.lintelPanels.length === 3, `should have 3 lintels, got ${layout.lintelPanels.length}`);
 
   // W01 (ascending, far left) — no peak
-  const l1 = layout.lintels.find(l => l.ref === 'W01');
+  const l1 = layout.lintelPanels.find(l => l.ref === 'W01');
   assert(l1.peakHeight == null, 'W01 lintel should NOT straddle peak');
 
   // W02 (straddles peak) — has peak
-  const l2 = layout.lintels.find(l => l.ref === 'W02');
+  const l2 = layout.lintelPanels.find(l => l.ref === 'W02');
   assert(l2.peakHeight != null, 'W02 lintel SHOULD straddle peak');
 
   // W03 (descending, far right) — no peak
-  const l3 = layout.lintels.find(l => l.ref === 'W03');
+  const l3 = layout.lintelPanels.find(l => l.ref === 'W03');
   assert(l3.peakHeight == null, 'W03 lintel should NOT straddle peak');
 }
 
@@ -536,7 +536,7 @@ section('Test 18: Lintel where one side has zero height');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   // Opening top = 3400. At edges, wall may be ~3380. Height = max(0, wallH - 3400)
   // At peak, wall is 4000. Peak lintel height = 4000 - 3400 = 600
   if (lintel.peakHeight) {
@@ -565,7 +565,7 @@ section('Test 19: Short gable — small peak difference');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   if (lintel.peakHeight) {
     // Small difference between peak and edges
     const diff = lintel.peakHeight - Math.max(lintel.heightLeft, lintel.heightRight);
@@ -592,7 +592,7 @@ section('Test 20: Off-centre peak (x=1800 of 7200mm wall)');
     }],
   });
 
-  const lintel = layout.lintels[0];
+  const lintel = layout.lintelPanels[0];
   // Lintel left = 1200 - 121 = 1079, right = 1200 + 1200 + 121 = 2521
   // Peak at 1800 is inside [1079, 2521]
   assert(lintel.peakHeight != null, 'off-centre peak lintel should have peakHeight');

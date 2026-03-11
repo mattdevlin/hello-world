@@ -25,7 +25,7 @@ export default function GlueSummary({ walls }) {
   if (!result) return null;
 
   const {
-    totalAreaM2, panelAreaM2, splineAreaM2, footerAreaM2,
+    totalAreaM2, panelAreaM2, splineAreaM2, footerPanelAreaM2,
     totalKg, totalLitres,
     drumsNeeded, drumCapacityUsed, drumLitres,
     rateKgM2,
@@ -122,12 +122,12 @@ export default function GlueSummary({ walls }) {
                   <td style={{ ...styles.td, textAlign: 'right' }}>{(splineAreaM2 * rateKgM2).toFixed(2)}</td>
                   <td style={{ ...styles.td, textAlign: 'right' }}>{(splineAreaM2 * rateKgM2 / 1.1).toFixed(2)}</td>
                 </tr>
-                {footerAreaM2 > 0 && (
+                {footerPanelAreaM2 > 0 && (
                   <tr>
-                    <td style={styles.td}>Footer EPS</td>
-                    <td style={{ ...styles.td, textAlign: 'right' }}>{footerAreaM2.toFixed(2)}</td>
-                    <td style={{ ...styles.td, textAlign: 'right' }}>{(footerAreaM2 * rateKgM2).toFixed(2)}</td>
-                    <td style={{ ...styles.td, textAlign: 'right' }}>{(footerAreaM2 * rateKgM2 / 1.1).toFixed(2)}</td>
+                    <td style={styles.td}>Footer Panel EPS</td>
+                    <td style={{ ...styles.td, textAlign: 'right' }}>{footerPanelAreaM2.toFixed(2)}</td>
+                    <td style={{ ...styles.td, textAlign: 'right' }}>{(footerPanelAreaM2 * rateKgM2).toFixed(2)}</td>
+                    <td style={{ ...styles.td, textAlign: 'right' }}>{(footerPanelAreaM2 * rateKgM2 / 1.1).toFixed(2)}</td>
                   </tr>
                 )}
                 <tr style={styles.totalRow}>
@@ -167,7 +167,7 @@ export default function GlueSummary({ walls }) {
 
           <div style={styles.info}>
             SabreBond PU6000 — {rateKgM2 * 1000}g/m² application rate, SG 1.1, {drumLitres}L drums.
-            Glue applied to both faces of every EPS piece (panels, splines, footers).
+            Glue applied to both faces of every EPS piece (panels, splines, footer panels).
           </div>
         </div>
       )}

@@ -24,6 +24,7 @@ export const WINDOW_OVERHANG = 121;     // mm each side
 export const DOOR_OVERHANG = 166;       // mm each side
 export const DOOR_TOP_CUTOUT = 171;     // mm
 export const LINTEL_DEPTH = 300;        // mm default
+export const WINDOW_PLATE = 45;         // mm — sill plate and jamb plate thickness
 export const CNC_KERF = 10;            // mm
 
 // Splines
@@ -51,7 +52,8 @@ export const WALL_PROFILES = {
 export const OPENING_TYPES = {
   WINDOW: 'window',
   DOOR: 'door',
-  GARAGE_DOOR: 'garage_door',
+  SINGLE_GARAGE: 'single_garage',
+  DOUBLE_GARAGE: 'double_garage',
 };
 
 // Colours for drawing
@@ -76,19 +78,19 @@ export const COLORS = {
 
 /**
  * Build horizontal spline segments within [splineLeft, splineRight],
- * excluding zones around lintels and openings (with their plates/splines).
+ * excluding zones around lintel panels and openings (with their plates/splines).
  *
  * @param {number} splineLeft  - left boundary (already inset by HSPLINE_CLEARANCE)
  * @param {number} splineRight - right boundary (already inset by HSPLINE_CLEARANCE)
- * @param {Array} lintels  - lintel objects with { x, width }
+ * @param {Array} lintelPanels  - lintel panel objects with { x, width }
  * @param {Array} openings - opening objects with { x, drawWidth, y }
  * @returns {Array<[number, number]>} segments as [left, right] pairs
  */
-export function buildHSplineSegments(splineLeft, splineRight, lintels, openings) {
+export function buildHSplineSegments(splineLeft, splineRight, lintelPanels, openings) {
   if (splineRight <= splineLeft) return [];
 
   const excl = [];
-  for (const l of lintels) {
+  for (const l of lintelPanels) {
     const eL = Math.max(l.x - HSPLINE_CLEARANCE, splineLeft);
     const eR = Math.min(l.x + l.width + HSPLINE_CLEARANCE, splineRight);
     if (eL < eR) excl.push([eL, eR]);
