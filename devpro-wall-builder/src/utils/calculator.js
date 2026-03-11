@@ -219,14 +219,14 @@ export function calculateWallLayout(wall) {
       });
     }
 
-    // Lintel follows the wall slope — trapezoid for raked/gable, pentagon if straddling gable peak
+    // Lintel panel follows the wall slope — trapezoid for raked/gable, pentagon if straddling gable peak
     const lintelOverhang = WINDOW_OVERHANG;
     const lintelLeft = openLeft - lintelOverhang;
     const lintelRight = openRight + lintelOverhang;
     const lHeightLeft = Math.max(0, heightAt(lintelLeft) - openTop);
     const lHeightRight = Math.max(0, heightAt(lintelRight) - openTop);
 
-    // Detect gable peak within lintel span
+    // Detect gable peak within lintel panel span
     let lPeakHeight, lPeakXLocal;
     if (profile === WALL_PROFILES.GABLE) {
       const peakX = wall.peak_position_mm ?? Math.round(grossLength / 2);
@@ -246,7 +246,7 @@ export function calculateWallLayout(wall) {
       heightRight: lHeightRight,
       peakHeight: lPeakHeight,
       peakXLocal: lPeakXLocal,
-      beamHeight: opening.lintel_height_mm ?? 200,
+      lintelHeight: opening.lintel_height_mm ?? 200,
       type: 'lintelPanel',
     });
   }

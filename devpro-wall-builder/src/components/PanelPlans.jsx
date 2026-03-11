@@ -345,7 +345,7 @@ function LcutPlanCard({ panel, courseLineY }) {
 }
 
 /**
- * Lintel plan card — trapezoid for raked/gable, pentagon if straddling gable peak.
+ * Lintel panel plan card — trapezoid for raked/gable, pentagon if straddling gable peak.
  */
 function LintelPanelPlanCard({ lintel }) {
   const W = lintel.width;

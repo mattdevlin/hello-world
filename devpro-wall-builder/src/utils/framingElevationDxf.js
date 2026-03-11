@@ -334,18 +334,18 @@ export function buildFramingElevationDxf(layout, wallName) {
       : [[l.x, yBase], [l.x, yTopL], [l.x + l.width, yTopR], [l.x + l.width, yBase]];
     d.drawPolyline(pts, true);
 
-    // Timber beam
+    // Timber lintel
     const op = openings.find(o => o.ref === l.ref);
     if (op) {
       const hasSill = op.y > 0;
-      const beamH = l.beamHeight || 200;
-      const beamLeft = hasSill ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET : op.x - BOTTOM_PLATE + EPS_INSET;
-      const beamRight = hasSill ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
-      const beamBot = l.y;
-      const beamTop = l.y + beamH;
+      const lintelH = l.lintelHeight || 200;
+      const lintelLeft = hasSill ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET : op.x - BOTTOM_PLATE + EPS_INSET;
+      const lintelRight = hasSill ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
+      const lintelBot = l.y;
+      const lintelTop = l.y + lintelH;
       d.drawPolyline([
-        [beamLeft, beamBot], [beamRight, beamBot],
-        [beamRight, beamTop], [beamLeft, beamTop],
+        [lintelLeft, lintelBot], [lintelRight, lintelBot],
+        [lintelRight, lintelTop], [lintelLeft, lintelTop],
       ], true);
     }
 

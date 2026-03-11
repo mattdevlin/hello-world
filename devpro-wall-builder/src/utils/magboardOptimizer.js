@@ -48,10 +48,10 @@ export function extractMagboardPieces(layout, wallName = '') {
     panelSheets.push({ sheetHeight: sheetH, label: `P${panel.index + 1}${courseLabel}`, wallName });
   }
 
-  // ── Lintel panels: 2 magboard pieces each (EPS area above timber beam) ──
+  // ── Lintel panels: 2 magboard pieces each (EPS area above timber lintel) ──
   for (const lintelPanel of lintelPanels) {
-    const beamH = lintelPanel.beamHeight || 200;
-    const epsHeight = lintelPanel.height - beamH;
+    const lintelH = lintelPanel.lintelHeight || 200;
+    const epsHeight = lintelPanel.height - lintelH;
     if (epsHeight > 0) {
       for (let i = 0; i < 2; i++) {
         cutPieces.push({

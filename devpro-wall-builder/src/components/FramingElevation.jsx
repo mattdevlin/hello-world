@@ -503,7 +503,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
             </g>
           ))}
 
-          {/* ── Lintel panels (trapezoid for raked/gable, with timber beam) ── */}
+          {/* ── Lintel panels (trapezoid for raked/gable, with timber lintel) ── */}
           {lintelPanels.map((l, i) => {
             const hL = l.heightLeft != null ? l.heightLeft : l.height;
             const hR = l.heightRight != null ? l.heightRight : l.height;
@@ -517,25 +517,25 @@ export default function FramingElevation({ layout, wallName, projectName }) {
               : `${x1},${yBase} ${x1},${yTopL} ${x2},${yTopR} ${x2},${yBase}`;
             const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
 
-            // Timber beam rect (spans between vertical plates/splines with EPS_INSET gap)
+            // Timber lintel rect (spans between vertical plates/splines with EPS_INSET gap)
             const op = openings.find(o => o.ref === l.ref);
             const hasSill = op && op.y > 0;
-            const beamH = l.beamHeight || 200;
-            let beamEl = null;
+            const lintelH = l.lintelHeight || 200;
+            let lintelEl = null;
             if (op) {
-              const beamLeft = hasSill
+              const lintelLeft = hasSill
                 ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET
                 : op.x - BOTTOM_PLATE + EPS_INSET;
-              const beamRight = hasSill
+              const lintelRight = hasSill
                 ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET
                 : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
-              const beamTop = yBottom - l.y - beamH;
-              const beamW = beamRight - beamLeft;
-              if (beamW > 0 && beamH > 0) {
-                beamEl = (
+              const lintelTop = yBottom - l.y - lintelH;
+              const lintelW = lintelRight - lintelLeft;
+              if (lintelW > 0 && lintelH > 0) {
+                lintelEl = (
                   <rect
-                    x={s(beamLeft)} y={s(beamTop)}
-                    width={s(beamW)} height={s(beamH)}
+                    x={s(lintelLeft)} y={s(lintelTop)}
+                    width={s(lintelW)} height={s(lintelH)}
                     fill="none" stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH}
                   />
                 );
@@ -545,7 +545,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
             return (
               <g key={`lintel-panel-${i}`}>
                 <polygon points={pts} fill="none" stroke={STROKE_COLOR} strokeWidth={1} strokeDasharray={DASH} />
-                {beamEl}
+                {lintelEl}
                 <text
                   x={s(l.x + l.width / 2)}
                   y={s(yBottom - l.y - midH / 2) + 3}

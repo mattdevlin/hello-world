@@ -574,33 +574,33 @@ export default function EpsElevation({ layout, wallName, projectName }) {
 
             const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
 
-            // Timber beam and EPS fill (only when matching opening exists)
-            let beamLeft, beamRight, beamTop, beamH;
+            // Timber lintel and EPS fill (only when matching opening exists)
+            let lintelLeft, lintelRight, lintelTop, lintelH;
             let epsPoly = null;
             if (op) {
-              // Timber beam spans between inner edges of opening splines/plates, with 10mm gap
-              beamH = l.beamHeight || 200;
-              beamLeft = hasSill
+              // Timber lintel spans between inner edges of opening splines/plates, with 10mm gap
+              lintelH = l.lintelHeight || 200;
+              lintelLeft = hasSill
                 ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET  // 10mm inside left spline outer edge
                 : op.x - BOTTOM_PLATE + EPS_INSET;                // 10mm inside left plate inner edge
-              beamRight = hasSill
+              lintelRight = hasSill
                 ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET  // 10mm inside right spline outer edge
                 : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;               // 10mm inside right plate inner edge
-              beamTop = yBottom - l.y - beamH;
+              lintelTop = yBottom - l.y - lintelH;
 
-              // Lintel EPS: fills the area above the timber beam, inset 10mm from spline/plate inner edges
+              // Lintel panel EPS: fills the area above the timber lintel, inset 10mm from spline/plate inner edges
               const epsLeft = hasSill
                 ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET  // 10mm inside spline outer edge
                 : op.x - BOTTOM_PLATE + EPS_INSET;                // 10mm inside plate inner edge
               const epsRight = hasSill
                 ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET  // 10mm inside spline outer edge
                 : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;               // 10mm inside plate inner edge
-              const epsBot = beamTop - EPS_INSET;  // 10mm above timber beam
+              const epsBot = lintelTop - EPS_INSET;  // 10mm above timber lintel
 
               // EPS top follows wall slope (same as panel EPS logic)
               const epsTopAt = (x) => yTopAt(x) + TOP_PLATE * 2 + EPS_INSET;
 
-              // Build EPS polygon (if there's space above the beam)
+              // Build EPS polygon (if there's space above the lintel)
               if (epsBot > epsTopAt(epsLeft) || epsBot > epsTopAt(epsRight)) {
                 const epsTopL = epsTopAt(epsLeft);
                 const epsTopR = epsTopAt(epsRight);
@@ -644,15 +644,15 @@ export default function EpsElevation({ layout, wallName, projectName }) {
               <g key={`lintel-panel-${i}`}>
                 {/* Lintel panel outline */}
                 <polygon points={outlinePts} fill="none" stroke={STROKE_COLOR} strokeWidth={1} />
-                {/* Timber beam */}
+                {/* Timber lintel */}
                 {op && (
                   <rect
-                    x={s(beamLeft)} y={s(beamTop)}
-                    width={s(beamRight - beamLeft)} height={s(beamH)}
+                    x={s(lintelLeft)} y={s(lintelTop)}
+                    width={s(lintelRight - lintelLeft)} height={s(lintelH)}
                     fill="none" stroke={STROKE_COLOR} strokeWidth={1}
                   />
                 )}
-                {/* EPS above beam */}
+                {/* EPS above lintel */}
                 {epsPoly}
                 <text
                   x={s(l.x + l.width / 2)}

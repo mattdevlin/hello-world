@@ -365,10 +365,10 @@ section('Test 12: Magboard optimizer bins lintel with peak height');
   const lintel = layout.lintelPanels[0];
   for (const piece of lintelPieces) {
     assert(piece.height === lintel.height,
-      `lintel piece height (${piece.height}) should match lintel.height (${lintel.height})`);
+      `lintel panel piece height (${piece.height}) should match lintel.height (${lintel.height})`);
     // With peak height ~2790, this needs a 3050mm sheet (> 2745)
     assert(piece.height > 2745,
-      `lintel piece height (${piece.height}) > 2745 → needs 3050mm sheet`);
+      `lintel panel piece height (${piece.height}) > 2745 → needs 3050mm sheet`);
   }
 }
 
