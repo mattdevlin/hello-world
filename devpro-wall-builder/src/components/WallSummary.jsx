@@ -35,7 +35,7 @@ export default function WallSummary({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
-  const { panels, openings, lintels, footers, height, deductionLeft, deductionRight, grossLength, isRaked, courses, isMultiCourse } = layout;
+  const { panels, openings, lintelPanels, footers, height, deductionLeft, deductionRight, grossLength, isRaked, courses, isMultiCourse } = layout;
 
   // ── Count splines ──
   // Use course 0 panels for joint detection (same x-positions across courses)
@@ -43,7 +43,7 @@ export default function WallSummary({ layout, wallName, projectName }) {
   const jointSplines = [];
   for (let i = 0; i < basePanels.length - 1; i++) {
     const gapCentre = basePanels[i].x + basePanels[i].width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (!insideLintel && !insideFooter) jointSplines.push(gapCentre);
   }
@@ -77,7 +77,7 @@ export default function WallSummary({ layout, wallName, projectName }) {
     if (deductionLeft === 0 && Math.abs(p.x) < 1) exclusions.push([0, BOTTOM_PLATE]);
   }
 
-  for (const l of lintels) exclusions.push([l.x, l.x + l.width]);
+  for (const l of lintelPanels) exclusions.push([l.x, l.x + l.width]);
 
   exclusions.sort((a, b) => a[0] - b[0]);
 
@@ -216,7 +216,7 @@ export default function WallSummary({ layout, wallName, projectName }) {
               <Row label="End Panels" value={layout.endPanels} />
               <Row label="Openings" value={openings.length} />
               <Row label="Footers" value={footers.length} />
-              <Row label="Lintels" value={lintels.length} />
+              <Row label="Lintel Panels" value={lintelPanels.length} />
               <Row label="Splines" value={splineCount} />
             </tbody>
           </table>

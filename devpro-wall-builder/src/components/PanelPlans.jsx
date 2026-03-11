@@ -345,7 +345,7 @@ function LcutPlanCard({ panel, courseLineY }) {
 }
 
 /**
- * Lintel plan card — trapezoid for raked/gable, pentagon if straddling gable peak.
+ * Lintel panel plan card — trapezoid for raked/gable, pentagon if straddling gable peak.
  */
 function LintelPlanCard({ lintel }) {
   const W = lintel.width;
@@ -373,7 +373,7 @@ function LintelPlanCard({ lintel }) {
       profileWidth={W}
       profileHeight={H}
       fill={COLORS.LINTEL}
-      title={`${lintel.ref} — Lintel`}
+      title={`${lintel.ref} — Lintel Panel`}
       qty={2}
       peakXLocal={lintel.peakHeight ? lintel.peakXLocal : undefined}
       peakHeight={lintel.peakHeight}
@@ -609,7 +609,7 @@ export default function PanelPlans({ layout, wallName, projectName }) {
   const rakedFullPanels = isRaked
     ? panels.filter(p => p.type === 'full' && (p.heightLeft !== p.heightRight || p.peakHeight))
     : [];
-  const lintels = layout.lintels || [];
+  const lintelPanels = layout.lintelPanels || [];
   const footers = layout.footers || [];
   const openings = layout.openings || [];
   const dedLeft = layout.deductionLeft || 0;
@@ -624,7 +624,7 @@ export default function PanelPlans({ layout, wallName, projectName }) {
   for (let i = 0; i < panels.length - 1; i++) {
     const panel = panels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (!insideLintel && !insideFooter) {
       splinePieces.push({ label: `Spline P${panels[i].index + 1}/P${panels[i + 1].index + 1}` });
@@ -646,7 +646,7 @@ export default function PanelPlans({ layout, wallName, projectName }) {
     const jointHasSpline = [];
     for (let i = 0; i < panels.length - 1; i++) {
       const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
-      const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+      const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
       const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
       jointHasSpline.push(!insideLintel && !insideFooter);
     }
@@ -679,7 +679,7 @@ export default function PanelPlans({ layout, wallName, projectName }) {
   const upperCourses = courses.length > 1 ? courses.slice(1) : [];
 
   const hasContent = lcutPanels.length || endPanels.length || rakedFullPanels.length
-    || lintels.length || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length
+    || lintelPanels.length || footers.length || dedLeft > 0 || dedRight > 0 || splinePieces.length
     || topCoursePanels.length || hsplinePieces.length;
   if (!hasContent) return null;
 
@@ -728,8 +728,8 @@ export default function PanelPlans({ layout, wallName, projectName }) {
         {dedRight > 0 && (
           <DeductionCard side="right" width={dedRight} height={wallH} />
         )}
-        {lintels.map((lintel, i) => (
-          <LintelPlanCard key={`lintel-${i}`} lintel={lintel} />
+        {lintelPanels.map((lintel, i) => (
+          <LintelPlanCard key={`lintel-panel-${i}`} lintel={lintel} />
         ))}
         {footers.map((footer, i) => (
           <FooterPlanCard key={`footer-${i}`} footer={footer} />

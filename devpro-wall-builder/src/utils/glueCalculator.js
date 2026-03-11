@@ -27,7 +27,7 @@ const DRUM_LITRES = 200;
 
 export function computeWallGlueArea(layout) {
   const {
-    panels = [], openings = [], lintels = [], footers = [], height = 0,
+    panels = [], openings = [], lintelPanels = [], footers = [], height = 0,
     deductionLeft = 0, deductionRight = 0, grossLength = 0, isRaked = false,
   } = layout || {};
 
@@ -41,7 +41,7 @@ export function computeWallGlueArea(layout) {
   const jointSplines = [];
   for (let i = 0; i < panels.length - 1; i++) {
     const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (!insideLintel && !insideFooter) jointSplines.push(gapCentre);
   }
@@ -75,7 +75,7 @@ export function computeWallGlueArea(layout) {
     if (deductionLeft === 0 && Math.abs(p.x) < 1) exclusions.push([0, BOTTOM_PLATE]);
   }
 
-  for (const l of lintels) exclusions.push([l.x, l.x + l.width]);
+  for (const l of lintelPanels) exclusions.push([l.x, l.x + l.width]);
   exclusions.sort((a, b) => a[0] - b[0]);
 
   const getEpsSegments = (panelLeft, panelRight) => {

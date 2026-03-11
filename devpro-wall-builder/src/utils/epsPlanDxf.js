@@ -14,7 +14,7 @@ const EPS_INSET = 10;
  * Build cut piece lists from layout (mirrors EpsCutPlans.jsx logic).
  */
 function buildCutPieces(layout) {
-  const { height, panels, openings, footers, lintels, deductionLeft, deductionRight, grossLength, courses, isMultiCourse, isRaked } = layout;
+  const { height, panels, openings, footers, lintelPanels, deductionLeft, deductionRight, grossLength, courses, isMultiCourse, isRaked } = layout;
 
   const epsTop = TOP_PLATE * 2 + EPS_INSET;
   const epsBottom = height - BOTTOM_PLATE - EPS_INSET;
@@ -28,7 +28,7 @@ function buildCutPieces(layout) {
   for (let i = 0; i < panels.length - 1; i++) {
     const panel = panels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (!insideLintel && !insideFooter) exclusions.push([gapCentre - HALF_SPLINE, gapCentre + HALF_SPLINE]);
   }
@@ -48,7 +48,7 @@ function buildCutPieces(layout) {
     if (deductionLeft === 0 && Math.abs(p.x) < 1) exclusions.push([0, BOTTOM_PLATE]);
   }
 
-  for (const l of lintels) exclusions.push([l.x, l.x + l.width]);
+  for (const l of lintelPanels) exclusions.push([l.x, l.x + l.width]);
   exclusions.sort((a, b) => a[0] - b[0]);
 
   const getEpsSegments = (panelLeft, panelRight) => {
@@ -131,7 +131,7 @@ function buildCutPieces(layout) {
   for (let i = 0; i < panels.length - 1; i++) {
     const panel = panels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (!insideLintel && !insideFooter) {
       splinePieces.push({ label: `Joint P${panels[i].index + 1}/P${panels[i + 1].index + 1}`, width: SPLINE_WIDTH, height: splineH });

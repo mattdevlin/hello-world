@@ -11,7 +11,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
   if (!layout) return null;
 
   const {
-    grossLength, height, maxHeight, panels, openings, footers, lintels,
+    grossLength, height, maxHeight, panels, openings, footers, lintelPanels,
     deductionLeft, deductionRight, isRaked, heightAt, profile,
     courses, isMultiCourse,
   } = layout;
@@ -213,8 +213,8 @@ export default function WallDrawing({ layout, wallName, projectName }) {
             </g>
           ))}
 
-          {/* Lintels (trapezoid for raked/gable) */}
-          {lintels.map((l, i) => {
+          {/* Lintel panels (trapezoid for raked/gable) */}
+          {lintelPanels.map((l, i) => {
             const hL = l.heightLeft != null ? l.heightLeft : l.height;
             const hR = l.heightRight != null ? l.heightRight : l.height;
             const x1 = s(l.x);
@@ -389,7 +389,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
             { color: COLORS.LCUT, label: 'L-Cut Panel' },
             { color: COLORS.END_CAP, label: 'End Panel' },
             { color: COLORS.FOOTER, label: 'Footer' },
-            { color: COLORS.LINTEL, label: 'Lintel' },
+            { color: COLORS.LINTEL, label: 'Lintel Panel' },
           ].map((item, i) => (
             <g key={i} transform={`translate(${i * 120}, 0)`}>
               <rect x={0} y={-8} width={12} height={12} fill={item.color} opacity={0.7} stroke="#666" strokeWidth={0.5} />

@@ -41,7 +41,7 @@ export const SPLINE_SLABS_PER_BLOCK = Math.floor(EPS_BLOCK.depth / SPLINE_EPS_DE
 export function extractEpsPieces(layout, wallName = '') {
   const pieces = [];
   const {
-    height, panels, openings, footers, lintels,
+    height, panels, openings, footers, lintelPanels,
     deductionLeft, deductionRight, grossLength,
     isRaked, courses, isMultiCourse,
   } = layout;
@@ -59,7 +59,7 @@ export function extractEpsPieces(layout, wallName = '') {
   for (let i = 0; i < panels.length - 1; i++) {
     const panel = panels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (!insideLintel && !insideFooter) {
       exclusions.push([gapCentre - HALF_SPLINE, gapCentre + HALF_SPLINE]);
@@ -81,7 +81,7 @@ export function extractEpsPieces(layout, wallName = '') {
     if (deductionLeft === 0 && Math.abs(p.x) < 1) exclusions.push([0, BOTTOM_PLATE]);
   }
 
-  for (const l of lintels) exclusions.push([l.x, l.x + l.width]);
+  for (const l of lintelPanels) exclusions.push([l.x, l.x + l.width]);
 
   exclusions.sort((a, b) => a[0] - b[0]);
 
@@ -187,7 +187,7 @@ export function extractEpsPieces(layout, wallName = '') {
     for (let i = 0; i < panels.length - 1; i++) {
       const panel = panels[i];
       const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-      const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+      const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
       const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
       if (!insideLintel && !insideFooter) {
         pieces.push({

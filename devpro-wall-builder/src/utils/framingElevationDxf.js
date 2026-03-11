@@ -19,7 +19,7 @@ const EPS_INSET = 10;
 export function buildFramingElevationDxf(layout, wallName) {
   const d = createDrawing();
   const {
-    grossLength, height, maxHeight, panels, openings, footers, lintels,
+    grossLength, height, maxHeight, panels, openings, footers, lintelPanels,
     deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse,
   } = layout;
 
@@ -118,7 +118,7 @@ export function buildFramingElevationDxf(layout, wallName) {
     // Vertical edge helper: compute segments excluding lintel/footer zones
     const getExclusions = (xEdge) => {
       const zones = [];
-      for (const l of lintels) {
+      for (const l of lintelPanels) {
         if (l.x < xEdge && xEdge < l.x + l.width) {
           const hL = l.heightLeft != null ? l.heightLeft : l.height;
           const hR = l.heightRight != null ? l.heightRight : l.height;
@@ -206,7 +206,7 @@ export function buildFramingElevationDxf(layout, wallName) {
   for (let i = 0; i < basePanels.length - 1; i++) {
     const panel = basePanels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
     const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
     if (insideLintel || insideFooter) continue;
 
@@ -320,8 +320,8 @@ export function buildFramingElevationDxf(layout, wallName) {
     d.drawText(f.x + f.width / 2 - 40, f.height / 2, 28, 0, `Footer ${f.ref}`);
   }
 
-  // ── Lintels ──
-  for (const l of lintels) {
+  // ── Lintel panels ──
+  for (const l of lintelPanels) {
     const hL = l.heightLeft != null ? l.heightLeft : l.height;
     const hR = l.heightRight != null ? l.heightRight : l.height;
     const yBase = l.y;
@@ -334,18 +334,18 @@ export function buildFramingElevationDxf(layout, wallName) {
       : [[l.x, yBase], [l.x, yTopL], [l.x + l.width, yTopR], [l.x + l.width, yBase]];
     d.drawPolyline(pts, true);
 
-    // Timber beam
+    // Timber lintel
     const op = openings.find(o => o.ref === l.ref);
     if (op) {
       const hasSill = op.y > 0;
-      const beamH = l.beamHeight || 200;
-      const beamLeft = hasSill ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET : op.x - BOTTOM_PLATE + EPS_INSET;
-      const beamRight = hasSill ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
-      const beamBot = l.y;
-      const beamTop = l.y + beamH;
+      const lintelH = l.lintelHeight || 200;
+      const lintelLeft = hasSill ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET : op.x - BOTTOM_PLATE + EPS_INSET;
+      const lintelRight = hasSill ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
+      const lintelBot = l.y;
+      const lintelTop = l.y + lintelH;
       d.drawPolyline([
-        [beamLeft, beamBot], [beamRight, beamBot],
-        [beamRight, beamTop], [beamLeft, beamTop],
+        [lintelLeft, lintelBot], [lintelRight, lintelBot],
+        [lintelRight, lintelTop], [lintelLeft, lintelTop],
       ], true);
     }
 
@@ -360,7 +360,7 @@ export function buildFramingElevationDxf(layout, wallName) {
     const jointHasSpline = [];
     for (let i = 0; i < basePanels.length - 1; i++) {
       const gapCentre = basePanels[i].x + basePanels[i].width + PANEL_GAP / 2;
-      const insideLintel = lintels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+      const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
       const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
       jointHasSpline.push(!insideLintel && !insideFooter);
     }
@@ -388,7 +388,7 @@ export function buildFramingElevationDxf(layout, wallName) {
 
         const splineLeft = leftEdge + HSPLINE_CLEARANCE;
         const splineRight = rightEdge - HSPLINE_CLEARANCE;
-        const segs = buildHSplineSegments(splineLeft, splineRight, lintels, openings);
+        const segs = buildHSplineSegments(splineLeft, splineRight, lintelPanels, openings);
 
         segs.forEach(([segL, segR]) => {
           if (segR <= segL) return;
