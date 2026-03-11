@@ -472,19 +472,19 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                     fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM}
                   />
                 )}
-                {/* Door/garage jamb plates — full height of opening */}
+                {/* Door/garage jamb plates — sit on top of bottom plate */}
                 {!hasSill && (
                   <>
                     <rect
                       x={s(op.x - BOTTOM_PLATE)}
                       y={s(yBottom - op.y - op.drawHeight)}
-                      width={s(BOTTOM_PLATE)} height={s(op.drawHeight)}
+                      width={s(BOTTOM_PLATE)} height={s(op.drawHeight - BOTTOM_PLATE)}
                       fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM}
                     />
                     <rect
                       x={s(op.x + op.drawWidth)}
                       y={s(yBottom - op.y - op.drawHeight)}
-                      width={s(BOTTOM_PLATE)} height={s(op.drawHeight)}
+                      width={s(BOTTOM_PLATE)} height={s(op.drawHeight - BOTTOM_PLATE)}
                       fill={TIMBER_FILL} stroke={C_STRUCTURE} strokeWidth={W_MEDIUM}
                     />
                   </>

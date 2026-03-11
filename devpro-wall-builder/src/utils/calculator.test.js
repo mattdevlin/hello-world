@@ -423,8 +423,8 @@ describe('calculateWallLayout — course split matches wall geometry', () => {
     expect(layout.courses[0].sheetHeight).toBe(3050);
   });
 
-  it('raked wall: lower height exceeds all sheets → uses max sheet', () => {
-    // Left 7000mm, right 3200mm → lower = 3200 > 3050 → course height = 3200, sheet = 3050 (max)
+  it('raked wall: lower height exceeds all sheets → falls back to standard splitting', () => {
+    // Left 7000mm, right 3200mm → lower = 3200 > 3050 → can't use lowerH as course height
     const wall = makeWall({
       length_mm: 9740,
       height_mm: 7000,
@@ -433,8 +433,11 @@ describe('calculateWallLayout — course split matches wall geometry', () => {
     });
     const layout = calculateWallLayout(wall);
     expect(layout.isMultiCourse).toBe(true);
-    expect(layout.courses[0].height).toBe(3200);
-    expect(layout.courses[0].sheetHeight).toBe(3050);
+    // Every course height must fit on a stock sheet
+    const maxSheet = Math.max(...STOCK_SHEET_HEIGHTS);
+    for (const course of layout.courses) {
+      expect(course.height).toBeLessThanOrEqual(maxSheet);
+    }
   });
 
   it('raked wall: preferred_sheet_height overrides auto-detection', () => {
@@ -695,5 +698,82 @@ describe('calculateWallLayout — Haruru South Wall P2/P3 joint', () => {
     expect(wouldBePlateX).toBeGreaterThan(splineLeft);
     expect(wouldBePlateRight).toBeLessThan(splineRight);
     // The edge plate sits entirely inside the spline — this is wrong
+  });
+});
+
+// ── Raked wall regression fixes ──
+
+describe('raked wall fixes', () => {
+  it('no panel exceeds PANEL_WIDTH (1200mm)', () => {
+    // Raked wall with door that creates L-cut zones prone to absorption overflow
+    const wall = makeWall({
+      length_mm: 7200,
+      height_mm: 3639,
+      height_right_mm: 2700,
+      profile: WALL_PROFILES.RAKED,
+      openings: [{
+        ref: 'D1',
+        type: OPENING_TYPES.DOOR,
+        width_mm: 900,
+        height_mm: 2100,
+        sill_mm: 0,
+        position_from_left_mm: 5000,
+      }],
+    });
+    const layout = calculateWallLayout(wall);
+    for (const panel of layout.panels) {
+      expect(panel.width).toBeLessThanOrEqual(PANEL_WIDTH);
+    }
+  });
+
+  it('no panel exceeds PANEL_WIDTH with various zone sizes', () => {
+    // Test multiple wall lengths to catch different zone size edge cases
+    for (const len of [2600, 3000, 3500, 4800, 6000, 7200, 9740]) {
+      const wall = makeWall({
+        length_mm: len,
+        height_mm: 2440,
+        openings: [{
+          ref: 'D1',
+          type: OPENING_TYPES.DOOR,
+          width_mm: 900,
+          height_mm: 2100,
+          sill_mm: 0,
+          position_from_left_mm: Math.floor(len / 2),
+        }],
+      });
+      const layout = calculateWallLayout(wall);
+      for (const panel of layout.panels) {
+        expect(panel.width).toBeLessThanOrEqual(PANEL_WIDTH);
+      }
+    }
+  });
+
+  it('raked multi-course: every course height fits on a stock sheet', () => {
+    const maxSheet = Math.max(...STOCK_SHEET_HEIGHTS);
+    // Raked wall where the lower height exceeds max stock sheet
+    const wall = makeWall({
+      length_mm: 7200,
+      height_mm: 5000,
+      height_right_mm: 3639,
+      profile: WALL_PROFILES.RAKED,
+    });
+    const layout = calculateWallLayout(wall);
+    expect(layout.isMultiCourse).toBe(true);
+    for (const course of layout.courses) {
+      expect(course.height).toBeLessThanOrEqual(maxSheet);
+    }
+  });
+
+  it('raked wall with lower height within stock sheet range still uses lowerH', () => {
+    // Left 4000mm, right 2600mm → lower = 2600 fits on 2745 sheet
+    const wall = makeWall({
+      length_mm: 9740,
+      height_mm: 4000,
+      height_right_mm: 2600,
+      profile: WALL_PROFILES.RAKED,
+    });
+    const layout = calculateWallLayout(wall);
+    expect(layout.isMultiCourse).toBe(true);
+    expect(layout.courses[0].height).toBe(2600);
   });
 });
