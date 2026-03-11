@@ -99,13 +99,13 @@ export default function WallBuilderPage() {
 
         {layout && (
           <>
-            <WallDrawing layout={layout} wallName={wallName} />
-            <FramingElevation layout={layout} wallName={wallName} />
-            <EpsElevation layout={layout} wallName={wallName} />
-            <PanelPlans layout={layout} wallName={wallName} />
-            <EpsCutPlans layout={layout} wallName={wallName} />
-            <Offcuts layout={layout} wallName={wallName} />
-            <WallSummary layout={layout} wallName={wallName} />
+            <WallDrawing layout={layout} wallName={wallName} projectName={project.name} />
+            <FramingElevation layout={layout} wallName={wallName} projectName={project.name} />
+            <EpsElevation layout={layout} wallName={wallName} projectName={project.name} />
+            <PanelPlans layout={layout} wallName={wallName} projectName={project.name} />
+            <EpsCutPlans layout={layout} wallName={wallName} projectName={project.name} />
+            <Offcuts layout={layout} wallName={wallName} projectName={project.name} />
+            <WallSummary layout={layout} wallName={wallName} projectName={project.name} />
           </>
         )}
       </main>

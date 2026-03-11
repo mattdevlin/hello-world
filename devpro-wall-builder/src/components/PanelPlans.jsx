@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { WINDOW_OVERHANG, PANEL_GAP, COLORS, OPENING_TYPES, BOTTOM_PLATE, TOP_PLATE } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
+import ExportDxfButton from './ExportDxfButton.jsx';
 
 const SPLINE_WIDTH = 146;
 const HALF_SPLINE = SPLINE_WIDTH / 2;
@@ -594,7 +595,7 @@ const cardStyle = {
   margin: 6,
 };
 
-export default function PanelPlans({ layout, wallName }) {
+export default function PanelPlans({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
@@ -689,7 +690,10 @@ export default function PanelPlans({ layout, wallName }) {
           CNC Panel Plans {wallName && `— ${wallName}`}
           {isMultiCourse && ` (${courses.length} courses)`}
         </h3>
-        <PrintButton sectionRef={sectionRef} label="Panel Plans" />
+        <div style={{ display: 'flex', gap: 4 }}>
+          <PrintButton sectionRef={sectionRef} label="Panel Plans" projectName={projectName} wallName={wallName} />
+          <ExportDxfButton layout={layout} wallName={wallName} projectName={projectName} planType="panel-plans" />
+        </div>
       </div>
 
       {isMultiCourse && (

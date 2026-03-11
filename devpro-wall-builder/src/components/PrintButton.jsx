@@ -1,16 +1,24 @@
 import { useCallback } from 'react';
 
-export default function PrintButton({ sectionRef, label }) {
+export default function PrintButton({ sectionRef, label, projectName, wallName }) {
   const handlePrint = useCallback(() => {
+    // Set document title to control the default print filename
+    const prevTitle = document.title;
+    const parts = [projectName, wallName, label].filter(Boolean);
+    if (parts.length > 0) {
+      document.title = parts.join(' ');
+    }
+
     if (!sectionRef?.current) {
       window.print();
-      return;
+    } else {
+      sectionRef.current.setAttribute('data-print-active', 'true');
+      window.print();
+      sectionRef.current.removeAttribute('data-print-active');
     }
-    // Mark this section as the active print target
-    sectionRef.current.setAttribute('data-print-active', 'true');
-    window.print();
-    sectionRef.current.removeAttribute('data-print-active');
-  }, [sectionRef]);
+
+    document.title = prevTitle;
+  }, [sectionRef, projectName, wallName, label]);
 
   return (
     <button onClick={handlePrint} style={styles.btn} className="no-print">

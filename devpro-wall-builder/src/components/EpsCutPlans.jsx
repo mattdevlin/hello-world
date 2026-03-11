@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
+import ExportDxfButton from './ExportDxfButton.jsx';
 
 const SPLINE_WIDTH = 146;
 const HALF_SPLINE = SPLINE_WIDTH / 2;
@@ -85,7 +86,7 @@ const cardStyle = {
   margin: 6,
 };
 
-export default function EpsCutPlans({ layout, wallName }) {
+export default function EpsCutPlans({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
@@ -275,7 +276,10 @@ export default function EpsCutPlans({ layout, wallName }) {
             <h3 style={{ margin: 0, fontSize: 16, color: '#333' }}>
               EPS Cut Plans — 142mm thick {wallName && `— ${wallName}`}
             </h3>
-            <PrintButton sectionRef={sectionRef} label="EPS Cuts" />
+            <div style={{ display: 'flex', gap: 4 }}>
+              <PrintButton sectionRef={sectionRef} label="EPS Cuts" projectName={projectName} wallName={wallName} />
+              <ExportDxfButton layout={layout} wallName={wallName} projectName={projectName} planType="eps-plans" />
+            </div>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {pieces.map((piece, i) => (

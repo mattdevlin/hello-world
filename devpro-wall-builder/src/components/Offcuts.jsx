@@ -232,7 +232,7 @@ const cardStyle = {
   margin: 4,
 };
 
-export default function Offcuts({ layout, wallName }) {
+export default function Offcuts({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
@@ -248,7 +248,7 @@ export default function Offcuts({ layout, wallName }) {
         <h3 style={{ margin: 0, fontSize: 16, color: '#333' }}>
           Offcuts {wallName && `— ${wallName}`}
         </h3>
-        <PrintButton sectionRef={sectionRef} label="Offcuts" />
+        <PrintButton sectionRef={sectionRef} label="Offcuts" projectName={projectName} wallName={wallName} />
       </div>
 
       {stockPieces.length > 0 && (

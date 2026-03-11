@@ -31,7 +31,7 @@ function Row({ label, value, bold }) {
   );
 }
 
-export default function WallSummary({ layout, wallName }) {
+export default function WallSummary({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
@@ -167,7 +167,7 @@ export default function WallSummary({ layout, wallName }) {
       {/* Header */}
       <div style={styles.header}>
         <h3 style={styles.title}>Wall Summary — {wallName}</h3>
-        <PrintButton sectionRef={sectionRef} label="Summary" />
+        <PrintButton sectionRef={sectionRef} label="Summary" projectName={projectName} wallName={wallName} />
       </div>
 
       {/* Key metrics */}
