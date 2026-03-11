@@ -1,9 +1,9 @@
 /**
  * Gable wall lintel profile — comprehensive test suite.
  *
- * Verifies that lintels on gable walls get correct peakHeight/peakXLocal
+ * Verifies that lintel panels on gable walls get correct peakHeight/peakXLocal
  * when straddling the gable peak, correct height for magboard sizing,
- * and that non-gable lintels are unaffected.
+ * and that non-gable lintel panels are unaffected.
  *
  * Run: node test-gable-lintel.mjs
  */
@@ -306,8 +306,8 @@ section('Test 10: Door on gable wall — lintel with peak');
   const expectedPeakH = 4890 - 2100;
   assert(lintel.peakHeight === expectedPeakH,
     `door lintel peakHeight should be ${expectedPeakH}, got ${lintel.peakHeight}`);
-  // Should have no footer for door
-  assert(layout.footers.length === 0, 'door should have no footer');
+  // Should have no footer panel for door
+  assert(layout.footerPanels.length === 0, 'door should have no footer panel');
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -358,12 +358,12 @@ section('Test 12: Magboard optimizer bins lintel with peak height');
   });
 
   const { cutPieces } = extractMagboardPieces(layout, 'N-W1');
-  const lintelPanelPieces = cutPieces.filter(p => p.type === 'lintelPanel');
-  assert(lintelPanelPieces.length === 2, `should have 2 lintel panel pieces (front+back), got ${lintelPanelPieces.length}`);
+  const lintelPieces = cutPieces.filter(p => p.type === 'lintelPanel');
+  assert(lintelPieces.length === 2, `should have 2 lintel panel pieces (front+back), got ${lintelPieces.length}`);
 
   // The lintel piece height should include the peak
   const lintel = layout.lintelPanels[0];
-  for (const piece of lintelPanelPieces) {
+  for (const piece of lintelPieces) {
     assert(piece.height === lintel.height,
       `lintel panel piece height (${piece.height}) should match lintel.height (${lintel.height})`);
     // With peak height ~2790, this needs a 3050mm sheet (> 2745)

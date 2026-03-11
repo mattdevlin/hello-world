@@ -116,7 +116,7 @@ function collectPieces(layout) {
   const isMultiCourse = layout.isMultiCourse;
   const courses = layout.courses || [];
   const lintelPanels = layout.lintelPanels || [];
-  const footers = layout.footers || [];
+  const footerPanels = layout.footerPanels || [];
   const openings = layout.openings || [];
   const dedLeft = layout.deductionLeft || 0;
   const dedRight = layout.deductionRight || 0;
@@ -179,9 +179,9 @@ function collectPieces(layout) {
     pieces.push({ type: 'lintelPanel', label: `${l.ref} — Lintel Panel`, vertices: verts, w: l.width, h: H, qty: 2 });
   });
 
-  // Footers
-  footers.forEach(f => {
-    pieces.push({ type: 'footer', label: `${f.ref} — Footer`, vertices: rectVerts(f.width, f.height), w: f.width, h: f.height, qty: 2 });
+  // Footer panels
+  footerPanels.forEach(f => {
+    pieces.push({ type: 'footerPanel', label: `${f.ref} — Footer Panel`, vertices: rectVerts(f.width, f.height), w: f.width, h: f.height, qty: 2 });
   });
 
   // Splines
@@ -190,9 +190,9 @@ function collectPieces(layout) {
   for (let i = 0; i < panels.length - 1; i++) {
     const panel = panels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-    if (!insideLintel && !insideFooter) splinePieces.push(1);
+    const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintelPanel && !insideFooterPanel) splinePieces.push(1);
   }
   for (const op of openings) {
     if (op.y > 0) { splinePieces.push(1); splinePieces.push(1); }
@@ -207,9 +207,9 @@ function collectPieces(layout) {
     const jointHasSpline = [];
     for (let i = 0; i < panels.length - 1; i++) {
       const gapCentre = panels[i].x + panels[i].width + PANEL_GAP / 2;
-      const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-      const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-      jointHasSpline.push(!insideLintel && !insideFooter);
+      const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+      const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+      jointHasSpline.push(!insideLintelPanel && !insideFooterPanel);
     }
     for (let ci = 0; ci < courses.length - 1; ci++) {
       for (let pi = 0; pi < panels.length; pi++) {

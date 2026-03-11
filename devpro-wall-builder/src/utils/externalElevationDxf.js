@@ -16,7 +16,7 @@ import {
 export function buildExternalElevationDxf(layout, wallName) {
   const d = createDrawing();
   const {
-    grossLength, height, maxHeight, panels, openings, footers, lintelPanels,
+    grossLength, height, maxHeight, panels, openings, footerPanels, lintelPanels,
     deductionLeft, deductionRight, isRaked, heightAt, profile,
     courses, isMultiCourse,
   } = layout;
@@ -114,12 +114,12 @@ export function buildExternalElevationDxf(layout, wallName) {
     d.setActiveLayer('OPENINGS');
   }
 
-  // ── Footers ──
-  for (const f of footers) {
+  // ── Footer panels ──
+  for (const f of footerPanels) {
     d.setActiveLayer('FRAMING');
     d.drawPolyline([[f.x, 0], [f.x + f.width, 0], [f.x + f.width, f.height], [f.x, f.height]], true);
     d.setActiveLayer('LABELS');
-    d.drawText(f.x + f.width / 2 - 40, f.height / 2, 28, 0, `Footer ${f.ref}`);
+    d.drawText(f.x + f.width / 2 - 40, f.height / 2, 28, 0, `Footer Panel ${f.ref}`);
     d.drawText(f.x + f.width / 2 - 20, -40, 30, 0, `${f.width}`);
   }
 
@@ -139,7 +139,7 @@ export function buildExternalElevationDxf(layout, wallName) {
 
     d.setActiveLayer('LABELS');
     const midH = Math.max(hL, hR, l.peakHeight || 0) / 2;
-    d.drawText(l.x + l.width / 2 - 40, l.y + midH / 2, 28, 0, `Lintel ${l.ref}`);
+    d.drawText(l.x + l.width / 2 - 40, l.y + midH / 2, 28, 0, `Lintel Panel ${l.ref}`);
   }
 
   // ── Course join lines ──

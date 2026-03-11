@@ -14,7 +14,7 @@ const EPS_INSET = 10;
  * Build cut piece lists from layout (mirrors EpsCutPlans.jsx logic).
  */
 function buildCutPieces(layout) {
-  const { height, panels, openings, footers, lintelPanels, deductionLeft, deductionRight, grossLength, courses, isMultiCourse, isRaked } = layout;
+  const { height, panels, openings, footerPanels, lintelPanels, deductionLeft, deductionRight, grossLength, courses, isMultiCourse, isRaked } = layout;
 
   const epsTop = TOP_PLATE * 2 + EPS_INSET;
   const epsBottom = height - BOTTOM_PLATE - EPS_INSET;
@@ -28,9 +28,9 @@ function buildCutPieces(layout) {
   for (let i = 0; i < panels.length - 1; i++) {
     const panel = panels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-    if (!insideLintel && !insideFooter) exclusions.push([gapCentre - HALF_SPLINE, gapCentre + HALF_SPLINE]);
+    const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintelPanel && !insideFooterPanel) exclusions.push([gapCentre - HALF_SPLINE, gapCentre + HALF_SPLINE]);
   }
 
   for (const op of openings) {
@@ -110,8 +110,8 @@ function buildCutPieces(layout) {
     }
   });
 
-  // Footer EPS pieces
-  footers.forEach((f) => {
+  // Footer panel EPS pieces
+  footerPanels.forEach((f) => {
     const op = openings.find(o => o.ref === f.ref);
     if (!op) return;
     const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_INSET;
@@ -122,7 +122,7 @@ function buildCutPieces(layout) {
     const rightSplineLeft = op.x + op.drawWidth + BOTTOM_PLATE;
     const fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_INSET : f.x + f.width - EPS_INSET;
     if (fEpsRight <= fEpsLeft) return;
-    pieces.push({ label: `Footer ${f.ref}`, width: Math.round(fEpsRight - fEpsLeft), height: Math.round(fEpsBot - fEpsTop) });
+    pieces.push({ label: `Footer Panel ${f.ref}`, width: Math.round(fEpsRight - fEpsLeft), height: Math.round(fEpsBot - fEpsTop) });
   });
 
   // Spline EPS pieces
@@ -131,9 +131,9 @@ function buildCutPieces(layout) {
   for (let i = 0; i < panels.length - 1; i++) {
     const panel = panels[i];
     const gapCentre = panel.x + panel.width + PANEL_GAP / 2;
-    const insideLintel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
-    const insideFooter = footers.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
-    if (!insideLintel && !insideFooter) {
+    const insideLintelPanel = lintelPanels.some(l => gapCentre > l.x && gapCentre < l.x + l.width);
+    const insideFooterPanel = footerPanels.some(f => gapCentre > f.x && gapCentre < f.x + f.width);
+    if (!insideLintelPanel && !insideFooterPanel) {
       splinePieces.push({ label: `Joint P${panels[i].index + 1}/P${panels[i + 1].index + 1}`, width: SPLINE_WIDTH, height: splineH });
     }
   }

@@ -62,10 +62,14 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
           openings[index].sill_mm = 0;
           openings[index].height_mm = 2150;
           openings[index].width_mm = 900;
-        } else if (value === OPENING_TYPES.GARAGE_DOOR) {
+        } else if (value === OPENING_TYPES.SINGLE_GARAGE) {
           openings[index].sill_mm = 0;
-          openings[index].height_mm = 2400;
-          openings[index].width_mm = 2400;
+          openings[index].height_mm = 2100;
+          openings[index].width_mm = 2440;
+        } else if (value === OPENING_TYPES.DOUBLE_GARAGE) {
+          openings[index].sill_mm = 0;
+          openings[index].height_mm = 2100;
+          openings[index].width_mm = 4880;
         } else if (value === OPENING_TYPES.WINDOW) {
           openings[index].height_mm = 1200;
           openings[index].width_mm = 1200;
@@ -255,7 +259,8 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
               >
                 <option value={OPENING_TYPES.WINDOW}>Window</option>
                 <option value={OPENING_TYPES.DOOR}>Door</option>
-                <option value={OPENING_TYPES.GARAGE_DOOR}>Garage Door</option>
+                <option value={OPENING_TYPES.SINGLE_GARAGE}>Single Garage Door</option>
+                <option value={OPENING_TYPES.DOUBLE_GARAGE}>Double Garage Door</option>
               </select>
             </div>
           </div>

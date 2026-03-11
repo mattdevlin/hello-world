@@ -24,6 +24,7 @@ export const WINDOW_OVERHANG = 121;     // mm each side
 export const DOOR_OVERHANG = 166;       // mm each side
 export const DOOR_TOP_CUTOUT = 171;     // mm
 export const LINTEL_DEPTH = 300;        // mm default
+export const WINDOW_PLATE = 45;         // mm — sill plate and jamb plate thickness
 export const CNC_KERF = 10;            // mm
 
 // Splines
@@ -51,7 +52,8 @@ export const WALL_PROFILES = {
 export const OPENING_TYPES = {
   WINDOW: 'window',
   DOOR: 'door',
-  GARAGE_DOOR: 'garage_door',
+  SINGLE_GARAGE: 'single_garage',
+  DOUBLE_GARAGE: 'double_garage',
 };
 
 // Colours for drawing

@@ -33,9 +33,9 @@ describe('extractMagboardPieces', () => {
     // Each panel → 2 sheets (front + back), single course
     expect(panelSheets.length).toBe(layout.panels.length * 2);
 
-    // No openings → no lintels, no footers
+    // No openings → no lintel panels, no footer panels
     const lintelPieces = cutPieces.filter(p => p.type === 'lintelPanel');
-    const footerPieces = cutPieces.filter(p => p.type === 'footer');
+    const footerPieces = cutPieces.filter(p => p.type === 'footerPanel');
     expect(lintelPieces.length).toBe(0);
     expect(footerPieces.length).toBe(0);
 
@@ -54,7 +54,7 @@ describe('extractMagboardPieces', () => {
     expect(cutPieces.filter(p => p.type === 'spline').length).toBe(0);
   });
 
-  it('wall with window: generates lintels, footers, and opening splines', () => {
+  it('wall with window: generates lintel panels, footer panels, and opening splines', () => {
     const wall = makeWall({
       length_mm: 4800,
       height_mm: 2700,
@@ -70,16 +70,16 @@ describe('extractMagboardPieces', () => {
     const layout = calculateWallLayout(wall);
     const { cutPieces } = extractMagboardPieces(layout, 'W1');
 
-    // 1 lintel × 2 pieces
+    // 1 lintel panel × 2 pieces
     expect(cutPieces.filter(p => p.type === 'lintelPanel').length).toBe(2);
-    // 1 footer × 2 pieces (window has sill > 0)
-    expect(cutPieces.filter(p => p.type === 'footer').length).toBe(2);
+    // 1 footer panel × 2 pieces (window has sill > 0)
+    expect(cutPieces.filter(p => p.type === 'footerPanel').length).toBe(2);
     // Opening splines: window with sill → 2 sides × 2 pieces × 2 (front+back) = 8
     // plus joint splines between panels (varies)
     expect(cutPieces.filter(p => p.type === 'spline').length).toBeGreaterThan(0);
   });
 
-  it('wall with door: generates lintels but no footers', () => {
+  it('wall with door: generates lintel panels but no footer panels', () => {
     const wall = makeWall({
       length_mm: 4800,
       height_mm: 2700,
@@ -96,7 +96,7 @@ describe('extractMagboardPieces', () => {
     const { cutPieces } = extractMagboardPieces(layout, 'W1');
 
     expect(cutPieces.filter(p => p.type === 'lintelPanel').length).toBe(2);
-    expect(cutPieces.filter(p => p.type === 'footer').length).toBe(0);
+    expect(cutPieces.filter(p => p.type === 'footerPanel').length).toBe(0);
   });
 
   it('deductions: generates 2 pieces per side', () => {
@@ -271,13 +271,13 @@ describe('computeProjectMagboardSheets', () => {
     const result = computeProjectMagboardSheets(walls);
 
     const sumLintels = result.perWall.reduce((s, w) => s + w.lintelPanelCount, 0);
-    const sumFooters = result.perWall.reduce((s, w) => s + w.footerCount, 0);
+    const sumFooters = result.perWall.reduce((s, w) => s + w.footerPanelCount, 0);
     const sumSplines = result.perWall.reduce((s, w) => s + w.splineCount, 0);
     const sumDeductions = result.perWall.reduce((s, w) => s + w.deductionCount, 0);
     const sumHsplines = result.perWall.reduce((s, w) => s + w.hsplineCount, 0);
 
     expect(result.totalLintelPanels).toBe(sumLintels);
-    expect(result.totalFooters).toBe(sumFooters);
+    expect(result.totalFooterPanels).toBe(sumFooters);
     expect(result.totalSplines).toBe(sumSplines);
     expect(result.totalDeductions).toBe(sumDeductions);
     expect(result.totalHsplines).toBe(sumHsplines);
@@ -309,7 +309,7 @@ describe('computeProjectMagboardSheets', () => {
     const result = computeProjectMagboardSheets(walls);
 
     expect(result.cutPieceCount).toBe(
-      result.totalLintelPanels + result.totalFooters +
+      result.totalLintelPanels + result.totalFooterPanels +
       result.totalSplines + result.totalDeductions +
       result.totalHsplines
     );
