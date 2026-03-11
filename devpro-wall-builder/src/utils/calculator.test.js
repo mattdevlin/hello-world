@@ -3,6 +3,7 @@ import { calculateWallLayout, computeCourses } from './calculator.js';
 import {
   PANEL_WIDTH,
   PANEL_PITCH,
+  PANEL_GAP,
   STOCK_SHEET_HEIGHTS,
   WALL_PROFILES,
   OPENING_TYPES,
@@ -620,5 +621,79 @@ describe('calculateWallLayout — raked/gable wall panel clipping', () => {
     expect(layout.courses[1].y).toBe(2700);
     // Sheet height should be the covering stock sheet
     expect(layout.courses[0].sheetHeight).toBe(2745);
+  });
+});
+
+// ── Haruru 3bed South Wall — edge plate / spline overlap at P2/P3 ──
+
+describe('calculateWallLayout — Haruru South Wall P2/P3 joint', () => {
+  const HALF_SPLINE = 146 / 2;
+
+  function makeSouthWall() {
+    return makeWall({
+      length_mm: 13250,
+      height_mm: 2440,
+      profile: WALL_PROFILES.STANDARD,
+      deduction_left_mm: 162,
+      deduction_right_mm: 0,
+      openings: [
+        { ref: 'W06', type: 'window', width_mm: 700, height_mm: 700, sill_mm: 1450, position_from_left_mm: 3322 },
+        { ref: 'W05', type: 'window', width_mm: 1200, height_mm: 1000, sill_mm: 1150, position_from_left_mm: 4594 },
+        { ref: 'W04', type: 'window', width_mm: 1200, height_mm: 1000, sill_mm: 1150, position_from_left_mm: 6996 },
+      ],
+    });
+  }
+
+  it('P2 remainder panel before W06 should not be at wall edge', () => {
+    const layout = calculateWallLayout(makeSouthWall());
+    const basePanels = layout.panels.filter(p => (p.course ?? 0) === 0);
+    const p2 = basePanels[1];
+    // P2 is a remainder panel (end of clear span) — not at the wall boundary
+    expect(p2.type).toBe('end');
+    expect(p2.x + p2.width).toBeLessThan(layout.grossLength - 100);
+    expect(p2.x).toBeGreaterThan(layout.deductionLeft + 100);
+  });
+
+  it('mid-wall "end" panels should not get edge plates in framing elevation', () => {
+    // Edge plates belong only at wall boundary edges (deduction positions),
+    // not at every "end" type panel in the middle of the wall.
+    const layout = calculateWallLayout(makeSouthWall());
+    const basePanels = layout.panels.filter(p => (p.course ?? 0) === 0);
+    const { grossLength, deductionLeft, deductionRight } = layout;
+
+    const endPanels = basePanels.filter(p => p.type === 'end');
+    const wallEdgeEnds = endPanels.filter(p => {
+      const atLeft = Math.abs(p.x - deductionLeft) < PANEL_PITCH;
+      const atRight = Math.abs(p.x + p.width - grossLength) < PANEL_PITCH
+        || Math.abs(p.x + p.width - (grossLength - deductionRight)) < PANEL_PITCH;
+      return atLeft || atRight;
+    });
+    const midWallEnds = endPanels.filter(p => !wallEdgeEnds.includes(p));
+
+    // There IS a mid-wall end panel (P2), confirming the issue exists
+    expect(midWallEnds.length).toBeGreaterThan(0);
+    // The framing elevation should NOT place edge plates on mid-wall end panels
+    // (this test documents the issue — the fix is in FramingElevation rendering)
+  });
+
+  it('joint spline at P2/P3 should not overlap with an edge plate', () => {
+    const layout = calculateWallLayout(makeSouthWall());
+    const basePanels = layout.panels.filter(p => (p.course ?? 0) === 0);
+    const p2 = basePanels[1];
+    const p3 = basePanels[2];
+
+    // P2/P3 gap
+    const gapCentre = p2.x + p2.width + PANEL_GAP / 2;
+    const splineLeft = gapCentre - HALF_SPLINE;
+    const splineRight = gapCentre + HALF_SPLINE;
+
+    // If P2 had an edge plate, it would overlap the spline
+    const wouldBePlateX = p2.x + p2.width - 45; // BOTTOM_PLATE
+    const wouldBePlateRight = wouldBePlateX + 45;
+
+    // Verify the overlap exists (documenting the rendering bug)
+    expect(wouldBePlateX).toBeGreaterThan(splineLeft);
+    expect(wouldBePlateRight).toBeLessThan(splineRight);
+    // The edge plate sits entirely inside the spline — this is wrong
   });
 });

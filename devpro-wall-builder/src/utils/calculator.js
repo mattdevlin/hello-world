@@ -185,15 +185,15 @@ export function calculateWallLayout(wall) {
       };
       leftJamb = {
         x: openLeft - WINDOW_PLATE,
-        y: openBottom + WINDOW_PLATE,
+        y: openBottom,
         width: WINDOW_PLATE,
-        height: opening.height_mm - WINDOW_PLATE,
+        height: opening.height_mm,
       };
       rightJamb = {
         x: openRight,
-        y: openBottom + WINDOW_PLATE,
+        y: openBottom,
         width: WINDOW_PLATE,
-        height: opening.height_mm - WINDOW_PLATE,
+        height: opening.height_mm,
       };
     }
 
