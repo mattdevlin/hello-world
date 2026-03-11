@@ -230,6 +230,7 @@ export function calculateWallLayout(wall) {
         x: openLeft - WINDOW_OVERHANG,
         y: 0,
         width: opening.width_mm + 2 * WINDOW_OVERHANG,
+        baseWidth: opening.width_mm + 2 * WINDOW_OVERHANG,
         height: openBottom,
         type: 'footerPanel',
       });
@@ -258,6 +259,7 @@ export function calculateWallLayout(wall) {
       x: lintelLeft,
       y: openTop,
       width: lintelRight - lintelLeft,
+      baseWidth: lintelRight - lintelLeft,
       height: Math.max(lHeightLeft, lHeightRight, lPeakHeight || 0),
       heightLeft: lHeightLeft,
       heightRight: lHeightRight,
@@ -299,7 +301,7 @@ export function calculateWallLayout(wall) {
 
     for (let i = 0; i < count; i++) {
       panels.push({
-        x, width: PANEL_WIDTH, pitch: PANEL_PITCH,
+        x, width: PANEL_WIDTH, baseWidth: PANEL_WIDTH, pitch: PANEL_PITCH,
         height, type: 'full',
         heightLeft: Math.round(heightAt(x)),
         heightRight: Math.round(heightAt(x + PANEL_WIDTH)),
@@ -309,7 +311,7 @@ export function calculateWallLayout(wall) {
 
     if (remainder >= MIN_PANEL) {
       panels.push({
-        x, width: remainder, pitch: remainder,
+        x, width: remainder, baseWidth: remainder, pitch: remainder,
         height, type: 'end',
         heightLeft: Math.round(heightAt(x)),
         heightRight: Math.round(heightAt(x + remainder)),
@@ -319,11 +321,13 @@ export function calculateWallLayout(wall) {
       const combined = PANEL_PITCH + remainder;
       const each = Math.round(combined / 2);
       last.width = each - PANEL_GAP;
+      last.baseWidth = last.width;
       last.pitch = each;
       last.heightRight = Math.round(heightAt(last.x + last.width));
       panels.push({
         x: last.x + each,
         width: combined - each - PANEL_GAP,
+        baseWidth: combined - each - PANEL_GAP,
         pitch: combined - each,
         height, type: 'end',
         heightLeft: Math.round(heightAt(last.x + each)),
@@ -338,7 +342,7 @@ export function calculateWallLayout(wall) {
     const openRight = openLeft + opening.width_mm;
     const rawOpenTop = (opening.sill_mm || 0) + opening.height_mm;
     panels.push({
-      x, width: base, pitch: base + PANEL_GAP,
+      x, width: base, baseWidth: base - ovh, pitch: base + PANEL_GAP,
       height, type: 'lcut',
       openingRefs: [opening.ref], side, openLeft, openRight,
       openBottom: opening.sill_mm || 0,
@@ -358,7 +362,7 @@ export function calculateWallLayout(wall) {
     const lRawOpenTop = (leftOpening.sill_mm || 0) + leftOpening.height_mm;
     const rRawOpenTop = (rightOpening.sill_mm || 0) + rightOpening.height_mm;
     panels.push({
-      x, width: base, pitch: base + PANEL_GAP,
+      x, width: base, baseWidth: base - 2 * ovh, pitch: base + PANEL_GAP,
       height, type: 'lcut',
       openingRefs: [leftOpening.ref, rightOpening.ref],
       side: 'pier',

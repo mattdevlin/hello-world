@@ -306,7 +306,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                         y={s(yBottom) + 14}
                         textAnchor="middle" fontSize="9" fill="#999"
                       >
-                        {panel.width}
+                        {panel.baseWidth}
                       </text>
                     </g>
                   );
@@ -592,7 +592,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                 y={s(yBottom) + 14}
                 textAnchor="middle" fontSize="9" fill="#999"
               >
-                {f.width}
+                {f.baseWidth}
               </text>
             </g>
           ))}

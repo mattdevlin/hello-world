@@ -274,7 +274,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
                   </text>
                   {isCourse0 && (
                     <text x={s(pLeft + panel.width / 2)} y={yBottom + 14} textAnchor="middle" fontSize="9" fill="#999">
-                      {panel.width}
+                      {panel.baseWidth}
                     </text>
                   )}
                 </g>
@@ -322,7 +322,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
                 Footer Panel {f.ref}
               </text>
               <text x={s(f.x + f.width / 2)} y={yBottom + 14} textAnchor="middle" fontSize="9" fill="#999">
-                {f.width}
+                {f.baseWidth}
               </text>
             </g>
           ))}
