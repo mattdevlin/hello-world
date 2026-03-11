@@ -429,14 +429,20 @@ export function calculateWallLayout(wall) {
       const fillEnd0 = zone.end - (rightBase > 0 ? rightBase + PANEL_GAP : 0);
       const fillLen0 = fillEnd0 - fillStart0;
       if (fillLen0 > 0 && fillLen0 < MIN_PANEL) {
-        // Distribute remainder to whichever L-cut exists
+        // Distribute remainder to whichever L-cut exists, clamped to max panel width
         if (leftBase > 0 && rightBase > 0) {
-          leftBase += Math.ceil(fillLen0 / 2);
-          rightBase = zoneLen - leftBase;
+          leftBase = Math.min(maxBase, leftBase + Math.ceil(fillLen0 / 2));
+          rightBase = Math.min(maxBase, zoneLen - leftBase);
+          // If clamping re-created a small gap, give it all to leftBase (still clamped)
+          const residual = zoneLen - leftBase - rightBase;
+          if (residual > 0 && residual < MIN_PANEL) {
+            leftBase = Math.min(maxBase, leftBase + residual);
+            rightBase = zoneLen - leftBase;
+          }
         } else if (leftBase > 0) {
-          leftBase = zoneLen;
+          leftBase = Math.min(maxBase, zoneLen);
         } else {
-          rightBase = zoneLen;
+          rightBase = Math.min(maxBase, zoneLen);
         }
       }
 
@@ -478,10 +484,10 @@ export function calculateWallLayout(wall) {
   let preferredBottom = wall.preferred_sheet_height || null;
   if (!preferredBottom && maxHeight > maxStockSheet) {
     if (profile === WALL_PROFILES.RAKED) {
-      // Use the actual lower wall height as the course split point
-      // (the sheet that covers it is tracked separately in sheetHeight)
+      // Use the actual lower wall height as the course split point,
+      // clamped to max stock sheet so course height is always achievable
       const lowerH = Math.min(height, heightAt ? heightAt(grossLength) : height);
-      preferredBottom = lowerH;
+      preferredBottom = lowerH <= maxStockSheet ? lowerH : null;
     } else if (profile === WALL_PROFILES.GABLE) {
       // Use the actual base wall height as the course split point
       preferredBottom = height;
