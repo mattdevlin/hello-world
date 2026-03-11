@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_PITCH, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
+import ExportDxfButton from './ExportDxfButton.jsx';
 
 const HALF_SPLINE = SPLINE_WIDTH / 2; // 73mm each side of centre
 
@@ -13,7 +14,7 @@ const STROKE_COLOR = '#333';
 const LABEL_COLOR = '#555';
 const PLATE_COLOR = '#888';
 
-export default function FramingElevation({ layout, wallName }) {
+export default function FramingElevation({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
@@ -58,8 +59,9 @@ export default function FramingElevation({ layout, wallName }) {
 
   return (
     <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0' }}>
-        <PrintButton sectionRef={sectionRef} label="Framing" />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0', gap: 4 }}>
+        <PrintButton sectionRef={sectionRef} label="Framing" projectName={projectName} wallName={wallName} />
+        <ExportDxfButton layout={layout} wallName={wallName} projectName={projectName} planType="framing" />
       </div>
       <svg
         width={svgWidth}

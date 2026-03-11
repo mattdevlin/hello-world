@@ -1,11 +1,12 @@
 import { useRef } from 'react';
 import { COLORS, WALL_THICKNESS, PANEL_GAP, WINDOW_OVERHANG } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
+import ExportDxfButton from './ExportDxfButton.jsx';
 
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 
-export default function WallDrawing({ layout, wallName }) {
+export default function WallDrawing({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
   if (!layout) return null;
 
@@ -43,8 +44,9 @@ export default function WallDrawing({ layout, wallName }) {
 
   return (
     <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0' }}>
-        <PrintButton sectionRef={sectionRef} label="Elevation" />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0', gap: 4 }}>
+        <PrintButton sectionRef={sectionRef} label="Elevation" projectName={projectName} wallName={wallName} />
+        <ExportDxfButton layout={layout} wallName={wallName} projectName={projectName} planType="external-elevation" />
       </div>
       <svg
         width={svgWidth}

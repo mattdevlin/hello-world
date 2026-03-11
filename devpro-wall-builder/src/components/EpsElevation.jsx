@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
+import ExportDxfButton from './ExportDxfButton.jsx';
 
 const HALF_SPLINE = SPLINE_WIDTH / 2;
 const EPS_INSET = 10; // mm recess from framing
@@ -15,7 +16,7 @@ const SPLINE_EPS_FILL = '#CCE6FF';
 const SPLINE_EPS_STROKE = '#6AACE6';
 const MAGBOARD = 10; // mm each face
 
-export default function EpsElevation({ layout, wallName }) {
+export default function EpsElevation({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
   const clipId = useRef(`eps-clip-${Math.random().toString(36).slice(2, 8)}`).current;
   if (!layout) return null;
@@ -185,8 +186,9 @@ export default function EpsElevation({ layout, wallName }) {
 
   return (
     <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0' }}>
-        <PrintButton sectionRef={sectionRef} label="EPS" />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0', gap: 4 }}>
+        <PrintButton sectionRef={sectionRef} label="EPS" projectName={projectName} wallName={wallName} />
+        <ExportDxfButton layout={layout} wallName={wallName} projectName={projectName} planType="eps-elevation" />
       </div>
       <svg
         width={svgWidth}
