@@ -66,14 +66,14 @@ export default function FloorForm({ onCalculate, onChange, initialFloor }) {
   const addBearerLine = () => {
     updateFloor(prev => ({
       ...prev,
-      bearerLines: [...prev.bearerLines, { position: 2410 }],
+      bearerLines: [...prev.bearerLines, { position: 2410, orientation: 'vertical' }],
     }));
   };
 
-  const updateBearerLine = (index, value) => {
+  const updateBearerLine = (index, field, value) => {
     updateFloor(prev => {
       const bearerLines = [...prev.bearerLines];
-      bearerLines[index] = { position: value };
+      bearerLines[index] = { ...bearerLines[index], [field]: value };
       return { ...prev, bearerLines };
     });
   };
@@ -262,11 +262,22 @@ export default function FloorForm({ onCalculate, onChange, initialFloor }) {
       {floor.bearerLines.map((bl, i) => (
         <div key={i} style={{ ...styles.row, marginBottom: 8 }}>
           <div style={styles.field}>
-            <label style={styles.label}>Position (mm from reference edge)</label>
+            <label style={styles.label}>Orientation</label>
+            <select
+              value={bl.orientation || 'vertical'}
+              onChange={e => updateBearerLine(i, 'orientation', e.target.value)}
+              style={styles.input}
+            >
+              <option value="vertical">Vertical (along Y)</option>
+              <option value="horizontal">Horizontal (along X)</option>
+            </select>
+          </div>
+          <div style={styles.field}>
+            <label style={styles.label}>Position (mm from {(bl.orientation || 'vertical') === 'vertical' ? 'left edge' : 'bottom edge'})</label>
             <input
               type="number"
               value={bl.position}
-              onChange={e => updateBearerLine(i, parseInt(e.target.value) || 0)}
+              onChange={e => updateBearerLine(i, 'position', parseInt(e.target.value) || 0)}
               style={styles.input}
               min={0}
             />

@@ -154,12 +154,13 @@ export function calculateFloorLayout(floor) {
   // ── Generate bearer line segments ──
   const enrichedBearerLines = bearerLines.map(bl => {
     const pos = bl.position;
+    const orientation = bl.orientation || 'vertical';
     const segments = [];
-    // Find intersection of bearer line with polygon
-    if (panelDirection === 0) {
-      // Bearer lines run along Y at position X
-      const edges = polygonEdges(poly);
-      const intersections = [];
+    const edges = polygonEdges(poly);
+    const intersections = [];
+
+    if (orientation === 'vertical') {
+      // Vertical bearer at X=pos, find Y intersections
       for (const edge of edges) {
         if ((edge.x1 <= pos && edge.x2 >= pos) || (edge.x2 <= pos && edge.x1 >= pos)) {
           if (Math.abs(edge.x2 - edge.x1) < 0.001) continue;
@@ -172,9 +173,7 @@ export function calculateFloorLayout(floor) {
         segments.push({ x1: pos, y1: intersections[i], x2: pos, y2: intersections[i + 1] });
       }
     } else {
-      // Bearer lines run along X at position Y
-      const edges = polygonEdges(poly);
-      const intersections = [];
+      // Horizontal bearer at Y=pos, find X intersections
       for (const edge of edges) {
         if ((edge.y1 <= pos && edge.y2 >= pos) || (edge.y2 <= pos && edge.y1 >= pos)) {
           if (Math.abs(edge.y2 - edge.y1) < 0.001) continue;
@@ -187,7 +186,7 @@ export function calculateFloorLayout(floor) {
         segments.push({ x1: intersections[i], y1: pos, x2: intersections[i + 1], y2: pos });
       }
     }
-    return { position: pos, segments };
+    return { position: pos, orientation, segments };
   });
 
   // ── Generate short-edge joins ──
@@ -346,6 +345,7 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines) {
         intersections.sort((a, b) => a - b);
 
         const atBearer = bearerLines.some(bl =>
+          (bl.orientation || 'vertical') === 'vertical' &&
           Math.abs(bl.position - splineCenterX) < SPLINE_WIDTH
         );
 
@@ -395,6 +395,7 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines) {
         intersections.sort((a, b) => a - b);
 
         const atBearer = bearerLines.some(bl =>
+          (bl.orientation || 'vertical') === 'horizontal' &&
           Math.abs(bl.position - splineCenterY) < SPLINE_WIDTH
         );
 

@@ -107,14 +107,46 @@ describe('calculateFloorLayout', () => {
     expect(result.panels.length).toBeGreaterThan(0);
   });
 
-  it('handles bearer lines', () => {
+  it('handles vertical bearer lines', () => {
     const withBearers = {
       ...simpleRect,
-      bearerLines: [{ position: 2410 }, { position: 3615 }],
+      bearerLines: [
+        { position: 2410, orientation: 'vertical' },
+        { position: 3615, orientation: 'vertical' },
+      ],
     };
     const result = calculateFloorLayout(withBearers);
     expect(result.bearerLines).toHaveLength(2);
     expect(result.bearerLines[0].segments.length).toBeGreaterThan(0);
+    // Vertical: x1=x2=position
+    expect(result.bearerLines[0].segments[0].x1).toBe(2410);
+    expect(result.bearerLines[0].segments[0].x2).toBe(2410);
+  });
+
+  it('handles horizontal bearer lines', () => {
+    const withBearers = {
+      ...simpleRect,
+      bearerLines: [{ position: 2000, orientation: 'horizontal' }],
+    };
+    const result = calculateFloorLayout(withBearers);
+    expect(result.bearerLines).toHaveLength(1);
+    expect(result.bearerLines[0].segments.length).toBeGreaterThan(0);
+    // Horizontal: y1=y2=position
+    const seg = result.bearerLines[0].segments[0];
+    expect(seg.y1).toBe(2000);
+    expect(seg.y2).toBe(2000);
+    expect(seg.x1).toBeCloseTo(0, 0);
+    expect(seg.x2).toBeCloseTo(6000, 0);
+  });
+
+  it('defaults bearer orientation to vertical for legacy data', () => {
+    const withBearers = {
+      ...simpleRect,
+      bearerLines: [{ position: 2410 }],
+    };
+    const result = calculateFloorLayout(withBearers);
+    expect(result.bearerLines[0].orientation).toBe('vertical');
+    expect(result.bearerLines[0].segments[0].x1).toBe(2410);
   });
 
   it('splits panels at MAX_SHEET_HEIGHT intervals', () => {
