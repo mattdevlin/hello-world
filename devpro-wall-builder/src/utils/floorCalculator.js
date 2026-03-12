@@ -15,6 +15,7 @@ import {
   FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, FLOOR_PLATE_DEPTH,
   FLOOR_THICKNESS, DEFAULT_PERIMETER_PLATE_WIDTH, MAX_SHEET_HEIGHT,
   MIN_FLOOR_PANEL_WIDTH, FLOOR_PENETRATION_CLEARANCE, EPS_GAP,
+  FLOOR_EPS_RECESS,
 } from './constants.js';
 
 import {
@@ -711,10 +712,6 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines, colum
   }
 
   // ── Unreinforced splines at short-edge joins (between reinforced splines) ──
-  const reinforcedCenters = [...new Set(
-    reinforcedSplines.map(s => s.x + s.width / 2)
-  )].sort((a, b) => a - b);
-
   if (panelDirection === 0) {
     // Use columnPositions directly for column X positions and widths
     const columnXs = columnPositions.map(c => c.start);
@@ -743,16 +740,8 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines, colum
         );
         if (!hasPanel) continue;
 
-        let leftEdge = colX;
-        // Find closest reinforced spline to the left (last one less than colX)
-        for (let si = reinforcedCenters.length - 1; si >= 0; si--) {
-          if (reinforcedCenters[si] < colX) { leftEdge = reinforcedCenters[si] + SPLINE_WIDTH / 2 + HSPLINE_CLEARANCE; break; }
-        }
-
-        let rightEdge = colX + colW;
-        // Find closest reinforced spline to the right (first one greater than colX + colW)
-        const rightSpline = reinforcedCenters.find(sx => sx > colX);
-        if (rightSpline != null) rightEdge = rightSpline - SPLINE_WIDTH / 2 - HSPLINE_CLEARANCE;
+        const leftEdge  = ci > 0                  ? colX + FLOOR_EPS_RECESS        : colX;
+        const rightEdge = ci < columnXs.length - 1 ? colX + colW - FLOOR_EPS_RECESS : colX + colW;
 
         for (let k = 0; k < polyIntersections.length - 1; k += 2) {
           const polyL = polyIntersections[k] + joistRecess;
@@ -773,10 +762,6 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines, colum
     // dir=90: Use columnPositions for row Y positions
     const rowYs = columnPositions.map(c => c.start);
     const rowHeightMap = new Map(columnPositions.map(c => [c.start, c.width]));
-
-    const reinforcedYCenters = [...new Set(
-      reinforcedSplines.map(s => s.y + s.length / 2)
-    )].sort((a, b) => a - b);
 
     // Join X positions — interior span breaks
     const joinXs = spanBreaks.slice(1, -1);
@@ -801,14 +786,8 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines, colum
         );
         if (!hasPanel) continue;
 
-        let topEdge = rowY;
-        for (let si = reinforcedYCenters.length - 1; si >= 0; si--) {
-          if (reinforcedYCenters[si] < rowY) { topEdge = reinforcedYCenters[si] + SPLINE_WIDTH / 2 + HSPLINE_CLEARANCE; break; }
-        }
-
-        let bottomEdge = rowY + rowH;
-        const bottomSpline = reinforcedYCenters.find(sy => sy > rowY);
-        if (bottomSpline != null) bottomEdge = bottomSpline - SPLINE_WIDTH / 2 - HSPLINE_CLEARANCE;
+        const topEdge    = ri > 0                ? rowY + FLOOR_EPS_RECESS        : rowY;
+        const bottomEdge = ri < rowYs.length - 1 ? rowY + rowH - FLOOR_EPS_RECESS : rowY + rowH;
 
         for (let k = 0; k < polyIntersections.length - 1; k += 2) {
           const polyT = polyIntersections[k] + joistRecess;
