@@ -15,8 +15,8 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
   const zoom = ZOOM_STEPS[zoomIdx];
   if (!layout || !layout.panels || layout.panels.length === 0) return null;
 
-  const { polygon, panels,
-    openings, recesses, shortEdgeJoins = [], boundingBox: bb,
+  const { polygon, panels, reinforcedSplines = [], unreinforcedSplines = [],
+    openings, recesses, boundingBox: bb,
     boundaryJoistCount = 1, joistRecess = 0 } = layout;
 
   const drawW = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
@@ -107,14 +107,6 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
         {/* Polygon outline */}
         <polygon points={polyPoints} fill="none" stroke="#333" strokeWidth={2} />
 
-        {/* Boundary joist zone — shaded area between polygon and inset polygon */}
-        <defs>
-          <clipPath id="floor-joist-zone-clip">
-            <polygon points={polyPoints} />
-          </clipPath>
-        </defs>
-        <polygon points={insetPolyPoints} fill="none" stroke="#8B4513" strokeWidth={0.75} strokeDasharray="4,2" clipPath="url(#floor-joist-zone-clip)" />
-
         {/* Panel EPS blocks — per-edge deductions, clipped to polygon */}
         {panels.map((p, i) => {
           const ded = computeFloorEpsDeductions(p, layout);
@@ -144,15 +136,31 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
           );
         })}
 
-        {/* Short-edge joins */}
-        {shortEdgeJoins.map((join, i) =>
-          join.segments.map((seg, j) => (
-            <line key={`sej${i}-${j}`}
-              x1={tx(seg.x1)} y1={ty(seg.y1)} x2={tx(seg.x2)} y2={ty(seg.y2)}
-              stroke="#999" strokeWidth={1} strokeDasharray="6,3"
+        {/* Reinforced spline EPS */}
+        {reinforcedSplines.map((s, i) => {
+          const inset = EPS_GAP * scale;
+          return (
+            <rect key={`rse${i}`}
+              x={tx(s.x) + inset} y={ty(s.y + s.length) + inset}
+              width={Math.max(0, s.width * scale - inset * 2)} height={Math.max(0, s.length * scale - inset * 2)}
+              fill="#90EE90" fillOpacity={0.4} stroke="#27ae60" strokeWidth={0.5}
+              clipPath="url(#floor-eps-clip)"
             />
-          ))
-        )}
+          );
+        })}
+
+        {/* Unreinforced spline EPS */}
+        {unreinforcedSplines.map((s, i) => {
+          const inset = EPS_GAP * scale;
+          return (
+            <rect key={`use${i}`}
+              x={tx(s.x) + inset} y={ty(s.y + s.length) + inset}
+              width={Math.max(0, s.width * scale - inset * 2)} height={Math.max(0, s.length * scale - inset * 2)}
+              fill="#90EE90" fillOpacity={0.2} stroke="#27ae60" strokeWidth={0.5}
+              clipPath="url(#floor-eps-clip)"
+            />
+          );
+        })}
 
         {/* Opening voids */}
         {openings.map((op, i) => {
@@ -170,9 +178,41 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
         {recesses.map((rec, i) => (
           <rect key={`rv${i}`}
             x={tx(rec.x)} y={ty(rec.y + rec.length)} width={rec.width * scale} height={rec.length * scale}
-            fill="#FFE0B2" fillOpacity={0.5} stroke="#E65100" strokeWidth={1} strokeDasharray="4,2" />
+            fill="#FFE0B2" fillOpacity={0.5} stroke="#E65100" strokeWidth={1} />
         ))}
       </svg>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 10, fontSize: 11, color: '#555' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <svg width={16} height={12}><rect x={1} y={1} width={14} height={10} fill="#B3D9FF" fillOpacity={0.4} stroke="#4A90D9" strokeWidth={1} /></svg>
+          <span>Panel EPS ({FLOOR_EPS_DEPTH}mm)</span>
+        </div>
+        {reinforcedSplines.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width={16} height={12}><rect x={1} y={1} width={14} height={10} fill="#90EE90" fillOpacity={0.4} stroke="#27ae60" strokeWidth={1} /></svg>
+            <span>Reinforced spline EPS ({FLOOR_SPLINE_DEPTH}mm)</span>
+          </div>
+        )}
+        {unreinforcedSplines.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width={16} height={12}><rect x={1} y={1} width={14} height={10} fill="#90EE90" fillOpacity={0.2} stroke="#27ae60" strokeWidth={1} /></svg>
+            <span>Unreinforced spline EPS ({FLOOR_SPLINE_DEPTH}mm)</span>
+          </div>
+        )}
+        {openings.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width={16} height={12}><rect x={1} y={1} width={14} height={10} fill="#fff" stroke="#e74c3c" strokeWidth={1} /></svg>
+            <span>Opening</span>
+          </div>
+        )}
+        {recesses.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width={16} height={12}><rect x={1} y={1} width={14} height={10} fill="#FFE0B2" fillOpacity={0.5} stroke="#E65100" strokeWidth={1} /></svg>
+            <span>Recess</span>
+          </div>
+        )}
       </div>
     </div>
   );
