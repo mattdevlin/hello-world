@@ -5,6 +5,7 @@ import {
   copyWallToProject, getProjectConnections, saveProjectConnections,
   getProjectPlacements, saveProjectPlacements,
   getProjectWallPositions, saveProjectWallPositions,
+  getProjectFloors, deleteFloor,
 } from '../utils/storage.js';
 import EpsBlockSummary from '../components/EpsBlockSummary.jsx';
 import MagboardSheetSummary from '../components/MagboardSheetSummary.jsx';
@@ -25,6 +26,7 @@ export default function ProjectPage() {
   const [connections, setConnections] = useState([]);
   const [placedWallIds, setPlacedWallIds] = useState([]);
   const [wallPositions, setWallPositions] = useState({});
+  const [floors, setFloors] = useState([]);
 
   useEffect(() => {
     const projects = getProjects();
@@ -35,6 +37,7 @@ export default function ProjectPage() {
     }
     setProject(p);
     setWalls(getProjectWalls(projectId));
+    setFloors(getProjectFloors(projectId));
     setConnections(getProjectConnections(projectId));
     setPlacedWallIds(getProjectPlacements(projectId));
     setWallPositions(getProjectWallPositions(projectId));
@@ -42,6 +45,7 @@ export default function ProjectPage() {
 
   const refresh = () => {
     setWalls(getProjectWalls(projectId));
+    setFloors(getProjectFloors(projectId));
     setConnections(getProjectConnections(projectId));
     setPlacedWallIds(getProjectPlacements(projectId));
     setWallPositions(getProjectWallPositions(projectId));
@@ -67,6 +71,12 @@ export default function ProjectPage() {
   const handleDeleteWall = (wallId, e) => {
     e.stopPropagation();
     deleteWall(projectId, wallId);
+    refresh();
+  };
+
+  const handleDeleteFloor = (floorId, e) => {
+    e.stopPropagation();
+    deleteFloor(projectId, floorId);
     refresh();
   };
 
@@ -120,15 +130,22 @@ export default function ProjectPage() {
             )}
             <p style={styles.subtitle}>
               {walls.length} wall{walls.length !== 1 ? 's' : ''}
+              {floors.length > 0 && ` · ${floors.length} floor${floors.length !== 1 ? 's' : ''}`}
             </p>
           </div>
           <div style={styles.headerButtons}>
-            <ExportProjectButton projectName={project.name} walls={walls} />
+            <ExportProjectButton projectName={project.name} walls={walls} floors={floors} />
             <button
               onClick={() => navigate(`/project/${projectId}/wall/new`)}
               style={styles.newWallBtn}
             >
               + New Wall
+            </button>
+            <button
+              onClick={() => navigate(`/project/${projectId}/floor/new`)}
+              style={styles.newFloorBtn}
+            >
+              + New Floor
             </button>
           </div>
         </div>
@@ -156,9 +173,9 @@ export default function ProjectPage() {
         )}
 
         {/* Material Summaries */}
-        {walls.length > 0 && <MagboardSheetSummary walls={walls} />}
-        {walls.length > 0 && <EpsBlockSummary walls={walls} projectName={project.name} />}
-        {walls.length > 0 && <GlueSummary walls={walls} />}
+        {(walls.length > 0 || floors.length > 0) && <MagboardSheetSummary walls={walls} floors={floors} />}
+        {(walls.length > 0 || floors.length > 0) && <EpsBlockSummary walls={walls} floors={floors} projectName={project.name} />}
+        {(walls.length > 0 || floors.length > 0) && <GlueSummary walls={walls} floors={floors} />}
 
         {/* Wall list */}
         {walls.length === 0 ? (
@@ -226,6 +243,44 @@ export default function ProjectPage() {
             ))}
           </div>
         )}
+
+        {/* Floor list */}
+        {floors.length > 0 && (
+          <>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: '#333', margin: '24px 0 8px' }}>Floors</h3>
+            <div style={styles.wallList}>
+              {floors.map(f => (
+                <div
+                  key={f.id}
+                  style={styles.wallCard}
+                  onClick={() => navigate(`/project/${projectId}/floor/${f.id}`)}
+                >
+                  <div style={styles.wallBody}>
+                    <div style={styles.wallName}>{f.name}</div>
+                    <div style={styles.wallMeta}>
+                      <span>{f.polygon?.length || 0} points</span>
+                      {f.openings?.length > 0 && (
+                        <span> &middot; {f.openings.length} opening{f.openings.length > 1 ? 's' : ''}</span>
+                      )}
+                      {f.recesses?.length > 0 && (
+                        <span> &middot; {f.recesses.length} recess{f.recesses.length > 1 ? 'es' : ''}</span>
+                      )}
+                      <span style={{ ...styles.wallProfile, background: '#E8D5B7' }}>Floor</span>
+                    </div>
+                  </div>
+                  <div style={styles.wallRight}>
+                    <span style={styles.wallDate}>{new Date(f.updatedAt).toLocaleDateString()}</span>
+                    <div style={styles.wallActions}>
+                      <button onClick={(e) => handleDeleteFloor(f.id, e)} style={styles.deleteBtn}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -292,6 +347,18 @@ const styles = {
   newWallBtn: {
     padding: '10px 20px',
     background: '#2C5F8A',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+  newFloorBtn: {
+    padding: '10px 20px',
+    background: '#5D4037',
     color: '#fff',
     border: 'none',
     borderRadius: 6,

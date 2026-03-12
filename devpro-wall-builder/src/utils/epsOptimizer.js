@@ -9,8 +9,10 @@
  * Uses shelf-based bin packing with rotation to minimize slab count → block count.
  */
 
-import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP } from './constants.js';
+import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH,
+  FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK, SPLINE_WIDTH as CONST_SPLINE_WIDTH } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
+import { calculateFloorLayout } from './floorCalculator.js';
 
 // ── Block dimensions ──
 export const EPS_BLOCK = {
@@ -360,5 +362,123 @@ export function computeProjectEpsBlocks(walls) {
     totalVolumeM3: (totalVolume / 1e9).toFixed(3),
     perWall,
     block: EPS_BLOCK,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Floor EPS piece extraction
+// ─────────────────────────────────────────────────────────────
+
+const FLOOR_MAGBOARD = 10;
+
+/**
+ * Extract EPS pieces from a single floor layout.
+ */
+export function extractFloorEpsPieces(layout, floorName = '') {
+  const pieces = [];
+  const { panels, reinforcedSplines = [], unreinforcedSplines = [] } = layout;
+
+  // Panel EPS pieces (172mm depth)
+  for (const panel of panels) {
+    if (panel.width > 0 && panel.length > 0) {
+      pieces.push({
+        width: Math.round(panel.width),
+        height: Math.round(panel.length),
+        depth: FLOOR_EPS_DEPTH,
+        label: `P${panel.index + 1}`,
+        floorName,
+      });
+    }
+  }
+
+  // Spline EPS pieces (170mm depth)
+  const splineEpsW = CONST_SPLINE_WIDTH - FLOOR_MAGBOARD * 2;
+  for (const s of [...reinforcedSplines, ...unreinforcedSplines]) {
+    if (s.length > 0) {
+      pieces.push({
+        width: splineEpsW,
+        height: Math.round(s.length),
+        depth: FLOOR_SPLINE_DEPTH,
+        label: 'Spline',
+        floorName,
+      });
+    }
+  }
+
+  return pieces;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Combined project EPS with floors
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Compute EPS block requirements for walls + floors.
+ */
+export function computeProjectEpsBlocksWithFloors(walls, floors) {
+  // Start with wall computation
+  const wallResult = computeProjectEpsBlocks(walls);
+
+  if (!floors || floors.length === 0) return wallResult;
+
+  // Collect floor pieces
+  const floorPanelPieces = [];
+  const floorSplinePieces = [];
+  const perFloor = [];
+
+  for (const floor of floors) {
+    const layout = calculateFloorLayout(floor);
+    if (layout.error) continue;
+    const pieces = extractFloorEpsPieces(layout, floor.name);
+    const panelP = pieces.filter(p => p.depth === FLOOR_EPS_DEPTH);
+    const splineP = pieces.filter(p => p.depth === FLOOR_SPLINE_DEPTH);
+    floorPanelPieces.push(...panelP);
+    floorSplinePieces.push(...splineP);
+    perFloor.push({
+      floorName: floor.name,
+      floorId: floor.id,
+      panelCount: panelP.length,
+      splineCount: splineP.length,
+      panelArea: panelP.reduce((s, p) => s + p.width * p.height, 0),
+      splineArea: splineP.reduce((s, p) => s + p.width * p.height, 0),
+    });
+  }
+
+  // Pack floor pieces separately (different thickness groups)
+  const slabW = EPS_BLOCK.length;
+  const slabH = EPS_BLOCK.width;
+
+  const floorPanelSlabs = shelfPack(floorPanelPieces, slabW, slabH);
+  const floorSplineSlabs = shelfPack(floorSplinePieces, slabW, slabH);
+
+  const floorPanelBlocks = Math.ceil(floorPanelSlabs.length / FLOOR_PANEL_SLABS_PER_BLOCK);
+  const floorSplineBlocks = Math.ceil(floorSplineSlabs.length / FLOOR_SPLINE_SLABS_PER_BLOCK);
+
+  const slabArea = slabW * slabH;
+  const fPanelUsedArea = floorPanelPieces.reduce((s, p) => s + p.width * p.height, 0);
+  const fSplineUsedArea = floorSplinePieces.reduce((s, p) => s + p.width * p.height, 0);
+  const fPanelTotalArea = floorPanelSlabs.length * slabArea;
+  const fSplineTotalArea = floorSplineSlabs.length * slabArea;
+
+  const floorPanelVolume = fPanelUsedArea * FLOOR_EPS_DEPTH;
+  const floorSplineVolume = fSplineUsedArea * FLOOR_SPLINE_DEPTH;
+
+  return {
+    ...wallResult,
+    // Floor additions
+    floorPanelPieces,
+    floorSplinePieces,
+    floorPanelSlabCount: floorPanelSlabs.length,
+    floorSplineSlabCount: floorSplineSlabs.length,
+    floorPanelBlocks,
+    floorSplineBlocks,
+    floorPanelUtilization: fPanelTotalArea > 0 ? fPanelUsedArea / fPanelTotalArea : 0,
+    floorSplineUtilization: fSplineTotalArea > 0 ? fSplineUsedArea / fSplineTotalArea : 0,
+    // Combined totals
+    totalBlocks: wallResult.panelBlocks + wallResult.splineBlocks + floorPanelBlocks + floorSplineBlocks,
+    totalPieces: wallResult.totalPieces + floorPanelPieces.length + floorSplinePieces.length,
+    totalVolumeM3: ((parseFloat(wallResult.totalVolumeM3) * 1e9 + floorPanelVolume + floorSplineVolume) / 1e9).toFixed(3),
+    perFloor,
+    hasFloors: true,
   };
 }

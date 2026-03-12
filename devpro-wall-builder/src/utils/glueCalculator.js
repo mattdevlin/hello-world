@@ -9,8 +9,9 @@
  * to the magboard skins.
  */
 
-import { PANEL_GAP, BOTTOM_PLATE, TOP_PLATE } from './constants.js';
+import { PANEL_GAP, BOTTOM_PLATE, TOP_PLATE, SPLINE_WIDTH as CONST_SPLINE_WIDTH } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
+import { calculateFloorLayout } from './floorCalculator.js';
 
 const SPLINE_WIDTH = 146;
 const EPS_INSET = 10;
@@ -210,5 +211,84 @@ export function computeProjectGlue(walls) {
     specificGravity: GLUE_SPECIFIC_GRAVITY,
 
     perWall,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Floor glue calculation
+// ─────────────────────────────────────────────────────────────
+
+const FLOOR_MAGBOARD = 10;
+
+/**
+ * Compute glue bond area for a single floor layout.
+ */
+export function computeFloorGlueArea(layout) {
+  const { panels = [], reinforcedSplines = [], unreinforcedSplines = [] } = layout || {};
+
+  let panelAreaMm2 = 0;
+  for (const panel of panels) {
+    panelAreaMm2 += panel.width * panel.length;
+  }
+
+  const splineEpsW = CONST_SPLINE_WIDTH - FLOOR_MAGBOARD * 2;
+  let splineAreaMm2 = 0;
+  for (const s of [...reinforcedSplines, ...unreinforcedSplines]) {
+    splineAreaMm2 += splineEpsW * s.length;
+  }
+
+  // Both faces of every EPS piece
+  return {
+    panelAreaMm2: panelAreaMm2 * 2,
+    splineAreaMm2: splineAreaMm2 * 2,
+    footerPanelAreaMm2: 0,
+    totalAreaMm2: (panelAreaMm2 + splineAreaMm2) * 2,
+  };
+}
+
+/**
+ * Compute glue requirements for walls + floors.
+ */
+export function computeProjectGlueWithFloors(walls, floors) {
+  const wallResult = computeProjectGlue(walls);
+
+  if (!floors || floors.length === 0) return wallResult;
+
+  let floorTotalAreaMm2 = 0;
+  const perFloor = [];
+
+  for (const floor of floors) {
+    const layout = calculateFloorLayout(floor);
+    if (layout.error) continue;
+    const area = computeFloorGlueArea(layout);
+    floorTotalAreaMm2 += area.totalAreaMm2;
+
+    const floorM2 = area.totalAreaMm2 / 1e6;
+    perFloor.push({
+      floorName: floor.name,
+      floorId: floor.id,
+      areaM2: floorM2,
+      glueKg: floorM2 * GLUE_RATE_KG_M2,
+      glueLitres: (floorM2 * GLUE_RATE_KG_M2) / GLUE_SPECIFIC_GRAVITY,
+    });
+  }
+
+  const combinedAreaMm2 = wallResult.totalAreaM2 * 1e6 + floorTotalAreaMm2;
+  const combinedM2 = combinedAreaMm2 / 1e6;
+  const combinedKg = combinedM2 * GLUE_RATE_KG_M2;
+  const combinedLitres = combinedKg / GLUE_SPECIFIC_GRAVITY;
+  const drumsNeeded = combinedLitres > 0 ? Math.ceil(combinedLitres / DRUM_LITRES) : 0;
+  const drumCapacityUsed = drumsNeeded > 0 ? combinedLitres / (drumsNeeded * DRUM_LITRES) : 0;
+
+  return {
+    ...wallResult,
+    // Override totals with combined
+    totalAreaM2: combinedM2,
+    totalKg: combinedKg,
+    totalLitres: combinedLitres,
+    drumsNeeded,
+    drumCapacityUsed,
+    perFloor,
+    hasFloors: true,
   };
 }
