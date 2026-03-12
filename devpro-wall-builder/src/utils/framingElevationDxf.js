@@ -4,14 +4,13 @@
  * Ports the geometry logic from FramingElevation.jsx into DXF entities.
  * All coordinates in mm, Y=0 at floor line, positive up.
  */
-import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, WINDOW_OVERHANG, buildHSplineSegments } from './constants.js';
+import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, WINDOW_OVERHANG, EPS_GAP, buildHSplineSegments } from './constants.js';
 import {
   createDrawing, drawWallOutline, drawDimensions,
   drawRunningMeasurement, drawTitle, downloadDxf,
 } from './dxfExporter.js';
 
 const HALF_SPLINE = SPLINE_WIDTH / 2;
-const EPS_INSET = 10;
 
 /**
  * Build the DXF drawing for a framing elevation plan.
@@ -336,8 +335,8 @@ export function buildFramingElevationDxf(layout, wallName) {
     const op = openings.find(o => o.ref === l.ref);
     if (op) {
       const lintelH = l.lintelHeight || 200;
-      const lintelLeft = op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET;
-      const lintelRight = op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET;
+      const lintelLeft = op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_GAP;
+      const lintelRight = op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_GAP;
       const lintelBot = l.y;
       const lintelTop = l.y + lintelH;
       d.drawPolyline([

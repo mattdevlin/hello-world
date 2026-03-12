@@ -9,12 +9,11 @@
  * to the magboard skins.
  */
 
-import { PANEL_GAP, BOTTOM_PLATE, TOP_PLATE, SPLINE_WIDTH as CONST_SPLINE_WIDTH } from './constants.js';
+import { PANEL_GAP, BOTTOM_PLATE, TOP_PLATE, SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
 
 const SPLINE_WIDTH = 146;
-const EPS_INSET = 10;
 const PANEL_EPS_DEPTH = 142;
 const SPLINE_EPS_DEPTH = 120;
 
@@ -94,19 +93,19 @@ export function computeWallGlueArea(layout) {
       }
     }
     const segs = [];
-    let cursor = panelLeft + EPS_INSET;
+    let cursor = panelLeft + EPS_GAP;
     for (const [eL, eR] of merged) {
-      const segRight = eL - EPS_INSET;
+      const segRight = eL - EPS_GAP;
       if (cursor < segRight) segs.push([cursor, segRight]);
-      cursor = eR + EPS_INSET;
+      cursor = eR + EPS_GAP;
     }
-    const segRight = panelRight - EPS_INSET;
+    const segRight = panelRight - EPS_GAP;
     if (cursor < segRight) segs.push([cursor, segRight]);
     return segs;
   };
 
-  const epsTop = TOP_PLATE * 2 + EPS_INSET;
-  const epsBottom = height - BOTTOM_PLATE - EPS_INSET;
+  const epsTop = TOP_PLATE * 2 + EPS_GAP;
+  const epsBottom = height - BOTTOM_PLATE - EPS_GAP;
   const stdEpsH = epsBottom - epsTop;
 
   // ── Panel EPS surface area ──
@@ -114,7 +113,7 @@ export function computeWallGlueArea(layout) {
   for (const panel of panels) {
     const segments = getEpsSegments(panel.x, panel.x + panel.width);
     const panelEpsH = isRaked
-      ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_INSET * 2)
+      ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_GAP * 2)
       : stdEpsH;
     for (const seg of segments) {
       const w = Math.round(seg[1] - seg[0]);
@@ -131,13 +130,13 @@ export function computeWallGlueArea(layout) {
   for (const f of footerPanels) {
     const op = openings.find(o => o.ref === f.ref);
     if (!op || op.x == null || f.x == null) continue;
-    const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_INSET;
-    const fEpsBot = height - BOTTOM_PLATE - EPS_INSET;
+    const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_GAP;
+    const fEpsBot = height - BOTTOM_PLATE - EPS_GAP;
     if (fEpsBot <= fEpsTop) continue;
     const leftSplineRight = op.x - BOTTOM_PLATE;
-    const fEpsLeft = f.x < leftSplineRight ? leftSplineRight + EPS_INSET : f.x + EPS_INSET;
+    const fEpsLeft = f.x < leftSplineRight ? leftSplineRight + EPS_GAP : f.x + EPS_GAP;
     const rightSplineLeft = op.x + op.drawWidth + BOTTOM_PLATE;
-    const fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_INSET : f.x + f.width - EPS_INSET;
+    const fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_GAP : f.x + f.width - EPS_GAP;
     if (fEpsRight <= fEpsLeft) continue;
     const fW = Math.round(fEpsRight - fEpsLeft);
     const fH = Math.round(fEpsBot - fEpsTop);

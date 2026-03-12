@@ -14,7 +14,7 @@ import {
   PANEL_PITCH, PANEL_WIDTH, PANEL_GAP, SPLINE_WIDTH,
   FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, FLOOR_PLATE_DEPTH,
   FLOOR_THICKNESS, DEFAULT_PERIMETER_PLATE_WIDTH, MAX_SHEET_HEIGHT,
-  MIN_FLOOR_PANEL_WIDTH, FLOOR_PENETRATION_CLEARANCE,
+  MIN_FLOOR_PANEL_WIDTH, FLOOR_PENETRATION_CLEARANCE, EPS_GAP,
 } from './constants.js';
 
 import {
@@ -22,7 +22,6 @@ import {
   clipRectToPolygon, rectOverlapsOpening, circleToPolygon,
 } from './polygonUtils.js';
 
-const EPS_INSET = 10; // mm inset from framing for EPS
 
 /**
  * Calculate complete floor layout from a floor definition.

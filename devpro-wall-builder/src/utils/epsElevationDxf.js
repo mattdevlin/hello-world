@@ -4,15 +4,13 @@
  * Ports the geometry logic from EpsElevation.jsx into DXF entities.
  * All coordinates in mm, Y=0 at floor line, positive up.
  */
-import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from './constants.js';
+import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, EPS_GAP, MAGBOARD, buildHSplineSegments } from './constants.js';
 import {
   createDrawing, drawWallOutline, drawOpenings, drawOpeningLabels,
   drawDimensions, drawRunningMeasurement, drawTitle, downloadDxf,
 } from './dxfExporter.js';
 
 const HALF_SPLINE = SPLINE_WIDTH / 2;
-const EPS_INSET = 10;
-const MAGBOARD = 10;
 
 /**
  * Build the DXF drawing for an EPS elevation plan.
@@ -37,7 +35,7 @@ export function buildEpsElevationDxf(layout, wallName) {
   // Title
   const titleHeight = hAt(0);
   drawTitle(d, `${wallName || 'Wall'} — EPS Elevation`,
-    `${grossLength}mm x ${height}mm${isRaked ? ` (max ${useHeight}mm)` : ''} | EPS inset ${EPS_INSET}mm`,
+    `${grossLength}mm x ${height}mm${isRaked ? ` (max ${useHeight}mm)` : ''} | EPS inset ${EPS_GAP}mm`,
     grossLength);
 
   // Wall outline
@@ -105,13 +103,13 @@ export function buildEpsElevationDxf(layout, wallName) {
       }
     }
     const segs = [];
-    let cursor = panelLeft + EPS_INSET;
+    let cursor = panelLeft + EPS_GAP;
     for (const [eL, eR] of merged) {
-      const segRight = eL - EPS_INSET;
+      const segRight = eL - EPS_GAP;
       if (cursor < segRight) segs.push([cursor, segRight]);
-      cursor = eR + EPS_INSET;
+      cursor = eR + EPS_GAP;
     }
-    const segRight = panelRight - EPS_INSET;
+    const segRight = panelRight - EPS_GAP;
     if (cursor < segRight) segs.push([cursor, segRight]);
     return segs;
   };
@@ -146,16 +144,16 @@ export function buildEpsElevationDxf(layout, wallName) {
         courses.forEach((course, ci) => {
           const isBottomCourse = ci === 0;
           const isTopCourse = ci === courses.length - 1;
-          const plateBelow = isBottomCourse ? BOTTOM_PLATE : (HALF_SPLINE - EPS_INSET);
-          const plateAbove = isTopCourse ? TOP_PLATE * 2 : (HALF_SPLINE - EPS_INSET);
-          const cEpsBot = course.y + plateBelow + EPS_INSET; // DXF Y from floor
+          const plateBelow = isBottomCourse ? BOTTOM_PLATE : (HALF_SPLINE - EPS_GAP);
+          const plateAbove = isTopCourse ? TOP_PLATE * 2 : (HALF_SPLINE - EPS_GAP);
+          const cEpsBot = course.y + plateBelow + EPS_GAP; // DXF Y from floor
 
           if (isRaked) {
             const courseTopDxf = isTopCourse
               ? Infinity
-              : course.y + course.height - plateAbove - EPS_INSET;
+              : course.y + course.height - plateAbove - EPS_GAP;
             const epsTopAtX = (x) => {
-              const wallTop = hAt(x) - TOP_PLATE * 2 - EPS_INSET;
+              const wallTop = hAt(x) - TOP_PLATE * 2 - EPS_GAP;
               return isTopCourse ? wallTop : Math.min(courseTopDxf, wallTop);
             };
             const epsTopL = epsTopAtX(segL);
@@ -174,8 +172,8 @@ export function buildEpsElevationDxf(layout, wallName) {
             if (pts.length >= 3) d.drawPolyline(pts, true);
           } else {
             const cEpsTop = isTopCourse
-              ? hAt(leftX) - TOP_PLATE * 2 - EPS_INSET
-              : Math.min(course.y + course.height - plateAbove - EPS_INSET, hAt(leftX) - TOP_PLATE * 2 - EPS_INSET);
+              ? hAt(leftX) - TOP_PLATE * 2 - EPS_GAP
+              : Math.min(course.y + course.height - plateAbove - EPS_GAP, hAt(leftX) - TOP_PLATE * 2 - EPS_GAP);
             const cH = cEpsTop - cEpsBot;
             if (cH > 0) {
               d.drawPolyline([[segL, cEpsBot], [segR, cEpsBot], [segR, cEpsTop], [segL, cEpsTop]], true);
@@ -183,23 +181,23 @@ export function buildEpsElevationDxf(layout, wallName) {
           }
         });
       } else if (isRaked) {
-        const epsBot = BOTTOM_PLATE + EPS_INSET;
-        const epsTopL = hAt(segL) - TOP_PLATE * 2 - EPS_INSET;
-        const epsTopR = hAt(segR) - TOP_PLATE * 2 - EPS_INSET;
+        const epsBot = BOTTOM_PLATE + EPS_GAP;
+        const epsTopL = hAt(segL) - TOP_PLATE * 2 - EPS_GAP;
+        const epsTopR = hAt(segR) - TOP_PLATE * 2 - EPS_GAP;
         if (epsTopL <= epsBot && epsTopR <= epsBot) return;
         const pts = [[segL, epsBot], [segR, epsBot]];
         if (epsTopR > epsBot) pts.push([segR, epsTopR]);
         if (panel.peakHeight && panel.peakXLocal != null) {
           const peakGX = panel.x + panel.peakXLocal;
           if (peakGX > segL && peakGX < segR) {
-            pts.push([peakGX, hAt(peakGX) - TOP_PLATE * 2 - EPS_INSET]);
+            pts.push([peakGX, hAt(peakGX) - TOP_PLATE * 2 - EPS_GAP]);
           }
         }
         if (epsTopL > epsBot) pts.push([segL, epsTopL]);
         if (pts.length >= 3) d.drawPolyline(pts, true);
       } else {
-        const epsBot = BOTTOM_PLATE + EPS_INSET;
-        const epsTop = height - TOP_PLATE * 2 - EPS_INSET;
+        const epsBot = BOTTOM_PLATE + EPS_GAP;
+        const epsTop = height - TOP_PLATE * 2 - EPS_GAP;
         if (epsTop > epsBot) {
           d.drawPolyline([[segL, epsBot], [segR, epsBot], [segR, epsTop], [segL, epsTop]], true);
         }
@@ -226,13 +224,13 @@ export function buildEpsElevationDxf(layout, wallName) {
 
     const op = openings.find(o => o.ref === f.ref);
     if (op) {
-      const fEpsBot = BOTTOM_PLATE + EPS_INSET;
-      const fEpsTop = op.y - BOTTOM_PLATE - EPS_INSET;
+      const fEpsBot = BOTTOM_PLATE + EPS_GAP;
+      const fEpsTop = op.y - BOTTOM_PLATE - EPS_GAP;
       if (fEpsTop > fEpsBot) {
         const leftSplineRight = op.x - BOTTOM_PLATE;
-        const fEpsLeft = f.x < leftSplineRight ? leftSplineRight + EPS_INSET : f.x + EPS_INSET;
+        const fEpsLeft = f.x < leftSplineRight ? leftSplineRight + EPS_GAP : f.x + EPS_GAP;
         const rightSplineLeft = op.x + op.drawWidth + BOTTOM_PLATE;
-        const fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_INSET : f.x + f.width - EPS_INSET;
+        const fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_GAP : f.x + f.width - EPS_GAP;
         if (fEpsRight > fEpsLeft) {
           d.setActiveLayer('EPS');
           d.drawPolyline([
@@ -265,8 +263,8 @@ export function buildEpsElevationDxf(layout, wallName) {
     const op = openings.find(o => o.ref === l.ref);
     if (op) {
       const lintelH = l.lintelHeight || 200;
-      const lintelLeft = op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET;
-      const lintelRight = op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET;
+      const lintelLeft = op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_GAP;
+      const lintelRight = op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_GAP;
       const lintelBot = l.y;
       const lintelTop = l.y + lintelH;
       d.drawPolyline([
@@ -275,10 +273,10 @@ export function buildEpsElevationDxf(layout, wallName) {
       ], true);
 
       // EPS above timber lintel
-      const epsBot = lintelTop + EPS_INSET;
+      const epsBot = lintelTop + EPS_GAP;
       const epsLeft = lintelLeft;
       const epsRight = lintelRight;
-      const epsTopAtX = (x) => hAt(x) - TOP_PLATE * 2 - EPS_INSET;
+      const epsTopAtX = (x) => hAt(x) - TOP_PLATE * 2 - EPS_GAP;
       const epsTopL = epsTopAtX(epsLeft);
       const epsTopR = epsTopAtX(epsRight);
 
@@ -325,9 +323,9 @@ export function buildEpsElevationDxf(layout, wallName) {
 
     const epsXL = gapCentre - HALF_SPLINE + splineEpsX;
     const epsXR = epsXL + splineEpsW;
-    const spBot = BOTTOM_PLATE + EPS_INSET;
-    const spTopL = hAt(epsXL) - TOP_PLATE * 2 - EPS_INSET;
-    const spTopR = hAt(epsXR) - TOP_PLATE * 2 - EPS_INSET;
+    const spBot = BOTTOM_PLATE + EPS_GAP;
+    const spTopL = hAt(epsXL) - TOP_PLATE * 2 - EPS_GAP;
+    const spTopR = hAt(epsXR) - TOP_PLATE * 2 - EPS_GAP;
 
     if (spTopL <= spBot && spTopR <= spBot) continue;
 
@@ -354,9 +352,9 @@ export function buildEpsElevationDxf(layout, wallName) {
     for (const spXPos of positions) {
       const epsXL = spXPos + splineEpsX;
       const epsXR = epsXL + splineEpsW;
-      const spBot = BOTTOM_PLATE + EPS_INSET;
-      const spTopL = hAt(epsXL) - TOP_PLATE * 2 - EPS_INSET;
-      const spTopR = hAt(epsXR) - TOP_PLATE * 2 - EPS_INSET;
+      const spBot = BOTTOM_PLATE + EPS_GAP;
+      const spTopL = hAt(epsXL) - TOP_PLATE * 2 - EPS_GAP;
+      const spTopR = hAt(epsXR) - TOP_PLATE * 2 - EPS_GAP;
       if (spTopL <= spBot && spTopR <= spBot) continue;
 
       if (!isRaked || Math.abs(spTopL - spTopR) < 0.5) {

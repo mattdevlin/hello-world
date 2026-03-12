@@ -5,12 +5,16 @@ export const PANEL_PITCH = 1205;        // mm (width + gap)
 export const MIN_PANEL = 300;           // mm minimum panel width
 export const MIN_LCUT_PANEL = 600;      // mm minimum L-cut panel width at base
 export const WALL_THICKNESS = 162;      // mm
+export const WALL_EPS_DEPTH = 142;      // mm
+export const EPS_GAP = 10;              // mm gap between EPS and framing (all sides)
+export const MAGBOARD = 10;             // mm magboard skin thickness (each face)
 export const FLOOR_THICKNESS = 192;     // mm
 export const ROOF_THICKNESS = 242;      // mm
 
 // Floor panel system
 export const FLOOR_EPS_DEPTH = 172;           // mm (192 - 2×10mm magboard)
 export const FLOOR_SPLINE_DEPTH = 170;        // mm
+export const FLOOR_SPLINE_EPS_DEPTH = 150;    // mm
 export const FLOOR_PLATE_DEPTH = 170;         // mm
 export const FLOOR_PANEL_SLABS_PER_BLOCK = 3; // 172×3 = 516mm from 630
 export const FLOOR_SPLINE_SLABS_PER_BLOCK = 3;// 170×3 = 510mm from 630

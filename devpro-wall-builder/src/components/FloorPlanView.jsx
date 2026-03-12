@@ -16,8 +16,6 @@ const COLORS = {
   RECESS_STROKE: '#E65100',
   OUTLINE: '#333',
   DIM: '#666',
-  SPLINE: '#27ae60',
-  BEARER: '#8e44ad',
   BOUNDARY_JOIST: '#8B4513',
 };
 
@@ -25,8 +23,8 @@ export default function FloorPlanView({ layout, floorName, projectName }) {
   const sectionRef = useRef(null);
   if (!layout || !layout.panels || layout.panels.length === 0) return null;
 
-  const { polygon, panels, openings, recesses, reinforcedSplines, unreinforcedSplines,
-    bearerLines, perimeterPlates = [], shortEdgeJoins = [], boundingBox: bb,
+  const { polygon, panels, openings, recesses,
+    perimeterPlates = [], shortEdgeJoins = [], boundingBox: bb,
     columnPositions: rawColPos = [], spanBreaks: rawSpanBreaks = [], panelDirection } = layout;
 
   // Fallback: recompute spanBreaks from bb if empty
@@ -141,41 +139,12 @@ export default function FloorPlanView({ layout, floorName, projectName }) {
           );
         })}
 
-        {/* Reinforced splines */}
-        {reinforcedSplines.map((s, i) => (
-          <rect key={`rs${i}`}
-            x={tx(s.x)} y={ty(s.y + s.length)}
-            width={s.width * scale} height={s.length * scale}
-            fill={COLORS.SPLINE} fillOpacity={0.3} stroke={COLORS.SPLINE} strokeWidth={1}
-          />
-        ))}
-
-        {/* Unreinforced splines (between reinforced, at sheet joins) */}
-        {unreinforcedSplines.map((s, i) => (
-          <rect key={`us${i}`}
-            x={tx(s.x)} y={ty(s.y + s.length)}
-            width={s.width * scale} height={s.length * scale}
-            fill={COLORS.SPLINE} fillOpacity={0.2} stroke={COLORS.SPLINE} strokeWidth={0.5}
-            strokeDasharray="4,2"
-          />
-        ))}
-
         {/* Short-edge joins */}
         {shortEdgeJoins.map((join, i) =>
           join.segments.map((seg, j) => (
             <line key={`sej${i}-${j}`}
               x1={tx(seg.x1)} y1={ty(seg.y1)} x2={tx(seg.x2)} y2={ty(seg.y2)}
               stroke="#999" strokeWidth={1} strokeDasharray="6,3"
-            />
-          ))
-        )}
-
-        {/* Bearer lines */}
-        {bearerLines.map((bl, i) =>
-          bl.segments.map((seg, j) => (
-            <line key={`b${i}-${j}`}
-              x1={tx(seg.x1)} y1={ty(seg.y1)} x2={tx(seg.x2)} y2={ty(seg.y2)}
-              stroke={COLORS.BEARER} strokeWidth={1.5} strokeDasharray="8,4"
             />
           ))
         )}

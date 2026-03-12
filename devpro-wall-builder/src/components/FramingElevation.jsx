@@ -1,11 +1,9 @@
 import { useRef, useState } from 'react';
-import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_PITCH, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from '../utils/constants.js';
+import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_PITCH, SPLINE_WIDTH, HSPLINE_CLEARANCE, EPS_GAP, buildHSplineSegments } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
 import ExportDxfButton from './ExportDxfButton.jsx';
 
 const HALF_SPLINE = SPLINE_WIDTH / 2; // 73mm each side of centre
-
-const EPS_INSET = 10; // mm recess from framing (matches EpsElevation)
 
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
@@ -626,8 +624,8 @@ export default function FramingElevation({ layout, wallName, projectName, timber
             const lintelH = l.lintelHeight || 200;
             let lintelEl = null;
             if (op) {
-              const lintelLeft = op.x - BOTTOM_PLATE + EPS_INSET;
-              const lintelRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
+              const lintelLeft = op.x - BOTTOM_PLATE + EPS_GAP;
+              const lintelRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_GAP;
               const lintelTop = yBottom - l.y - lintelH;
               const lintelW = lintelRight - lintelLeft;
               if (lintelW > 0 && lintelH > 0) {

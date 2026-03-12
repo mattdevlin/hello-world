@@ -1,11 +1,10 @@
 import { useRef, useState } from 'react';
-import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from '../utils/constants.js';
+import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, EPS_GAP, MAGBOARD, buildHSplineSegments } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
 import ExportDxfButton from './ExportDxfButton.jsx';
 import { exportWallEpsCsvFromLayout } from '../utils/epsSpreadsheetExport.js';
 
 const HALF_SPLINE = SPLINE_WIDTH / 2;
-const EPS_INSET = 10; // mm recess from framing
 
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
@@ -16,7 +15,6 @@ const EPS_FILL = '#B3D9FF';
 const EPS_STROKE = '#4A90D9';
 const SPLINE_EPS_FILL = '#CCE6FF';
 const SPLINE_EPS_STROKE = '#6AACE6';
-const MAGBOARD = 10; // mm each face
 
 export default function EpsElevation({ layout, wallName, projectName, timberRatio }) {
   const sectionRef = useRef(null);
@@ -38,8 +36,8 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
   const yBottom = useHeight;
 
   // EPS vertical bounds (for standard walls)
-  const epsTop = TOP_PLATE * 2 + EPS_INSET;
-  const epsBottom_std = height - BOTTOM_PLATE - EPS_INSET;
+  const epsTop = TOP_PLATE * 2 + EPS_GAP;
+  const epsBottom_std = height - BOTTOM_PLATE - EPS_GAP;
   const epsHeight = epsBottom_std - epsTop;
 
   // ── Collect all exclusion zones (x-ranges where there's no EPS) ──
@@ -123,20 +121,20 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
       }
     }
 
-    // Build segments between exclusions (with EPS_INSET from each boundary)
+    // Build segments between exclusions (with EPS_GAP from each boundary)
     const segs = [];
-    let cursor = panelLeft + EPS_INSET; // inset from panel left edge
+    let cursor = panelLeft + EPS_GAP; // inset from panel left edge
 
     for (const [eL, eR] of merged) {
-      const segRight = eL - EPS_INSET;
+      const segRight = eL - EPS_GAP;
       if (cursor < segRight) {
         segs.push([cursor, segRight]);
       }
-      cursor = eR + EPS_INSET;
+      cursor = eR + EPS_GAP;
     }
 
     // Final segment to panel right edge
-    const segRight = panelRight - EPS_INSET;
+    const segRight = panelRight - EPS_GAP;
     if (cursor < segRight) {
       segs.push([cursor, segRight]);
     }
@@ -149,8 +147,8 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
     const op = openings.find(o => o.ref === f.ref);
     if (!op) return null;
 
-    const fEpsTop = yBottom - op.y + BOTTOM_PLATE + EPS_INSET;
-    const fEpsBot = yBottom - BOTTOM_PLATE - EPS_INSET;
+    const fEpsTop = yBottom - op.y + BOTTOM_PLATE + EPS_GAP;
+    const fEpsBot = yBottom - BOTTOM_PLATE - EPS_GAP;
     if (fEpsBot <= fEpsTop) return null;
 
     // Left edge: check if footer butts up to left opening spline
@@ -158,9 +156,9 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
     let fEpsLeft;
     if (f.x < leftSplineRight) {
       // Footer extends under the left spline — inset from spline right edge
-      fEpsLeft = leftSplineRight + EPS_INSET;
+      fEpsLeft = leftSplineRight + EPS_GAP;
     } else {
-      fEpsLeft = f.x + EPS_INSET;
+      fEpsLeft = f.x + EPS_GAP;
     }
 
     // Right edge: check if footer butts up to right opening spline
@@ -168,9 +166,9 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
     let fEpsRight;
     if (f.x + f.width > rightSplineLeft) {
       // Footer extends under the right spline — inset from spline left edge
-      fEpsRight = rightSplineLeft - EPS_INSET;
+      fEpsRight = rightSplineLeft - EPS_GAP;
     } else {
-      fEpsRight = f.x + f.width - EPS_INSET;
+      fEpsRight = f.x + f.width - EPS_GAP;
     }
 
     if (fEpsRight <= fEpsLeft) return null;
@@ -233,7 +231,7 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
           {wallName || 'Wall'} — EPS Elevation
         </text>
         <text x={svgWidth / 2} y={42} textAnchor="middle" fontSize="12" fill="#666">
-          {grossLength}mm × {height}mm{isRaked ? ` (max ${useHeight}mm)` : ''} | EPS inset {EPS_INSET}mm from framing{isMultiCourse ? ` | ${courses.length} courses` : ''}
+          {grossLength}mm × {height}mm{isRaked ? ` (max ${useHeight}mm)` : ''} | EPS inset {EPS_GAP}mm from framing{isMultiCourse ? ` | ${courses.length} courses` : ''}
         </text>
 
         <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
@@ -337,8 +335,8 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
             const panelShortTopY = Math.max(yTopAt(leftX), yTopAt(rightX));
 
             // Per-panel EPS bounds for raked walls — use shortest side so EPS stays under lowest top plate
-            const pEpsTop = (isRaked ? panelShortTopY : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_INSET;
-            const pEpsBot = yBottom - BOTTOM_PLATE - EPS_INSET;
+            const pEpsTop = (isRaked ? panelShortTopY : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_GAP;
+            const pEpsBot = yBottom - BOTTOM_PLATE - EPS_GAP;
             const pEpsH = pEpsBot - pEpsTop;
 
             return (
@@ -367,9 +365,9 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
                     return courses.map((course, ci) => {
                       const isBottomCourse = ci === 0;
                       const isTopCourse = ci === courses.length - 1;
-                      const plateBelow = isBottomCourse ? BOTTOM_PLATE : (HALF_SPLINE - EPS_INSET);
-                      const plateAbove = isTopCourse ? TOP_PLATE * 2 : (HALF_SPLINE - EPS_INSET);
-                      const cEpsBot = yBottom - course.y - plateBelow - EPS_INSET;
+                      const plateBelow = isBottomCourse ? BOTTOM_PLATE : (HALF_SPLINE - EPS_GAP);
+                      const plateAbove = isTopCourse ? TOP_PLATE * 2 : (HALF_SPLINE - EPS_GAP);
+                      const cEpsBot = yBottom - course.y - plateBelow - EPS_GAP;
 
                       if (isRaked) {
                         // Sloped walls: polygon with per-vertex top edge + edge clipping
@@ -377,10 +375,10 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
                         // Non-top courses: bounded by max(course boundary, wall slope)
                         const courseTopY = isTopCourse
                           ? -Infinity
-                          : yBottom - course.y - course.height + plateAbove + EPS_INSET;
+                          : yBottom - course.y - course.height + plateAbove + EPS_GAP;
 
                         const epsTopAtX = (x) => {
-                          const wallTop = yTopAt(x) + TOP_PLATE * 2 + EPS_INSET;
+                          const wallTop = yTopAt(x) + TOP_PLATE * 2 + EPS_GAP;
                           return isTopCourse ? wallTop : Math.max(courseTopY, wallTop);
                         };
 
@@ -396,14 +394,14 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
                         // (peak vertices only apply to top course — peak is always above course join)
                         let kinkX = null;
                         if (!isTopCourse) {
-                          const wallTopL = yTopAt(segL) + TOP_PLATE * 2 + EPS_INSET;
-                          const wallTopR = yTopAt(segR) + TOP_PLATE * 2 + EPS_INSET;
+                          const wallTopL = yTopAt(segL) + TOP_PLATE * 2 + EPS_GAP;
+                          const wallTopR = yTopAt(segR) + TOP_PLATE * 2 + EPS_GAP;
                           const leftUsesCourse = courseTopY >= wallTopL;
                           const rightUsesCourse = courseTopY >= wallTopR;
                           if (leftUsesCourse !== rightUsesCourse) {
                             const yL = yTopAt(segL), yR = yTopAt(segR);
                             if (yR !== yL) {
-                              const target = courseTopY - TOP_PLATE * 2 - EPS_INSET;
+                              const target = courseTopY - TOP_PLATE * 2 - EPS_GAP;
                               const t = (target - yL) / (yR - yL);
                               if (t > 0 && t < 1) {
                                 kinkX = segL + t * (segR - segL);
@@ -470,10 +468,10 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
 
                       // Flat walls: rect bounded by course boundary
                       const cEpsTop = isTopCourse
-                        ? yTopAt(leftX) + (TOP_PLATE * 2) + EPS_INSET
+                        ? yTopAt(leftX) + (TOP_PLATE * 2) + EPS_GAP
                         : Math.max(
-                            yBottom - course.y - course.height + plateAbove + EPS_INSET,
-                            yTopAt(leftX) + TOP_PLATE * 2 + EPS_INSET
+                            yBottom - course.y - course.height + plateAbove + EPS_GAP,
+                            yTopAt(leftX) + TOP_PLATE * 2 + EPS_GAP
                           );
                       const cH = cEpsBot - cEpsTop;
 
@@ -490,15 +488,15 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
 
                   // Single-course: polygon for sloped walls, rect for flat
                   if (isRaked) {
-                    const epsBot = yBottom - BOTTOM_PLATE - EPS_INSET;
-                    const epsTopL = yTopAt(segL) + TOP_PLATE * 2 + EPS_INSET;
-                    const epsTopR = yTopAt(segR) + TOP_PLATE * 2 + EPS_INSET;
+                    const epsBot = yBottom - BOTTOM_PLATE - EPS_GAP;
+                    const epsTopL = yTopAt(segL) + TOP_PLATE * 2 + EPS_GAP;
+                    const epsTopR = yTopAt(segR) + TOP_PLATE * 2 + EPS_GAP;
                     if (epsTopL >= epsBot && epsTopR >= epsBot) return null;
                     let pts = `${s(segL)},${s(epsBot)} ${s(segR)},${s(epsBot)} ${s(segR)},${s(epsTopR)}`;
                     if (panel.peakHeight && panel.peakXLocal != null) {
                       const peakGX = panel.x + panel.peakXLocal;
                       if (peakGX > segL && peakGX < segR) {
-                        pts += ` ${s(peakGX)},${s(yTopAt(peakGX) + TOP_PLATE * 2 + EPS_INSET)}`;
+                        pts += ` ${s(peakGX)},${s(yTopAt(peakGX) + TOP_PLATE * 2 + EPS_GAP)}`;
                       }
                     }
                     pts += ` ${s(segL)},${s(epsTopL)}`;
@@ -623,17 +621,17 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
             if (op) {
               // Timber lintel spans between inner edges of opening plates (past splines)
               lintelH = l.lintelHeight || 200;
-              lintelLeft = op.x - BOTTOM_PLATE + EPS_INSET;   // 10mm inside plate inner edge (past spline)
-              lintelRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;  // 10mm inside plate inner edge (past spline)
+              lintelLeft = op.x - BOTTOM_PLATE + EPS_GAP;   // 10mm inside plate inner edge (past spline)
+              lintelRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_GAP;  // 10mm inside plate inner edge (past spline)
               lintelTop = yBottom - l.y - lintelH;
 
               // Lintel panel EPS: fills the area above the timber lintel, inset from spline/plate inner edges
-              const epsLeft = op.x - BOTTOM_PLATE + EPS_INSET;   // 10mm inside inner edge (past spline)
-              const epsRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;  // 10mm inside inner edge (past spline)
-              const epsBot = lintelTop - EPS_INSET;  // 10mm above timber lintel
+              const epsLeft = op.x - BOTTOM_PLATE + EPS_GAP;   // 10mm inside inner edge (past spline)
+              const epsRight = op.x + op.drawWidth + BOTTOM_PLATE - EPS_GAP;  // 10mm inside inner edge (past spline)
+              const epsBot = lintelTop - EPS_GAP;  // 10mm above timber lintel
 
               // EPS top follows wall slope (same as panel EPS logic)
-              const epsTopAt = (x) => yTopAt(x) + TOP_PLATE * 2 + EPS_INSET;
+              const epsTopAt = (x) => yTopAt(x) + TOP_PLATE * 2 + EPS_GAP;
 
               // Build EPS polygon (if there's space above the lintel)
               if (epsBot > epsTopAt(epsLeft) || epsBot > epsTopAt(epsRight)) {
@@ -727,9 +725,9 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
               // Vertical splines run full height — no split at course joins
               const epsXL = sp.xPos + splineEpsX;
               const epsXR = epsXL + splineEpsW;
-              const spTopL = yTopAt(epsXL) + TOP_PLATE * 2 + EPS_INSET;
-              const spTopR = yTopAt(epsXR) + TOP_PLATE * 2 + EPS_INSET;
-              const spBot = yBottom - BOTTOM_PLATE - EPS_INSET;
+              const spTopL = yTopAt(epsXL) + TOP_PLATE * 2 + EPS_GAP;
+              const spTopR = yTopAt(epsXR) + TOP_PLATE * 2 + EPS_GAP;
+              const spBot = yBottom - BOTTOM_PLATE - EPS_GAP;
               if (spTopL >= spBot && spTopR >= spBot) return null;
 
               if (!isRaked || Math.abs(spTopL - spTopR) < 0.5) {
@@ -800,7 +798,7 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
 
                 return segs.map(([segL, segR], si) => {
                   // No extra x-inset: HSPLINE_CLEARANCE already provides
-                  // EPS_INSET from boundaries, matching the panel EPS width
+                  // EPS_GAP from boundaries, matching the panel EPS width
                   const epsXL = segL;
                   const epsXR = segR;
                   if (epsXR <= epsXL) return null;
@@ -820,8 +818,8 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
                   }
 
                   // Raked/gable: polygon clipped against wall clearance
-                  // (2*TOP_PLATE + EPS_INSET inset from wall top edge)
-                  const clAt = (x) => yTopAt(x) + 2 * TOP_PLATE + EPS_INSET;
+                  // (2*TOP_PLATE + EPS_GAP inset from wall top edge)
+                  const clAt = (x) => yTopAt(x) + 2 * TOP_PLATE + EPS_GAP;
 
                   // Key x-positions where clearance slope changes (gable peak)
                   const breakXs = [epsXL, epsXR];

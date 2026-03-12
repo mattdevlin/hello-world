@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
-import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, SPLINE_WIDTH } from '../utils/constants.js';
+import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, SPLINE_WIDTH, MAGBOARD } from '../utils/constants.js';
 
 const CARD_W = 260;
 const CARD_H = 280;
@@ -98,7 +98,6 @@ function extractFloorEpsPiecesList(layout, floorName) {
   }
 
   // Spline EPS pieces
-  const MAGBOARD = 10;
   const splineEpsW = SPLINE_WIDTH - MAGBOARD * 2;
   for (const s of [...reinforcedSplines, ...unreinforcedSplines]) {
     pieces.push({
