@@ -35,6 +35,7 @@ export function calculateFloorLayout(floor) {
     polygon = [],
     panelDirection = 0,
     perimeterPlateWidth = DEFAULT_PERIMETER_PLATE_WIDTH,
+    boundaryJoistCount = 1,
     bearerLines = [],
     openings = [],
     recesses = [],
@@ -151,8 +152,9 @@ export function calculateFloorLayout(floor) {
   const perimeterPlates = generatePerimeterPlates(poly, perimeterPlateWidth);
 
   // ── Generate splines ──
+  const joistRecess = boundaryJoistCount * perimeterPlateWidth + PANEL_GAP;
   const { reinforcedSplines, unreinforcedSplines } = generateSplines(
-    panels, poly, bb, panelDirection, bearerLines, columnPositions, spanBreaks
+    panels, poly, bb, panelDirection, bearerLines, columnPositions, spanBreaks, joistRecess
   );
 
   // ── Generate bearer line segments ──
@@ -218,6 +220,8 @@ export function calculateFloorLayout(floor) {
     totalArea: Math.round(totalArea),
     perimeterLength: Math.round(perimeterLen),
     perimeterPlateWidth,
+    boundaryJoistCount,
+    joistRecess,
     columnPositions,
     spanBreaks,
   };
@@ -615,7 +619,7 @@ function generatePerimeterPlates(polygon, plateWidth) {
  * Reinforced: along long panel edges and at bearer line positions
  * Unreinforced: along short panel edges
  */
-function generateSplines(panels, polygon, bb, panelDirection, bearerLines, columnPositions, spanBreaks) {
+function generateSplines(panels, polygon, bb, panelDirection, bearerLines, columnPositions, spanBreaks, joistRecess = 0) {
   const reinforcedSplines = [];
   const unreinforcedSplines = [];
   const edges = polygonEdges(polygon);
@@ -652,8 +656,8 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines, colum
       );
 
       for (let j = 0; j < intersections.length - 1; j += 2) {
-        const segY = intersections[j];
-        const segLen = intersections[j + 1] - intersections[j];
+        const segY = intersections[j] + joistRecess;
+        const segLen = intersections[j + 1] - joistRecess - segY;
         if (segLen > 0) {
           reinforcedSplines.push({
             x: splineX, y: segY, length: segLen,
@@ -694,8 +698,8 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines, colum
       );
 
       for (let j = 0; j < intersections.length - 1; j += 2) {
-        const segX = intersections[j];
-        const segLen = intersections[j + 1] - intersections[j];
+        const segX = intersections[j] + joistRecess;
+        const segLen = intersections[j + 1] - joistRecess - segX;
         if (segLen > 0) {
           reinforcedSplines.push({
             x: segX, y: splineY, length: segLen,
@@ -752,8 +756,8 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines, colum
         if (rightSpline != null) rightEdge = rightSpline - SPLINE_WIDTH / 2;
 
         for (let k = 0; k < polyIntersections.length - 1; k += 2) {
-          const polyL = polyIntersections[k];
-          const polyR = polyIntersections[k + 1];
+          const polyL = polyIntersections[k] + joistRecess;
+          const polyR = polyIntersections[k + 1] - joistRecess;
           const clippedL = Math.max(leftEdge, polyL);
           const clippedR = Math.min(rightEdge, polyR);
           if (clippedR - clippedL > 1) {
@@ -808,8 +812,8 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines, colum
         if (bottomSpline != null) bottomEdge = bottomSpline - SPLINE_WIDTH / 2;
 
         for (let k = 0; k < polyIntersections.length - 1; k += 2) {
-          const polyT = polyIntersections[k];
-          const polyB = polyIntersections[k + 1];
+          const polyT = polyIntersections[k] + joistRecess;
+          const polyB = polyIntersections[k + 1] - joistRecess;
           const clippedT = Math.max(topEdge, polyT);
           const clippedB = Math.min(bottomEdge, polyB);
           if (clippedB - clippedT > 1) {
