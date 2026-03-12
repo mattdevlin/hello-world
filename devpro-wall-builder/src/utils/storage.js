@@ -17,6 +17,10 @@ function projectWallPositionsKey(projectId) {
   return `devpro-project-${projectId}-wallpositions`;
 }
 
+function projectFloorsKey(projectId) {
+  return `devpro-project-${projectId}-floors`;
+}
+
 function readJson(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -67,6 +71,7 @@ export function deleteProject(id) {
   const projects = getProjects().filter(p => p.id !== id);
   saveProjects(projects);
   localStorage.removeItem(projectWallsKey(id));
+  localStorage.removeItem(projectFloorsKey(id));
 }
 
 // ── Walls within a project ──
@@ -139,6 +144,51 @@ export function copyWallToProject(wall, targetProjectId) {
   return copy;
 }
 
+// ── Floors within a project ──
+
+export function getProjectFloors(projectId) {
+  return (readJson(projectFloorsKey(projectId)) || []).sort(
+    (a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' })
+  );
+}
+
+function syncFloorCount(projectId) {
+  const floors = getProjectFloors(projectId);
+  const projects = getProjects();
+  const p = projects.find(p => p.id === projectId);
+  if (p) {
+    p.floorCount = floors.length;
+    p.updatedAt = Date.now();
+    saveProjects(projects);
+  }
+}
+
+export function saveFloor(projectId, floorInput) {
+  const floors = getProjectFloors(projectId);
+  const existing = floors.findIndex(f => f.id === floorInput.id);
+  const entry = {
+    ...floorInput,
+    id: floorInput.id || crypto.randomUUID(),
+    updatedAt: Date.now(),
+  };
+  if (!entry.createdAt) entry.createdAt = Date.now();
+
+  if (existing >= 0) {
+    floors[existing] = entry;
+  } else {
+    floors.push(entry);
+  }
+  localStorage.setItem(projectFloorsKey(projectId), JSON.stringify(floors));
+  syncFloorCount(projectId);
+  return entry;
+}
+
+export function deleteFloor(projectId, floorId) {
+  const floors = getProjectFloors(projectId).filter(f => f.id !== floorId);
+  localStorage.setItem(projectFloorsKey(projectId), JSON.stringify(floors));
+  syncFloorCount(projectId);
+}
+
 // ── Connections (wall snap layout) ──
 
 export function getProjectConnections(projectId) {
@@ -179,10 +229,12 @@ export async function exportProject(projectId) {
 
   const walls = getProjectWalls(projectId);
   const connections = getProjectConnections(projectId);
+  const floors = getProjectFloors(projectId);
   const zip = new JSZip();
   zip.file('project.json', JSON.stringify({ ...project, exportedAt: Date.now() }, null, 2));
   zip.file('walls.json', JSON.stringify(walls, null, 2));
   zip.file('connections.json', JSON.stringify(connections, null, 2));
+  zip.file('floors.json', JSON.stringify(floors, null, 2));
 
   const blob = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(blob);
@@ -218,6 +270,10 @@ export async function importProject(file) {
   const connectionsJson = await zip.file('connections.json')?.async('string');
   const connectionsData = connectionsJson ? JSON.parse(connectionsJson) : [];
 
+  // Import floors if present (backward compatible with older exports)
+  const floorsJson = await zip.file('floors.json')?.async('string');
+  const floorsData = floorsJson ? JSON.parse(floorsJson) : [];
+
   // Remap wall IDs in connections
   const wallIdMap = new Map();
   const walls = wallsData.map(w => {
@@ -232,10 +288,21 @@ export async function importProject(file) {
     attachedWallId: wallIdMap.get(c.attachedWallId) || c.attachedWallId,
   }));
 
+  // Remap floor IDs
+  const floors = floorsData.map(f => ({
+    ...f,
+    id: crypto.randomUUID(),
+  }));
+
+  project.floorCount = floors.length;
+
   const projects = getProjects();
   projects.push(project);
   saveProjects(projects);
   localStorage.setItem(projectWallsKey(newId), JSON.stringify(walls));
+  if (floors.length > 0) {
+    localStorage.setItem(projectFloorsKey(newId), JSON.stringify(floors));
+  }
   if (connections.length > 0) {
     saveProjectConnections(newId, connections);
   }

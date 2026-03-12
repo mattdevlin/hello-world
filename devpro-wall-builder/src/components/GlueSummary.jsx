@@ -1,18 +1,21 @@
 import { useState, useMemo } from 'react';
-import { computeProjectGlue } from '../utils/glueCalculator.js';
+import { computeProjectGlue, computeProjectGlueWithFloors } from '../utils/glueCalculator.js';
 
-export default function GlueSummary({ walls }) {
+export default function GlueSummary({ walls, floors }) {
   const [expanded, setExpanded] = useState(false);
 
   const { result, error } = useMemo(() => {
-    if (!walls || walls.length === 0) return { result: null, error: null };
+    if ((!walls || walls.length === 0) && (!floors || floors.length === 0)) return { result: null, error: null };
     try {
+      if (floors && floors.length > 0) {
+        return { result: computeProjectGlueWithFloors(walls || [], floors), error: null };
+      }
       return { result: computeProjectGlue(walls), error: null };
     } catch (e) {
       console.error('GlueSummary error:', e);
       return { result: null, error: e.message };
     }
-  }, [walls]);
+  }, [walls, floors]);
 
   if (error) {
     return (
@@ -164,6 +167,33 @@ export default function GlueSummary({ walls }) {
               </tbody>
             </table>
           </div>
+
+          {/* Per-floor breakdown */}
+          {result.hasFloors && result.perFloor?.length > 0 && (
+            <div style={styles.section}>
+              <div style={styles.sectionLabel}>Per-Floor Breakdown</div>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Floor</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Area (m²)</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Glue (kg)</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Glue (L)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.perFloor.map((f, i) => (
+                    <tr key={f.floorId} style={i % 2 === 0 ? styles.evenRow : undefined}>
+                      <td style={{ ...styles.td, fontWeight: 600 }}>{f.floorName}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{f.areaM2.toFixed(2)}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{f.glueKg.toFixed(2)}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{f.glueLitres.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <div style={styles.info}>
             SabreBond PU6000 — {rateKgM2 * 1000}g/m² application rate, SG 1.1, {drumLitres}L drums.

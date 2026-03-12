@@ -11,6 +11,7 @@
 
 import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_WIDTH, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
+import { calculateFloorLayout } from './floorCalculator.js';
 
 export const MAGBOARD_SHEETS = {
   medium: { width: 1200, height: 2745 },
@@ -341,5 +342,82 @@ export function computeProjectMagboardSheets(walls) {
     totalHsplines: allCutPieces.filter(p => p.type === 'hspline').length,
 
     perWall,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Floor magboard extraction
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Extract magboard pieces from a floor layout.
+ * Floor panels: 2 full sheets per panel (front + back).
+ * Cut pieces: splines (2 each), perimeter plate covers.
+ */
+export function extractFloorMagboardPieces(layout, floorName = '') {
+  const panelSheets = [];
+  const cutPieces = [];
+  const { panels, reinforcedSplines = [], unreinforcedSplines = [] } = layout;
+
+  // Panel sheets — floor panels use custom-cut sheets (not standard wall sheet heights)
+  // Use 2745mm sheets as default for floor panels
+  for (const panel of panels) {
+    const sheetH = 2745; // floor panels use standard sheet height
+    panelSheets.push({ sheetHeight: sheetH, label: `P${panel.index + 1}`, floorName });
+    panelSheets.push({ sheetHeight: sheetH, label: `P${panel.index + 1}`, floorName });
+  }
+
+  // Spline magboard (2 each)
+  for (const s of [...reinforcedSplines, ...unreinforcedSplines]) {
+    for (let j = 0; j < 2; j++) {
+      cutPieces.push({
+        width: SPLINE_WIDTH,
+        height: Math.round(s.length),
+        type: 'spline',
+        label: 'Floor Spline',
+        floorName,
+      });
+    }
+  }
+
+  return { panelSheets, cutPieces };
+}
+
+/**
+ * Compute magboard sheets for walls + floors.
+ */
+export function computeProjectMagboardSheetsWithFloors(walls, floors) {
+  const wallResult = computeProjectMagboardSheets(walls);
+
+  if (!floors || floors.length === 0) return wallResult;
+
+  let floorPanelSheetCount = 0;
+  const floorCutPieces = [];
+  const perFloor = [];
+
+  for (const floor of floors) {
+    const layout = calculateFloorLayout(floor);
+    if (layout.error) continue;
+    const { panelSheets, cutPieces } = extractFloorMagboardPieces(layout, floor.name);
+    floorPanelSheetCount += panelSheets.length;
+    floorCutPieces.push(...cutPieces);
+    perFloor.push({
+      floorName: floor.name,
+      floorId: floor.id,
+      panelSheetCount: panelSheets.length,
+      splineCount: cutPieces.filter(p => p.type === 'spline').length,
+    });
+  }
+
+  // Pack floor cut pieces onto 2745mm sheets
+  const packedFloorCut = shelfPack(floorCutPieces, 1200, 2745);
+
+  return {
+    ...wallResult,
+    floorPanelSheetCount,
+    floorCutSheetCount: packedFloorCut.length,
+    totalSheets: wallResult.totalSheets + floorPanelSheetCount + packedFloorCut.length,
+    perFloor,
+    hasFloors: true,
   };
 }

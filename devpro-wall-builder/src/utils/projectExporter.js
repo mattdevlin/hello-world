@@ -7,12 +7,17 @@
  */
 import JSZip from 'jszip';
 import { calculateWallLayout } from './calculator.js';
+import { calculateFloorLayout } from './floorCalculator.js';
 import { toDxfString } from './dxfExporter.js';
 import { buildExternalElevationDxf } from './externalElevationDxf.js';
 import { buildFramingElevationDxf } from './framingElevationDxf.js';
 import { buildEpsElevationDxf } from './epsElevationDxf.js';
 import { buildEpsPlanDxf } from './epsPlanDxf.js';
 import { buildPanelPlansDxf } from './panelPlansDxf.js';
+import { buildFloorPlanDxf } from './floorPlanDxf.js';
+import { buildFloorFramingDxf } from './floorFramingDxf.js';
+import { buildFloorEpsPlanDxf } from './floorEpsPlanDxf.js';
+import { buildFloorPanelPlansDxf } from './floorPanelPlansDxf.js';
 
 const DXF_TYPES = [
   { key: 'External Elevation', build: buildExternalElevationDxf },
@@ -20,6 +25,13 @@ const DXF_TYPES = [
   { key: 'EPS Elevation',      build: buildEpsElevationDxf },
   { key: 'EPS Cut Plans',      build: buildEpsPlanDxf },
   { key: 'Panel Plans',        build: buildPanelPlansDxf },
+];
+
+const FLOOR_DXF_TYPES = [
+  { key: 'Floor Plan',          build: buildFloorPlanDxf },
+  { key: 'Floor Framing',       build: buildFloorFramingDxf },
+  { key: 'Floor EPS Plan',      build: buildFloorEpsPlanDxf },
+  { key: 'Floor Panel Plans',   build: buildFloorPanelPlansDxf },
 ];
 
 /**
@@ -37,10 +49,10 @@ function sanitize(name) {
  * @param {function} onProgress - Optional callback(current, total) for UI updates
  * @returns {Promise<void>}
  */
-export async function exportProjectZip(projectName, walls, onProgress) {
+export async function exportProjectZip(projectName, walls, onProgress, floors = []) {
   const zip = new JSZip();
   const safeProjName = sanitize(projectName);
-  const total = walls.length * DXF_TYPES.length;
+  const total = walls.length * DXF_TYPES.length + floors.length * FLOOR_DXF_TYPES.length;
   let current = 0;
 
   for (const wall of walls) {
@@ -53,6 +65,23 @@ export async function exportProjectZip(projectName, walls, onProgress) {
       const dxfStr = toDxfString(drawing);
       const filename = `${safeProjName} ${safeWallName} ${key}.dxf`;
       wallFolder.file(filename, dxfStr);
+
+      current++;
+      if (onProgress) onProgress(current, total);
+    }
+  }
+
+  for (const floor of floors) {
+    const layout = calculateFloorLayout(floor);
+    if (layout.error) continue;
+    const safeFloorName = sanitize(floor.name);
+    const floorFolder = zip.folder(safeFloorName);
+
+    for (const { key, build } of FLOOR_DXF_TYPES) {
+      const drawing = build(layout, floor.name);
+      const dxfStr = toDxfString(drawing);
+      const filename = `${safeProjName} ${safeFloorName} ${key}.dxf`;
+      floorFolder.file(filename, dxfStr);
 
       current++;
       if (onProgress) onProgress(current, total);

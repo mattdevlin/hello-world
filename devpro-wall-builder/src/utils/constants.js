@@ -8,6 +8,14 @@ export const WALL_THICKNESS = 162;      // mm
 export const FLOOR_THICKNESS = 192;     // mm
 export const ROOF_THICKNESS = 242;      // mm
 
+// Floor panel system
+export const FLOOR_EPS_DEPTH = 172;           // mm (192 - 2×10mm magboard)
+export const FLOOR_SPLINE_DEPTH = 170;        // mm
+export const FLOOR_PLATE_DEPTH = 170;         // mm
+export const FLOOR_PANEL_SLABS_PER_BLOCK = 3; // 172×3 = 516mm from 630
+export const FLOOR_SPLINE_SLABS_PER_BLOCK = 3;// 170×3 = 510mm from 630
+export const DEFAULT_PERIMETER_PLATE_WIDTH = 45; // mm
+
 // Panel heights available
 export const PANEL_HEIGHTS = [2440, 2745, 3050]; // mm
 

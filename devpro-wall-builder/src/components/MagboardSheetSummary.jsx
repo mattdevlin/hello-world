@@ -1,13 +1,16 @@
 import { useState, useMemo } from 'react';
-import { computeProjectMagboardSheets } from '../utils/magboardOptimizer.js';
+import { computeProjectMagboardSheets, computeProjectMagboardSheetsWithFloors } from '../utils/magboardOptimizer.js';
 
-export default function MagboardSheetSummary({ walls }) {
+export default function MagboardSheetSummary({ walls, floors }) {
   const [expanded, setExpanded] = useState(false);
 
   const result = useMemo(() => {
-    if (!walls || walls.length === 0) return null;
+    if ((!walls || walls.length === 0) && (!floors || floors.length === 0)) return null;
+    if (floors && floors.length > 0) {
+      return computeProjectMagboardSheetsWithFloors(walls || [], floors);
+    }
     return computeProjectMagboardSheets(walls);
-  }, [walls]);
+  }, [walls, floors]);
 
   if (!result) return null;
 
@@ -26,6 +29,7 @@ export default function MagboardSheetSummary({ walls }) {
           <h3 style={styles.title}>Magboard Sheet Requirements</h3>
           <span style={styles.subtitle}>
             {panelSheetCount} panel + {cutSheets2745 + cutSheets3050} cut-piece sheet{cutSheets2745 + cutSheets3050 !== 1 ? 's' : ''}
+            {result.hasFloors && ` + ${result.floorPanelSheetCount || 0} floor panels`}
           </span>
         </div>
         <div style={styles.headerRight}>
@@ -141,6 +145,31 @@ export default function MagboardSheetSummary({ walls }) {
               </tbody>
             </table>
           </div>
+
+          {/* Per-floor breakdown */}
+          {result.hasFloors && result.perFloor?.length > 0 && (
+            <div style={styles.section}>
+              <div style={styles.sectionLabel}>Per-Floor Breakdown</div>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Floor</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Panel Sheets</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Splines</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.perFloor.map((f, i) => (
+                    <tr key={f.floorId} style={i % 2 === 0 ? styles.evenRow : undefined}>
+                      <td style={{ ...styles.td, fontWeight: 600 }}>{f.floorName}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{f.panelSheetCount}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{f.splineCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <div style={styles.sheetInfo}>
             Sheets: 1200 × 2745mm or 3050mm (10mm thick).

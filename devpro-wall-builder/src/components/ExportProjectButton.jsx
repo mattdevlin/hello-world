@@ -1,29 +1,30 @@
 import { useState, useCallback } from 'react';
 import { exportProjectZip } from '../utils/projectExporter.js';
 
-export default function ExportProjectButton({ projectName, walls }) {
+export default function ExportProjectButton({ projectName, walls, floors }) {
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
 
   const handleExport = useCallback(async () => {
-    if (exporting || !walls || walls.length === 0) return;
+    if (exporting || (!walls?.length && !floors?.length)) return;
 
     setExporting(true);
-    setProgress({ current: 0, total: walls.length * 5 });
+    const totalItems = (walls?.length || 0) * 5 + (floors?.length || 0) * 4;
+    setProgress({ current: 0, total: totalItems });
 
     try {
-      await exportProjectZip(projectName, walls, (current, total) => {
+      await exportProjectZip(projectName, walls || [], (current, total) => {
         setProgress({ current, total });
-      });
+      }, floors || []);
     } catch (err) {
       console.error('Project export failed:', err);
       alert('Export failed. See console for details.');
     } finally {
       setExporting(false);
     }
-  }, [exporting, projectName, walls]);
+  }, [exporting, projectName, walls, floors]);
 
-  if (!walls || walls.length === 0) return null;
+  if (!walls?.length && !floors?.length) return null;
 
   return (
     <button
