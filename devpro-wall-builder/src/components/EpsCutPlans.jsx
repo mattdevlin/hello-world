@@ -1,11 +1,10 @@
 import { useRef } from 'react';
-import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP } from '../utils/constants.js';
+import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, EPS_GAP } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
 import ExportDxfButton from './ExportDxfButton.jsx';
 
 const SPLINE_WIDTH = 146;
 const HALF_SPLINE = SPLINE_WIDTH / 2;
-const EPS_INSET = 10;
 
 const PLAN_MARGIN = { top: 50, right: 50, bottom: 30, left: 50 };
 const PLAN_MAX_H = 340;
@@ -95,8 +94,8 @@ export default function EpsCutPlans({ layout, wallName, projectName }) {
   const isRaked = layout.isRaked;
 
   // EPS vertical bounds (same as EpsElevation) — for standard walls
-  const epsTop = TOP_PLATE * 2 + EPS_INSET;
-  const epsBottom = height - BOTTOM_PLATE - EPS_INSET;
+  const epsTop = TOP_PLATE * 2 + EPS_GAP;
+  const epsBottom = height - BOTTOM_PLATE - EPS_GAP;
   const epsHeight = epsBottom - epsTop;
   if (!isRaked && epsHeight <= 0) return null;
 
@@ -162,13 +161,13 @@ export default function EpsCutPlans({ layout, wallName, projectName }) {
       }
     }
     const segs = [];
-    let cursor = panelLeft + EPS_INSET;
+    let cursor = panelLeft + EPS_GAP;
     for (const [eL, eR] of merged) {
-      const segRight = eL - EPS_INSET;
+      const segRight = eL - EPS_GAP;
       if (cursor < segRight) segs.push([cursor, segRight]);
-      cursor = eR + EPS_INSET;
+      cursor = eR + EPS_GAP;
     }
-    const segRight = panelRight - EPS_INSET;
+    const segRight = panelRight - EPS_GAP;
     if (cursor < segRight) segs.push([cursor, segRight]);
     return segs;
   };
@@ -176,13 +175,13 @@ export default function EpsCutPlans({ layout, wallName, projectName }) {
   const getFooterEps = (f) => {
     const op = openings.find(o => o.ref === f.ref);
     if (!op) return null;
-    const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_INSET;
-    const fEpsBot = height - BOTTOM_PLATE - EPS_INSET;
+    const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_GAP;
+    const fEpsBot = height - BOTTOM_PLATE - EPS_GAP;
     if (fEpsBot <= fEpsTop) return null;
     const leftSplineRight = op.x - BOTTOM_PLATE;
-    let fEpsLeft = f.x < leftSplineRight ? leftSplineRight + EPS_INSET : f.x + EPS_INSET;
+    let fEpsLeft = f.x < leftSplineRight ? leftSplineRight + EPS_GAP : f.x + EPS_GAP;
     const rightSplineLeft = op.x + op.drawWidth + BOTTOM_PLATE;
-    let fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_INSET : f.x + f.width - EPS_INSET;
+    let fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_GAP : f.x + f.width - EPS_GAP;
     if (fEpsRight <= fEpsLeft) return null;
     return { width: fEpsRight - fEpsLeft, height: fEpsBot - fEpsTop };
   };
@@ -194,7 +193,7 @@ export default function EpsCutPlans({ layout, wallName, projectName }) {
     const segments = getEpsSegments(panel.x, panel.x + panel.width);
     // For raked walls, use per-panel height (average of left/right)
     const panelEpsH = isRaked
-      ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_INSET * 2)
+      ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_GAP * 2)
       : epsHeight;
 
     if (isMultiCourse && courses.length > 1) {
@@ -206,7 +205,7 @@ export default function EpsCutPlans({ layout, wallName, projectName }) {
           // EPS height for this course, accounting for plates at boundaries
           const plateAbove = ci === 0 ? TOP_PLATE * 2 : TOP_PLATE; // top of course: 2× top plate for top, 1× mid plate otherwise
           const plateBelow = ci === courses.length - 1 ? BOTTOM_PLATE : TOP_PLATE; // bottom: bottom plate or mid plate
-          const courseEpsH = course.height - plateAbove - plateBelow - EPS_INSET * 2;
+          const courseEpsH = course.height - plateAbove - plateBelow - EPS_GAP * 2;
           if (courseEpsH <= 0) return;
           const suffix = segments.length > 1 ? ` (${String.fromCharCode(97 + j)})` : '';
           pieces.push({

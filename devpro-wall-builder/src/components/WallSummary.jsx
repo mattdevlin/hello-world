@@ -1,10 +1,9 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
-import { PANEL_GAP, BOTTOM_PLATE, TOP_PLATE } from '../utils/constants.js';
+import { PANEL_GAP, BOTTOM_PLATE, TOP_PLATE, EPS_GAP } from '../utils/constants.js';
 
 const SPLINE_WIDTH = 146;
 const HALF_SPLINE = SPLINE_WIDTH / 2;
-const EPS_INSET = 10;
 const PANEL_EPS_DEPTH = 142;   // 162mm panel minus 2×10mm magboard
 const SPLINE_EPS_DEPTH = 120;  // 146mm spline minus 2×13mm mag (user: 140mm deep, 2×10mm mag = 120mm)
 
@@ -96,19 +95,19 @@ export default function WallSummary({ layout, wallName, projectName }) {
       }
     }
     const segs = [];
-    let cursor = panelLeft + EPS_INSET;
+    let cursor = panelLeft + EPS_GAP;
     for (const [eL, eR] of merged) {
-      const segRight = eL - EPS_INSET;
+      const segRight = eL - EPS_GAP;
       if (cursor < segRight) segs.push([cursor, segRight]);
-      cursor = eR + EPS_INSET;
+      cursor = eR + EPS_GAP;
     }
-    const segRight = panelRight - EPS_INSET;
+    const segRight = panelRight - EPS_GAP;
     if (cursor < segRight) segs.push([cursor, segRight]);
     return segs;
   };
 
-  const epsTop = TOP_PLATE * 2 + EPS_INSET;
-  const epsBottom = height - BOTTOM_PLATE - EPS_INSET;
+  const epsTop = TOP_PLATE * 2 + EPS_GAP;
+  const epsBottom = height - BOTTOM_PLATE - EPS_GAP;
   const stdEpsH = epsBottom - epsTop;
 
   let panelEpsVol = 0;
@@ -116,7 +115,7 @@ export default function WallSummary({ layout, wallName, projectName }) {
   for (const panel of basePanels) {
     const segments = getEpsSegments(panel.x, panel.x + panel.width);
     const panelEpsH = isRaked
-      ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_INSET * 2)
+      ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_GAP * 2)
       : stdEpsH;
     for (const seg of segments) {
       const w = Math.round(seg[1] - seg[0]);
@@ -136,13 +135,13 @@ export default function WallSummary({ layout, wallName, projectName }) {
   for (const f of footerPanels) {
     const op = openings.find(o => o.ref === f.ref);
     if (!op) continue;
-    const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_INSET;
-    const fEpsBot = height - BOTTOM_PLATE - EPS_INSET;
+    const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_GAP;
+    const fEpsBot = height - BOTTOM_PLATE - EPS_GAP;
     if (fEpsBot <= fEpsTop) continue;
     const leftSplineRight = op.x - BOTTOM_PLATE;
-    let fEpsLeft = f.x < leftSplineRight ? leftSplineRight + EPS_INSET : f.x + EPS_INSET;
+    let fEpsLeft = f.x < leftSplineRight ? leftSplineRight + EPS_GAP : f.x + EPS_GAP;
     const rightSplineLeft = op.x + op.drawWidth + BOTTOM_PLATE;
-    let fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_INSET : f.x + f.width - EPS_INSET;
+    let fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_GAP : f.x + f.width - EPS_GAP;
     if (fEpsRight <= fEpsLeft) continue;
     const fW = Math.round(fEpsRight - fEpsLeft);
     const fH = Math.round(fEpsBot - fEpsTop);

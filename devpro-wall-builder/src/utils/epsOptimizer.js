@@ -10,7 +10,7 @@
  */
 
 import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH,
-  FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK, SPLINE_WIDTH as CONST_SPLINE_WIDTH } from './constants.js';
+  FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK, SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP, MAGBOARD } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
 
@@ -24,10 +24,8 @@ export const EPS_BLOCK = {
 // ── EPS thicknesses ──
 const PANEL_EPS_DEPTH = 142;
 const SPLINE_EPS_DEPTH = 120;
-const EPS_INSET = 10;
 const SPLINE_WIDTH = 146;
 const HALF_SPLINE = SPLINE_WIDTH / 2;
-const MAGBOARD = 10;
 
 export const PANEL_SLABS_PER_BLOCK = Math.floor(EPS_BLOCK.depth / PANEL_EPS_DEPTH);  // 4
 export const SPLINE_SLABS_PER_BLOCK = Math.floor(EPS_BLOCK.depth / SPLINE_EPS_DEPTH); // 5
@@ -102,27 +100,27 @@ export function extractEpsPieces(layout, wallName = '') {
       }
     }
     const segs = [];
-    let cursor = panelLeft + EPS_INSET;
+    let cursor = panelLeft + EPS_GAP;
     for (const [eL, eR] of merged) {
-      const segRight = eL - EPS_INSET;
+      const segRight = eL - EPS_GAP;
       if (cursor < segRight) segs.push([cursor, segRight]);
-      cursor = eR + EPS_INSET;
+      cursor = eR + EPS_GAP;
     }
-    const segRight = panelRight - EPS_INSET;
+    const segRight = panelRight - EPS_GAP;
     if (cursor < segRight) segs.push([cursor, segRight]);
     return segs;
   };
 
   // EPS height bounds
-  const epsTop = TOP_PLATE * 2 + EPS_INSET;
-  const epsBottom = height - BOTTOM_PLATE - EPS_INSET;
+  const epsTop = TOP_PLATE * 2 + EPS_GAP;
+  const epsBottom = height - BOTTOM_PLATE - EPS_GAP;
   const epsHeight = epsBottom - epsTop;
 
   // ── Panel EPS pieces ──
   panels.forEach((panel) => {
     const segments = getEpsSegments(panel.x, panel.x + panel.width);
     const panelEpsH = isRaked
-      ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_INSET * 2)
+      ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_GAP * 2)
       : epsHeight;
 
     if (isMultiCourse && courses && courses.length > 1) {
@@ -132,7 +130,7 @@ export function extractEpsPieces(layout, wallName = '') {
         courses.forEach((course, ci) => {
           const plateAbove = ci === 0 ? TOP_PLATE * 2 : TOP_PLATE;
           const plateBelow = ci === courses.length - 1 ? BOTTOM_PLATE : TOP_PLATE;
-          const courseEpsH = course.height - plateAbove - plateBelow - EPS_INSET * 2;
+          const courseEpsH = course.height - plateAbove - plateBelow - EPS_GAP * 2;
           if (courseEpsH <= 0) return;
           pieces.push({
             width: w,
@@ -163,13 +161,13 @@ export function extractEpsPieces(layout, wallName = '') {
   footerPanels.forEach((f) => {
     const op = openings.find(o => o.ref === f.ref);
     if (!op) return;
-    const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_INSET;
-    const fEpsBot = height - BOTTOM_PLATE - EPS_INSET;
+    const fEpsTop = height - op.y + BOTTOM_PLATE + EPS_GAP;
+    const fEpsBot = height - BOTTOM_PLATE - EPS_GAP;
     if (fEpsBot <= fEpsTop) return;
     const leftSplineRight = op.x - BOTTOM_PLATE;
-    const fEpsLeft = f.x < leftSplineRight ? leftSplineRight + EPS_INSET : f.x + EPS_INSET;
+    const fEpsLeft = f.x < leftSplineRight ? leftSplineRight + EPS_GAP : f.x + EPS_GAP;
     const rightSplineLeft = op.x + op.drawWidth + BOTTOM_PLATE;
-    const fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_INSET : f.x + f.width - EPS_INSET;
+    const fEpsRight = f.x + f.width > rightSplineLeft ? rightSplineLeft - EPS_GAP : f.x + f.width - EPS_GAP;
     if (fEpsRight <= fEpsLeft) return;
     pieces.push({
       width: Math.round(fEpsRight - fEpsLeft),

@@ -1,12 +1,11 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
-import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, SPLINE_WIDTH } from '../utils/constants.js';
+import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, SPLINE_WIDTH, EPS_GAP } from '../utils/constants.js';
 
 const MARGIN = { top: 60, right: 40, bottom: 80, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 const MAX_SVG_HEIGHT = 600;
 
-const EPS_INSET = 10;
 
 export default function FloorEpsPlan({ layout, floorName, projectName }) {
   const sectionRef = useRef(null);
@@ -31,7 +30,7 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
   const polyPoints = polygon.map(p => `${tx(p.x)},${ty(p.y)}`).join(' ');
 
   // Inset polygon for EPS clipping — recessed by boundary joists + gap
-  const perimeterRecess = joistRecess > 0 ? joistRecess : EPS_INSET;
+  const perimeterRecess = joistRecess > 0 ? joistRecess : EPS_GAP;
   const insetPolygon = (() => {
     const n = polygon.length;
     if (n < 3) return polygon;
@@ -102,9 +101,9 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
         </defs>
         <polygon points={insetPolyPoints} fill="none" stroke="#8B4513" strokeWidth={0.75} strokeDasharray="4,2" clipPath="url(#floor-joist-zone-clip)" />
 
-        {/* Panel EPS blocks — inset EPS_INSET from all panel edges, clipped to polygon */}
+        {/* Panel EPS blocks — inset EPS_GAP from all panel edges, clipped to polygon */}
         {panels.map((p, i) => {
-          const inset = EPS_INSET * scale;
+          const inset = EPS_GAP * scale;
           const epsX = tx(p.x) + inset;
           const epsY = ty(p.y + p.length) + inset;
           const epsW = Math.max(0, p.width * scale - inset * 2);
@@ -123,15 +122,15 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
                 P{p.index + 1}
               </text>
               <text x={cx} y={cy + 6} textAnchor="middle" dominantBaseline="middle" fontSize={7} fill="#4A6A8A">
-                {Math.round(p.width)}×{Math.round(p.length)}
+                {Math.round(p.width - 2 * EPS_GAP)}×{Math.round(p.length - 2 * EPS_GAP)}
               </text>
             </g>
           );
         })}
 
-        {/* Reinforced spline EPS — inset EPS_INSET from magboard faces */}
+        {/* Reinforced spline EPS — inset EPS_GAP from magboard faces */}
         {reinforcedSplines.map((s, i) => {
-          const inset = EPS_INSET * scale;
+          const inset = EPS_GAP * scale;
           return (
             <rect key={`rse${i}`}
               x={tx(s.x) + inset} y={ty(s.y + s.length) + inset}
@@ -140,9 +139,9 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
           );
         })}
 
-        {/* Unreinforced spline EPS — inset EPS_INSET from magboard faces */}
+        {/* Unreinforced spline EPS — inset EPS_GAP from magboard faces */}
         {unreinforcedSplines.map((s, i) => {
-          const inset = EPS_INSET * scale;
+          const inset = EPS_GAP * scale;
           return (
             <rect key={`use${i}`}
               x={tx(s.x) + inset} y={ty(s.y + s.length) + inset}

@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
-import { FLOOR_THICKNESS, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, SPLINE_WIDTH } from '../utils/constants.js';
+import { FLOOR_THICKNESS, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, SPLINE_WIDTH, MAGBOARD } from '../utils/constants.js';
 
 function StatCard({ label, value, unit, color }) {
   return (
@@ -36,7 +36,6 @@ export default function FloorSummary({ layout, floorName, projectName }) {
   const totalPanels = panels.length;
 
   // EPS volume estimate
-  const MAGBOARD = 10;
   const panelEpsVol = panels.reduce((sum, p) => sum + p.width * p.length * FLOOR_EPS_DEPTH, 0);
   const splineEpsW = SPLINE_WIDTH - MAGBOARD * 2;
   const splineEpsVol = [...reinforcedSplines, ...unreinforcedSplines]
