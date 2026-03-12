@@ -2,12 +2,14 @@ import { useRef } from 'react';
 import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
 import ExportDxfButton from './ExportDxfButton.jsx';
+import { exportWallEpsCsvFromLayout } from '../utils/epsSpreadsheetExport.js';
 
 const HALF_SPLINE = SPLINE_WIDTH / 2;
 const EPS_INSET = 10; // mm recess from framing
 
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
+const MAX_SVG_HEIGHT = 500;
 const STROKE_COLOR = '#333';
 const LABEL_COLOR = '#555';
 const EPS_FILL = '#B3D9FF';
@@ -28,6 +30,7 @@ export default function EpsElevation({ layout, wallName, projectName }) {
   const scale = drawWidth / grossLength;
   const svgWidth = MAX_SVG_WIDTH;
   const svgHeight = useHeight * scale + MARGIN.top + MARGIN.bottom;
+  const displayHeight = Math.min(svgHeight, MAX_SVG_HEIGHT);
 
   const s = (mm) => mm * scale;
   const yTopAt = (x) => useHeight - (heightAt ? heightAt(x) : height);
@@ -205,15 +208,22 @@ export default function EpsElevation({ layout, wallName, projectName }) {
   });
 
   return (
-    <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
+    <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0', gap: 4 }}>
         <PrintButton sectionRef={sectionRef} label="EPS" projectName={projectName} wallName={wallName} />
         <ExportDxfButton layout={layout} wallName={wallName} projectName={projectName} planType="eps-elevation" />
+        <button
+          onClick={() => exportWallEpsCsvFromLayout(layout, wallName, projectName)}
+          style={{ padding: '4px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
+        >
+          Export CSV
+        </button>
       </div>
       <svg
         width={svgWidth}
-        height={svgHeight}
+        height={displayHeight}
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block', margin: '0 auto' }}
       >
         {/* Title */}

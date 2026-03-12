@@ -290,7 +290,6 @@ const styles = {
     borderRadius: 8,
     padding: 24,
     border: '1px solid #e0e0e0',
-    marginTop: 16,
   },
   header: {
     display: 'flex',

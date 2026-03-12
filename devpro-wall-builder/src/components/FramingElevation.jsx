@@ -9,6 +9,7 @@ const EPS_INSET = 10; // mm recess from framing (matches EpsElevation)
 
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
+const MAX_SVG_HEIGHT = 500;
 
 // ── Line hierarchy (AS1100 / ISO 128 conventions) ──
 // Heavy — primary outlines (wall boundary, openings)
@@ -45,6 +46,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
   const drawHeight = useHeight * scale;
   const svgWidth = MAX_SVG_WIDTH;
   const svgHeight = drawHeight + MARGIN.top + MARGIN.bottom;
+  const displayHeight = Math.min(svgHeight, MAX_SVG_HEIGHT);
 
   const s = (mm) => mm * scale;
   // Y coordinate: 0 is top of SVG draw area (maxHeight), bottom of wall is at maxHeight
@@ -77,15 +79,16 @@ export default function FramingElevation({ layout, wallName, projectName }) {
   };
 
   return (
-    <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd', marginTop: 16 }}>
+    <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0', gap: 4 }}>
         <PrintButton sectionRef={sectionRef} label="Framing" projectName={projectName} wallName={wallName} />
         <ExportDxfButton layout={layout} wallName={wallName} projectName={projectName} planType="framing" />
       </div>
       <svg
         width={svgWidth}
-        height={svgHeight}
+        height={displayHeight}
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block', margin: '0 auto' }}
       >
         {/* Title */}

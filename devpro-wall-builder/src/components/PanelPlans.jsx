@@ -684,7 +684,7 @@ export default function PanelPlans({ layout, wallName, projectName }) {
   if (!hasContent) return null;
 
   return (
-    <div ref={sectionRef} data-print-section style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
+    <div ref={sectionRef} data-print-section style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <h3 style={{ margin: 0, fontSize: 16, color: '#333' }}>
           CNC Panel Plans {wallName && `— ${wallName}`}

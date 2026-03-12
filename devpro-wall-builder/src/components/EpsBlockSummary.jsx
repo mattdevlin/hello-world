@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { computeProjectEpsBlocks, EPS_BLOCK, PANEL_SLABS_PER_BLOCK, SPLINE_SLABS_PER_BLOCK } from '../utils/epsOptimizer.js';
+import { exportWallEpsCsv, exportAllWallsEpsCsv } from '../utils/epsSpreadsheetExport.js';
 
-export default function EpsBlockSummary({ walls }) {
+export default function EpsBlockSummary({ walls, projectName }) {
   const [expanded, setExpanded] = useState(false);
 
   const result = useMemo(() => {
@@ -122,7 +123,20 @@ export default function EpsBlockSummary({ walls }) {
               <tbody>
                 {perWall.map((w, i) => (
                   <tr key={w.wallId} style={i % 2 === 0 ? styles.evenRow : undefined}>
-                    <td style={{ ...styles.td, fontWeight: 600 }}>{w.wallName}</td>
+                    <td style={{ ...styles.td, fontWeight: 600 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {w.wallName}
+                        <button
+                          onClick={() => {
+                            const wall = walls.find(wl => wl.id === w.wallId);
+                            if (wall) exportWallEpsCsv(wall, projectName);
+                          }}
+                          style={styles.csvBtn}
+                        >
+                          CSV
+                        </button>
+                      </span>
+                    </td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>{w.panelCount}</td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>{(w.panelArea / 1e6).toFixed(2)} m²</td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>{w.splineCount}</td>
@@ -131,6 +145,13 @@ export default function EpsBlockSummary({ walls }) {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Download all */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button onClick={() => exportAllWallsEpsCsv(walls, projectName)} style={styles.downloadAllBtn}>
+              Download all EPS cuts
+            </button>
           </div>
 
           {/* Block info */}
@@ -299,5 +320,28 @@ const styles = {
     fontStyle: 'italic',
     padding: '8px 0 0',
     borderTop: '1px solid #eee',
+  },
+
+  // CSV buttons
+  csvBtn: {
+    padding: '2px 6px',
+    background: '#27ae60',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 3,
+    cursor: 'pointer',
+    fontSize: 10,
+    fontWeight: 600,
+    lineHeight: 1.4,
+  },
+  downloadAllBtn: {
+    padding: '8px 16px',
+    background: '#27ae60',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 4,
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 600,
   },
 };
