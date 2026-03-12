@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { splitPlate, computeWallTimber, computeProjectTimber } from './timberCalculator.js';
+import { splitPlate, computeWallTimber, computeProjectTimber, computeWallTimberRatio, computeProjectTimberRatio } from './timberCalculator.js';
 import { MAX_PLATE_LENGTH, WALL_PLATE_WIDTH, WALL_PLATE_DEPTH, LINTEL_WIDTH, TOP_PLATE_STAGGER } from './constants.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -262,5 +262,142 @@ describe('computeProjectTimber', () => {
     const result = computeProjectTimber(walls, []);
     const plates = result.wallPieces.filter(p => p.type !== 'lintel');
     expect(plates.every(p => p.section === '140\u00D745')).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// computeWallTimberRatio — timber fraction / thermal bridging
+// ─────────────────────────────────────────────────────────────
+
+describe('computeWallTimberRatio', () => {
+  const simpleWall = {
+    id: 'w1',
+    name: 'Simple',
+    length_mm: 6000,
+    height_mm: 2440,
+    profile: 'standard',
+    deduction_left_mm: 0,
+    deduction_right_mm: 0,
+    openings: [],
+  };
+
+  it('returns correct structure for simple wall', () => {
+    const r = computeWallTimberRatio(simpleWall);
+    expect(r.wallName).toBe('Simple');
+    expect(r.grossWallArea).toBeGreaterThan(0);
+    expect(r.openingArea).toBe(0);
+    expect(r.effectiveWallArea).toBe(r.grossWallArea);
+    expect(r.timberFaceArea).toBeGreaterThan(0);
+    expect(r.timberPercentage).toBeGreaterThan(0);
+    expect(r.timberPercentage).toBeLessThan(100);
+    expect(r.timberPercentage + r.insulationPercentage).toBeCloseTo(100, 1);
+  });
+
+  it('breakdown adds up to total timber area', () => {
+    const r = computeWallTimberRatio(simpleWall);
+    const { bottomPlate, topPlates, endPlates, sillPlates, jambPlates, lintels } = r.breakdown;
+    const sum = bottomPlate + topPlates + endPlates + sillPlates + jambPlates + lintels;
+    expect(sum).toBe(r.timberFaceArea);
+  });
+
+  it('simple wall has no sill/jamb/lintel timber', () => {
+    const r = computeWallTimberRatio(simpleWall);
+    expect(r.breakdown.sillPlates).toBe(0);
+    expect(r.breakdown.jambPlates).toBe(0);
+    expect(r.breakdown.lintels).toBe(0);
+  });
+
+  it('subtracts opening area for wall with window', () => {
+    const wall = {
+      ...simpleWall,
+      name: 'With Window',
+      length_mm: 7225,
+      height_mm: 2440,
+      openings: [{
+        ref: 'W01',
+        type: 'window',
+        width_mm: 2000,
+        height_mm: 1000,
+        position_from_left_mm: 3000,
+        sill_mm: 900,
+        lintel_height_mm: 200,
+      }],
+    };
+    const r = computeWallTimberRatio(wall);
+    expect(r.openingArea).toBe(2000 * 1000);
+    expect(r.effectiveWallArea).toBe(r.grossWallArea - r.openingArea);
+    // Should have sill, jamb, and lintel timber
+    expect(r.breakdown.sillPlates).toBeGreaterThan(0);
+    expect(r.breakdown.jambPlates).toBeGreaterThan(0);
+    expect(r.breakdown.lintels).toBeGreaterThan(0);
+  });
+
+  it('counts door jambs correctly (no sill for doors)', () => {
+    const wall = {
+      ...simpleWall,
+      name: 'With Door',
+      openings: [{
+        ref: 'D01',
+        type: 'door',
+        width_mm: 900,
+        height_mm: 2100,
+        position_from_left_mm: 2000,
+        sill_mm: 0,
+        lintel_height_mm: 300,
+      }],
+    };
+    const r = computeWallTimberRatio(wall);
+    expect(r.breakdown.sillPlates).toBe(0);
+    expect(r.breakdown.jambPlates).toBeGreaterThan(0);
+    expect(r.breakdown.lintels).toBeGreaterThan(0);
+    // Breakdown must still sum to total
+    const { bottomPlate, topPlates, endPlates, sillPlates, jambPlates, lintels } = r.breakdown;
+    expect(bottomPlate + topPlates + endPlates + sillPlates + jambPlates + lintels).toBe(r.timberFaceArea);
+  });
+
+  it('timber percentage is reasonable (5-20%) for typical wall', () => {
+    // West Wall scenario: 7225 × 2440 with one 2000×1000 window
+    const wall = {
+      ...simpleWall,
+      length_mm: 7225,
+      height_mm: 2440,
+      openings: [{
+        ref: 'W01',
+        type: 'window',
+        width_mm: 2000,
+        height_mm: 1000,
+        position_from_left_mm: 3000,
+        sill_mm: 900,
+        lintel_height_mm: 200,
+      }],
+    };
+    const r = computeWallTimberRatio(wall);
+    expect(r.timberPercentage).toBeGreaterThan(5);
+    expect(r.timberPercentage).toBeLessThan(20);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// computeProjectTimberRatio
+// ─────────────────────────────────────────────────────────────
+
+describe('computeProjectTimberRatio', () => {
+  it('aggregates multiple walls into weighted average', () => {
+    const walls = [
+      { id: 'w1', name: 'W1', length_mm: 6000, height_mm: 2440, profile: 'standard', deduction_left_mm: 0, deduction_right_mm: 0, openings: [] },
+      { id: 'w2', name: 'W2', length_mm: 4000, height_mm: 2440, profile: 'standard', deduction_left_mm: 0, deduction_right_mm: 0, openings: [] },
+    ];
+    const r = computeProjectTimberRatio(walls);
+    expect(r.perWall).toHaveLength(2);
+    expect(r.totalEffectiveArea).toBeGreaterThan(0);
+    expect(r.totalTimberArea).toBeGreaterThan(0);
+    expect(r.projectTimberPercentage).toBeGreaterThan(0);
+    expect(r.projectTimberPercentage + r.projectInsulationPercentage).toBeCloseTo(100, 1);
+  });
+
+  it('handles empty walls array', () => {
+    const r = computeProjectTimberRatio([]);
+    expect(r.perWall).toHaveLength(0);
+    expect(r.projectTimberPercentage).toBe(0);
   });
 });

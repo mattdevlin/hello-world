@@ -18,6 +18,7 @@ const COLORS = {
   DIM: '#666',
   SPLINE: '#27ae60',
   BEARER: '#8e44ad',
+  BOUNDARY_JOIST: '#8B4513',
 };
 
 export default function FloorPlanView({ layout, floorName, projectName }) {
@@ -25,7 +26,7 @@ export default function FloorPlanView({ layout, floorName, projectName }) {
   if (!layout || !layout.panels || layout.panels.length === 0) return null;
 
   const { polygon, panels, openings, recesses, reinforcedSplines, unreinforcedSplines,
-    bearerLines, shortEdgeJoins = [], boundingBox: bb,
+    bearerLines, perimeterPlates = [], shortEdgeJoins = [], boundingBox: bb,
     columnPositions: rawColPos = [], spanBreaks: rawSpanBreaks = [], panelDirection } = layout;
 
   // Fallback: recompute spanBreaks from bb if empty
@@ -88,6 +89,16 @@ export default function FloorPlanView({ layout, floorName, projectName }) {
       <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ background: '#F5F5F0' }}>
         {/* Polygon outline */}
         <polygon points={polyPoints} fill="none" stroke={COLORS.OUTLINE} strokeWidth={2} />
+
+        {/* Boundary joists */}
+        {perimeterPlates.map((plate, i) => {
+          const len = Math.sqrt((plate.x2 - plate.x1) ** 2 + (plate.y2 - plate.y1) ** 2);
+          if (len < 1) return null;
+          return <line key={`bj${i}`} x1={tx(plate.x1)} y1={ty(plate.y1)}
+            x2={tx(plate.x2)} y2={ty(plate.y2)}
+            stroke={COLORS.BOUNDARY_JOIST} strokeWidth={Math.max(2, plate.width * scale)}
+            strokeOpacity={0.5} />;
+        })}
 
         {/* Panels */}
         {panels.map((p, i) => {
@@ -206,43 +217,33 @@ export default function FloorPlanView({ layout, floorName, projectName }) {
           </g>
         ))}
 
-        {/* X-axis panel dimensions (bottom) */}
+        {/* X-axis running measure from left end at panel edges (bottom) */}
         {(() => {
           const dimY = svgH - MARGIN.bottom + 16;
           const tickH = 5;
-          // Build X-axis segments from column positions (column axis)
-          const xSegs = panelDirection === 0
-            ? columnPositions.map(c => ({ start: c.start, end: c.start + c.width }))
+          const origin = bb.minX;
+          // Panel edge positions relative to left end
+          const edgePositions = panelDirection === 0
+            ? [...new Set(columnPositions.flatMap(c => [c.start, c.start + c.width]))].sort((a, b) => a - b)
             : spanBreaks.length > 1
-              ? spanBreaks.slice(0, -1).map((b, i) => ({ start: b, end: spanBreaks[i + 1] }))
-              : [{ start: bb.minX, end: bb.maxX }];
-          // Add gaps between columns for dir=0
-          const allXSegs = [];
-          for (let i = 0; i < xSegs.length; i++) {
-            allXSegs.push(xSegs[i]);
-            if (panelDirection === 0 && i < xSegs.length - 1) {
-              const gapStart = xSegs[i].end;
-              const gapEnd = xSegs[i + 1].start;
-              if (gapEnd - gapStart > 1) allXSegs.push({ start: gapStart, end: gapEnd, isGap: true });
-            }
-          }
+              ? [...spanBreaks]
+              : [bb.minX, bb.maxX];
+          // Ensure origin is included
+          if (edgePositions[0] > origin) edgePositions.unshift(origin);
           return (
             <g>
-              {/* Dimension line */}
-              <line x1={tx(bb.minX)} y1={dimY} x2={tx(bb.maxX)} y2={dimY} stroke={COLORS.DIM} strokeWidth={0.5} />
-              {/* Ticks and labels for each segment */}
-              {allXSegs.map((seg, i) => {
-                const x1 = tx(seg.start);
-                const x2 = tx(seg.end);
-                const w = Math.round(seg.end - seg.start);
+              <line x1={tx(origin)} y1={dimY} x2={tx(edgePositions[edgePositions.length - 1])} y2={dimY} stroke={COLORS.DIM} strokeWidth={0.5} />
+              {edgePositions.map((pos, i) => {
+                const x = tx(pos);
+                const cumulative = Math.round(pos - origin);
+                // Show running distance label below each tick (skip 0 at origin)
+                const prevX = i > 0 ? tx(edgePositions[i - 1]) : x;
+                const showLabel = cumulative > 0 && (x - prevX) > 20;
                 return (
                   <g key={`xd${i}`}>
-                    <line x1={x1} y1={dimY - tickH} x2={x1} y2={dimY + tickH} stroke={COLORS.DIM} strokeWidth={0.5} />
-                    {i === allXSegs.length - 1 && (
-                      <line x1={x2} y1={dimY - tickH} x2={x2} y2={dimY + tickH} stroke={COLORS.DIM} strokeWidth={0.5} />
-                    )}
-                    {!seg.isGap && (x2 - x1) > 28 && (
-                      <text x={(x1 + x2) / 2} y={dimY + 14} textAnchor="middle" fontSize={9} fill={COLORS.DIM}>{w}</text>
+                    <line x1={x} y1={dimY - tickH} x2={x} y2={dimY + tickH} stroke={COLORS.DIM} strokeWidth={0.5} />
+                    {showLabel && (
+                      <text x={x} y={dimY + 14} textAnchor="middle" fontSize={9} fill={COLORS.DIM}>{cumulative}</text>
                     )}
                   </g>
                 );
@@ -251,45 +252,32 @@ export default function FloorPlanView({ layout, floorName, projectName }) {
           );
         })()}
 
-        {/* Y-axis panel dimensions (left) */}
+        {/* Y-axis running measure from bottom at panel edges (left) */}
         {(() => {
           const dimX = MARGIN.left - 16;
           const tickW = 5;
-          // Build Y-axis segments from span breaks (span axis)
-          const ySegs = panelDirection === 0
-            ? (spanBreaks.length > 1
-              ? spanBreaks.slice(0, -1).map((b, i) => ({ start: b, end: spanBreaks[i + 1] }))
-              : [{ start: bb.minY, end: bb.maxY }])
-            : columnPositions.map(c => ({ start: c.start, end: c.start + c.width }));
-          // Add gaps between columns for dir=90
-          const allYSegs = [];
-          for (let i = 0; i < ySegs.length; i++) {
-            allYSegs.push(ySegs[i]);
-            if (panelDirection === 90 && i < ySegs.length - 1) {
-              const gapStart = ySegs[i].end;
-              const gapEnd = ySegs[i + 1].start;
-              if (gapEnd - gapStart > 1) allYSegs.push({ start: gapStart, end: gapEnd, isGap: true });
-            }
-          }
+          const origin = bb.minY;
+          // Panel edge positions relative to bottom
+          const edgePositions = panelDirection === 90
+            ? [...new Set(columnPositions.flatMap(c => [c.start, c.start + c.width]))].sort((a, b) => a - b)
+            : spanBreaks.length > 1
+              ? [...spanBreaks]
+              : [bb.minY, bb.maxY];
+          if (edgePositions[0] > origin) edgePositions.unshift(origin);
           return (
             <g>
-              {/* Dimension line */}
-              <line x1={dimX} y1={ty(bb.minY)} x2={dimX} y2={ty(bb.maxY)} stroke={COLORS.DIM} strokeWidth={0.5} />
-              {/* Ticks and labels for each segment */}
-              {allYSegs.map((seg, i) => {
-                const y1 = ty(seg.start);
-                const y2 = ty(seg.end);
-                const h = Math.round(seg.end - seg.start);
-                const midY = (y1 + y2) / 2;
+              <line x1={dimX} y1={ty(origin)} x2={dimX} y2={ty(edgePositions[edgePositions.length - 1])} stroke={COLORS.DIM} strokeWidth={0.5} />
+              {edgePositions.map((pos, i) => {
+                const y = ty(pos);
+                const cumulative = Math.round(pos - origin);
+                const prevY = i > 0 ? ty(edgePositions[i - 1]) : y;
+                const showLabel = cumulative > 0 && Math.abs(y - prevY) > 20;
                 return (
                   <g key={`yd${i}`}>
-                    <line x1={dimX - tickW} y1={y1} x2={dimX + tickW} y2={y1} stroke={COLORS.DIM} strokeWidth={0.5} />
-                    {i === allYSegs.length - 1 && (
-                      <line x1={dimX - tickW} y1={y2} x2={dimX + tickW} y2={y2} stroke={COLORS.DIM} strokeWidth={0.5} />
-                    )}
-                    {!seg.isGap && Math.abs(y1 - y2) > 28 && (
-                      <text x={dimX} y={midY} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill={COLORS.DIM}
-                        transform={`rotate(-90,${dimX},${midY})`}>{h}</text>
+                    <line x1={dimX - tickW} y1={y} x2={dimX + tickW} y2={y} stroke={COLORS.DIM} strokeWidth={0.5} />
+                    {showLabel && (
+                      <text x={dimX} y={y} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill={COLORS.DIM}
+                        transform={`rotate(-90,${dimX},${y})`}>{cumulative}</text>
                     )}
                   </g>
                 );

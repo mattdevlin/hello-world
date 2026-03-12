@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
 import ExportDxfButton from './ExportDxfButton.jsx';
@@ -18,9 +18,10 @@ const SPLINE_EPS_FILL = '#CCE6FF';
 const SPLINE_EPS_STROKE = '#6AACE6';
 const MAGBOARD = 10; // mm each face
 
-export default function EpsElevation({ layout, wallName, projectName }) {
+export default function EpsElevation({ layout, wallName, projectName, timberRatio }) {
   const sectionRef = useRef(null);
   const clipId = useRef(`eps-clip-${Math.random().toString(36).slice(2, 8)}`).current;
+  const [showTimberInfo, setShowTimberInfo] = useState(true);
   if (!layout) return null;
 
   const { grossLength, height, maxHeight, panels, openings, footerPanels, lintelPanels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
@@ -204,7 +205,13 @@ export default function EpsElevation({ layout, wallName, projectName }) {
 
   return (
     <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px 0', gap: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 12px 0', gap: 4 }}>
+        {timberRatio && (
+          <label className="no-print" style={{ fontSize: 12, color: '#666', cursor: 'pointer', marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input type="checkbox" checked={showTimberInfo} onChange={e => setShowTimberInfo(e.target.checked)} />
+            Show timber %
+          </label>
+        )}
         <PrintButton sectionRef={sectionRef} label="EPS" projectName={projectName} wallName={wallName} />
         <ExportDxfButton layout={layout} wallName={wallName} projectName={projectName} planType="eps-elevation" />
         <button
@@ -987,6 +994,125 @@ export default function EpsElevation({ layout, wallName, projectName }) {
 
         </g>
       </svg>
+      {showTimberInfo && timberRatio && (
+        <div style={timberInfoStyles.panel}>
+          <div style={timberInfoStyles.header}>
+            <span style={timberInfoStyles.title}>Thermal Bridging — Timber Fraction</span>
+            <span style={{ ...timberInfoStyles.pct, color: '#2E7D32' }}>{timberRatio.insulationPercentage.toFixed(1)}% insulation</span>
+            <span style={timberInfoStyles.sep}>|</span>
+            <span style={timberInfoStyles.pct}>{timberRatio.timberPercentage.toFixed(1)}% timber</span>
+          </div>
+          <div style={timberInfoStyles.row}>
+            <table style={timberInfoStyles.table}>
+              <thead>
+                <tr>
+                  <th style={timberInfoStyles.th}>Component</th>
+                  <th style={{ ...timberInfoStyles.th, textAlign: 'right' }}>Face Area (m²)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['Bottom Plate', timberRatio.breakdown.bottomPlate],
+                  ['Top Plates (×2)', timberRatio.breakdown.topPlates],
+                  ['End Plates', timberRatio.breakdown.endPlates],
+                  ['Sill Plates', timberRatio.breakdown.sillPlates],
+                  ['Jamb Plates', timberRatio.breakdown.jambPlates],
+                  ['Lintels', timberRatio.breakdown.lintels],
+                ].filter(([, v]) => v > 0).map(([label, v], i) => (
+                  <tr key={i} style={i % 2 === 0 ? { background: '#fafafa' } : undefined}>
+                    <td style={timberInfoStyles.td}>{label}</td>
+                    <td style={{ ...timberInfoStyles.td, textAlign: 'right' }}>{(v / 1e6).toFixed(3)}</td>
+                  </tr>
+                ))}
+                <tr style={{ borderTop: '2px solid #ccc' }}>
+                  <td style={{ ...timberInfoStyles.td, fontWeight: 700 }}>Total Timber</td>
+                  <td style={{ ...timberInfoStyles.td, textAlign: 'right', fontWeight: 700 }}>{(timberRatio.timberFaceArea / 1e6).toFixed(3)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div style={timberInfoStyles.summary}>
+              <div style={timberInfoStyles.summaryRow}><span>Gross wall area:</span><span>{(timberRatio.grossWallArea / 1e6).toFixed(2)} m²</span></div>
+              <div style={timberInfoStyles.summaryRow}><span>Opening area:</span><span>{(timberRatio.openingArea / 1e6).toFixed(2)} m²</span></div>
+              <div style={{ ...timberInfoStyles.summaryRow, fontWeight: 700 }}><span>Effective wall area:</span><span>{(timberRatio.effectiveWallArea / 1e6).toFixed(2)} m²</span></div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const timberInfoStyles = {
+  panel: {
+    margin: '0 12px 12px',
+    padding: '10px 14px',
+    background: '#f8f9fa',
+    borderRadius: 6,
+    border: '1px solid #e0e0e0',
+    fontSize: 12,
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    flexWrap: 'wrap',
+  },
+  title: {
+    fontWeight: 700,
+    fontSize: 12,
+    color: '#333',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    marginRight: 'auto',
+  },
+  pct: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: '#D84315',
+  },
+  sep: {
+    color: '#ccc',
+    fontSize: 14,
+  },
+  row: {
+    display: 'flex',
+    gap: 20,
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+  },
+  table: {
+    borderCollapse: 'collapse',
+    fontSize: 11,
+    flex: '0 0 auto',
+  },
+  th: {
+    textAlign: 'left',
+    padding: '3px 10px',
+    borderBottom: '2px solid #ddd',
+    color: '#666',
+    fontSize: 10,
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.3px',
+  },
+  td: {
+    padding: '3px 10px',
+    borderBottom: '1px solid #eee',
+    color: '#333',
+  },
+  summary: {
+    flex: '0 0 auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3,
+    fontSize: 11,
+    color: '#555',
+    paddingTop: 2,
+  },
+  summaryRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+};

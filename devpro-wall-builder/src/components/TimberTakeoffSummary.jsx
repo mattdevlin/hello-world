@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { computeProjectTimber } from '../utils/timberCalculator.js';
+import { computeProjectTimber, computeProjectTimberRatio } from '../utils/timberCalculator.js';
 
 export default function TimberTakeoffSummary({ walls, floors }) {
   const [expanded, setExpanded] = useState(false);
@@ -13,6 +13,16 @@ export default function TimberTakeoffSummary({ walls, floors }) {
       return { result: null, error: e.message };
     }
   }, [walls, floors]);
+
+  const timberRatio = useMemo(() => {
+    if (!walls || walls.length === 0) return null;
+    try {
+      return computeProjectTimberRatio(walls);
+    } catch (e) {
+      console.error('Timber ratio error:', e);
+      return null;
+    }
+  }, [walls]);
 
   if (error) {
     return (
@@ -85,6 +95,55 @@ export default function TimberTakeoffSummary({ walls, floors }) {
               <div style={styles.cardUnit}>floor timber (m)</div>
             </div>
           </div>
+
+          {/* Thermal Bridging — Timber Fraction */}
+          {timberRatio && (
+            <div style={styles.section}>
+              <div style={styles.sectionLabel}>Thermal Bridging — Timber Fraction</div>
+              <div style={{ ...styles.cards, marginBottom: 12 }}>
+                <div style={styles.card}>
+                  <div style={{ ...styles.cardValue, color: '#D84315' }}>
+                    {timberRatio.projectTimberPercentage.toFixed(1)}%
+                  </div>
+                  <div style={styles.cardUnit}>timber (avg)</div>
+                </div>
+                <div style={styles.card}>
+                  <div style={{ ...styles.cardValue, color: '#2E7D32' }}>
+                    {timberRatio.projectInsulationPercentage.toFixed(1)}%
+                  </div>
+                  <div style={styles.cardUnit}>insulation (avg)</div>
+                </div>
+                <div style={styles.card}>
+                  <div style={{ ...styles.cardValue, color: '#555', fontSize: 18 }}>
+                    {(timberRatio.totalEffectiveArea / 1e6).toFixed(1)} m²
+                  </div>
+                  <div style={styles.cardUnit}>effective wall area</div>
+                </div>
+              </div>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Wall</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Effective Area (m²)</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Timber Area (m²)</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Timber %</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Insulation %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {timberRatio.perWall.map((w, i) => (
+                    <tr key={i} style={i % 2 === 0 ? styles.evenRow : undefined}>
+                      <td style={{ ...styles.td, fontWeight: 600 }}>{w.wallName}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{(w.effectiveWallArea / 1e6).toFixed(2)}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{(w.timberFaceArea / 1e6).toFixed(3)}</td>
+                      <td style={{ ...styles.td, textAlign: 'right', color: '#D84315' }}>{w.timberPercentage.toFixed(1)}</td>
+                      <td style={{ ...styles.td, textAlign: 'right', color: '#2E7D32' }}>{w.insulationPercentage.toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Wall Timber */}
           {wallPieces.length > 0 && (

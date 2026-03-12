@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
-import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH } from '../utils/constants.js';
+import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, SPLINE_WIDTH } from '../utils/constants.js';
 
 const MARGIN = { top: 60, right: 40, bottom: 80, left: 60 };
 const MAX_SVG_WIDTH = 1200;
@@ -93,6 +93,48 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
               strokeDasharray="4,2" />
           );
         })}
+
+        {/* Spline width dimension — annotate first reinforced spline */}
+        {(() => {
+          if (reinforcedSplines.length === 0) return null;
+          const s = reinforcedSplines[0];
+          const isVertical = s.width < s.length;
+          const scaledW = (isVertical ? s.width : s.length) * scale;
+          if (scaledW <= 20) return null;
+          const tickLen = 5;
+          const dimLabel = Math.round(SPLINE_WIDTH);
+          if (isVertical) {
+            // Horizontal dimension across top of spline
+            const dY = ty(s.y + s.length) - 8;
+            const x1 = tx(s.x);
+            const x2 = tx(s.x + s.width);
+            return (
+              <g>
+                <line x1={x1} y1={dY} x2={x2} y2={dY} stroke="#666" strokeWidth={0.5} />
+                <line x1={x1} y1={dY - tickLen} x2={x1} y2={dY + tickLen} stroke="#666" strokeWidth={0.5} />
+                <line x1={x2} y1={dY - tickLen} x2={x2} y2={dY + tickLen} stroke="#666" strokeWidth={0.5} />
+                <text x={(x1 + x2) / 2} y={dY - 3} textAnchor="middle" fontSize={9} fill="#666">{dimLabel}</text>
+              </g>
+            );
+          } else {
+            // Vertical dimension on left side of spline
+            const dX = tx(s.x) - 8;
+            const y1 = ty(s.y);
+            const y2 = ty(s.y + s.length);
+            return (
+              <g>
+                <line x1={dX} y1={y1} x2={dX} y2={y2} stroke="#666" strokeWidth={0.5} />
+                <line x1={dX - tickLen} y1={y1} x2={dX + tickLen} y2={y1} stroke="#666" strokeWidth={0.5} />
+                <line x1={dX - tickLen} y1={y2} x2={dX + tickLen} y2={y2} stroke="#666" strokeWidth={0.5} />
+                {(() => {
+                  const midY = (y1 + y2) / 2;
+                  return <text x={dX} y={midY} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#666"
+                    transform={`rotate(-90,${dX},${midY})`}>{dimLabel}</text>;
+                })()}
+              </g>
+            );
+          }
+        })()}
 
         {/* Short-edge joins */}
         {shortEdgeJoins.map((join, i) =>

@@ -236,6 +236,150 @@ export function computeFloorTimber(floor) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Thermal bridging — timber fraction of wall face
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Compute the timber-to-insulation ratio for a single wall.
+ * Uses the face dimension of each timber piece (the dimension visible
+ * on the wall face) to calculate what percentage of the effective
+ * wall area is timber vs insulation.
+ */
+export function computeWallTimberRatio(wall) {
+  const layout = calculateWallLayout(wall);
+  const wallName = wall.name || 'Unnamed';
+
+  const {
+    netLength,
+    heightLeft, heightRight,
+    openings = [], lintelPanels = [],
+    profile,
+  } = layout;
+
+  // ── Gross wall area (before opening deductions) ──
+  let grossWallArea;
+  if (profile === 'raked') {
+    grossWallArea = netLength * (heightLeft + heightRight) / 2;
+  } else if (profile === 'gable') {
+    const peakH = layout.peakHeight || heightLeft;
+    // Gable = two triangles on top of rectangle
+    // Area = base × minHeight + (peakH - minHeight) × base / 2
+    const minH = Math.min(heightLeft, heightRight);
+    grossWallArea = netLength * minH + (peakH - minH) * netLength / 2;
+  } else {
+    grossWallArea = netLength * heightLeft;
+  }
+
+  // ── Opening area ──
+  let openingArea = 0;
+  for (const op of (wall.openings || [])) {
+    openingArea += op.width_mm * op.height_mm;
+  }
+
+  const effectiveWallArea = grossWallArea - openingArea;
+
+  // ── Timber face areas ──
+  // Face dimension = the dimension visible on the wall face
+  // For horizontal plates: length × WALL_PLATE_DEPTH (45mm high strip)
+  // For vertical plates: height × WALL_PLATE_DEPTH (45mm wide strip)
+  // For lintels: width × lintelHeight
+
+  const breakdown = {
+    bottomPlate: 0,
+    topPlates: 0,
+    endPlates: 0,
+    sillPlates: 0,
+    jambPlates: 0,
+    lintels: 0,
+  };
+
+  // Bottom plate: netLength × 45
+  breakdown.bottomPlate = netLength * WALL_PLATE_DEPTH;
+
+  // Top plate 1 + top plate 2: each netLength × 45
+  breakdown.topPlates = 2 * netLength * WALL_PLATE_DEPTH;
+
+  // End plates: left height × 45 + right height × 45
+  breakdown.endPlates = heightLeft * WALL_PLATE_DEPTH + heightRight * WALL_PLATE_DEPTH;
+
+  // Opening-related timber
+  for (const op of openings) {
+    // Sill plate
+    if (op.sillPlate && op.sillPlate.width > 0) {
+      breakdown.sillPlates += op.sillPlate.width * WALL_PLATE_DEPTH;
+    }
+    // Jamb plates
+    if (op.leftJamb && op.leftJamb.height > 0) {
+      breakdown.jambPlates += op.leftJamb.height * WALL_PLATE_DEPTH;
+    }
+    if (op.rightJamb && op.rightJamb.height > 0) {
+      breakdown.jambPlates += op.rightJamb.height * WALL_PLATE_DEPTH;
+    }
+  }
+
+  // Lintels: width × lintelHeight (full timber beam face)
+  for (const lp of lintelPanels) {
+    const lintelH = lp.lintelHeight || 200;
+    breakdown.lintels += lp.width * lintelH;
+  }
+
+  const timberFaceArea = breakdown.bottomPlate + breakdown.topPlates
+    + breakdown.endPlates + breakdown.sillPlates
+    + breakdown.jambPlates + breakdown.lintels;
+
+  const timberPercentage = effectiveWallArea > 0
+    ? (timberFaceArea / effectiveWallArea) * 100
+    : 0;
+
+  return {
+    wallName,
+    grossWallArea: Math.round(grossWallArea),
+    openingArea: Math.round(openingArea),
+    effectiveWallArea: Math.round(effectiveWallArea),
+    timberFaceArea: Math.round(timberFaceArea),
+    timberPercentage: Math.round(timberPercentage * 100) / 100,
+    insulationPercentage: Math.round((100 - timberPercentage) * 100) / 100,
+    breakdown: {
+      bottomPlate: Math.round(breakdown.bottomPlate),
+      topPlates: Math.round(breakdown.topPlates),
+      endPlates: Math.round(breakdown.endPlates),
+      sillPlates: Math.round(breakdown.sillPlates),
+      jambPlates: Math.round(breakdown.jambPlates),
+      lintels: Math.round(breakdown.lintels),
+    },
+  };
+}
+
+/**
+ * Aggregate timber ratios across all walls in a project.
+ * Returns per-wall ratios plus a weighted-average project percentage.
+ */
+export function computeProjectTimberRatio(walls) {
+  const perWall = [];
+  let totalEffective = 0;
+  let totalTimber = 0;
+
+  for (const wall of (walls || [])) {
+    const ratio = computeWallTimberRatio(wall);
+    perWall.push(ratio);
+    totalEffective += ratio.effectiveWallArea;
+    totalTimber += ratio.timberFaceArea;
+  }
+
+  const projectTimberPercentage = totalEffective > 0
+    ? Math.round((totalTimber / totalEffective) * 10000) / 100
+    : 0;
+
+  return {
+    perWall,
+    totalEffectiveArea: totalEffective,
+    totalTimberArea: totalTimber,
+    projectTimberPercentage,
+    projectInsulationPercentage: Math.round((100 - projectTimberPercentage) * 100) / 100,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
 // Project-level timber aggregation
 // ─────────────────────────────────────────────────────────────
 

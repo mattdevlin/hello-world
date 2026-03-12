@@ -10,6 +10,7 @@ import EpsCutPlans from '../components/EpsCutPlans.jsx';
 import Offcuts from '../components/Offcuts.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import { calculateWallLayout } from '../utils/calculator.js';
+import { computeWallTimberRatio } from '../utils/timberCalculator.js';
 import { getProjects, getProjectWalls, saveWall } from '../utils/storage.js';
 
 export default function WallBuilderPage() {
@@ -22,6 +23,7 @@ export default function WallBuilderPage() {
   const [wallInput, setWallInput] = useState(null);
   const [loadKey, setLoadKey] = useState(0);
   const [generateKey, setGenerateKey] = useState(0);
+  const [timberRatio, setTimberRatio] = useState(null);
 
   useEffect(() => {
     const p = getProjects().find(p => p.id === projectId);
@@ -37,11 +39,13 @@ export default function WallBuilderPage() {
         const result = calculateWallLayout(wall);
         setLayout(result);
         setWallName(wall.name);
+        try { setTimberRatio(computeWallTimberRatio(wall)); } catch { setTimberRatio(null); }
       }
     } else {
       setWallInput(null);
       setLayout(null);
       setWallName('');
+      setTimberRatio(null);
       setLoadKey(k => k + 1);
     }
   }, [projectId, wallId, navigate]);
@@ -52,6 +56,7 @@ export default function WallBuilderPage() {
     setWallName(wall.name);
     setWallInput(wall);
     setGenerateKey(k => k + 1);
+    try { setTimberRatio(computeWallTimberRatio(wall)); } catch { setTimberRatio(null); }
   };
 
   const handleSave = () => {
@@ -106,10 +111,10 @@ export default function WallBuilderPage() {
               <WallDrawing layout={layout} wallName={wallName} projectName={project.name} />
             </CollapsibleSection>
             <CollapsibleSection sectionKey="framing" title="Framing Elevation" forceOpen={generateKey}>
-              <FramingElevation layout={layout} wallName={wallName} projectName={project.name} />
+              <FramingElevation layout={layout} wallName={wallName} projectName={project.name} timberRatio={timberRatio} />
             </CollapsibleSection>
             <CollapsibleSection sectionKey="eps" title="EPS Elevation" defaultCollapsed forceOpen={generateKey}>
-              <EpsElevation layout={layout} wallName={wallName} projectName={project.name} />
+              <EpsElevation layout={layout} wallName={wallName} projectName={project.name} timberRatio={timberRatio} />
             </CollapsibleSection>
             <CollapsibleSection sectionKey="panelPlans" title="CNC Panel Plans" defaultCollapsed>
               <PanelPlans layout={layout} wallName={wallName} projectName={project.name} />
