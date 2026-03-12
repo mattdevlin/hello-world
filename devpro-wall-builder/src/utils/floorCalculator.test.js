@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateFloorLayout } from './floorCalculator.js';
+import { calculateFloorLayout, computeColumnPositions, computeSpanBreaks } from './floorCalculator.js';
+import { MIN_FLOOR_PANEL_WIDTH, PANEL_PITCH, PANEL_WIDTH, PANEL_GAP, SPLINE_WIDTH, MAX_SHEET_HEIGHT } from './constants.js';
 
 const simpleRect = {
   name: 'F1',
@@ -261,6 +262,256 @@ describe('calculateFloorLayout', () => {
       // No spline should extend beyond the polygon bounding box
       expect(s.y).toBeGreaterThanOrEqual(-1);
       expect(s.y + s.length).toBeLessThanOrEqual(6000 + 1);
+    }
+  });
+
+  // ── Penetration logic tests ──
+
+  it('backward compat — no penetrations produces identical grid', () => {
+    const result = calculateFloorLayout(simpleRect);
+    // Same as before: 5 cols × 2 rows = 10 panels
+    expect(result.panels.length).toBe(10);
+    const colXs = [...new Set(result.panels.map(p => p.x))].sort((a, b) => a - b);
+    expect(colXs.length).toBe(5);
+    // Column positions match uniform PANEL_PITCH
+    expect(colXs[0]).toBe(0);
+    expect(colXs[1]).toBe(PANEL_PITCH);
+    expect(colXs[2]).toBe(2 * PANEL_PITCH);
+    expect(colXs[3]).toBe(3 * PANEL_PITCH);
+    expect(colXs[4]).toBe(4 * PANEL_PITCH);
+    // columnPositions returned in layout
+    expect(result.columnPositions).toBeDefined();
+    expect(result.columnPositions.length).toBe(5);
+  });
+
+  it('small penetration within one column — no spline conflict, grid unchanged', () => {
+    // ∅110mm at x=600 → center of first panel (0–1200). Spline at ~1202.5.
+    // Exclusion zone: [600-55-45, 600+55+45] = [500, 700] → entirely within col 0–1200
+    const withSmallPipe = {
+      ...simpleRect,
+      openings: [
+        { ref: 'P1', type: 'circular', diameter: 110, x: 600, y: 2000 },
+      ],
+    };
+    const result = calculateFloorLayout(withSmallPipe);
+    // Grid should be unchanged: 5 cols × 2 rows = 10 panels
+    expect(result.panels.length).toBe(10);
+    const colXs = [...new Set(result.panels.map(p => p.x))].sort((a, b) => a - b);
+    expect(colXs.length).toBe(5);
+    // Panel should be marked with opening cut
+    const affectedPanels = result.panels.filter(p => p.openingCuts.length > 0);
+    expect(affectedPanels.length).toBeGreaterThan(0);
+  });
+
+  it('penetration spanning spline — repositions columns', () => {
+    // Rect 200mm wide at x=1100 → exclusion zone crosses spline at ~1202.5
+    // Zone: [1100-45, 1100+200+45] = [1055, 1345]
+    const withSplinePen = {
+      ...simpleRect,
+      openings: [
+        { ref: 'P1', type: 'rectangular', width: 200, length: 200, x: 1100, y: 2000 },
+      ],
+    };
+    const result = calculateFloorLayout(withSplinePen);
+    // Should have a penetration column
+    const penCols = result.columnPositions.filter(c => c.isPenetration);
+    expect(penCols.length).toBe(1);
+    // All columns must be >= MIN_FLOOR_PANEL_WIDTH
+    for (const col of result.columnPositions) {
+      expect(col.width).toBeGreaterThanOrEqual(MIN_FLOOR_PANEL_WIDTH - 1);
+    }
+  });
+
+  it('no column narrower than MIN_FLOOR_PANEL_WIDTH', () => {
+    // Large opening that forces tight redistribution
+    const withLargePen = {
+      ...simpleRect,
+      openings: [
+        { ref: 'P1', type: 'rectangular', width: 600, length: 300, x: 1000, y: 2000 },
+      ],
+    };
+    const result = calculateFloorLayout(withLargePen);
+    for (const col of result.columnPositions) {
+      expect(col.width).toBeGreaterThanOrEqual(MIN_FLOOR_PANEL_WIDTH - 1);
+    }
+  });
+
+  it('remainder redistribution produces columns >= MIN_FLOOR_PANEL_WIDTH', () => {
+    // Create a scenario where clear span remainder < MIN_FLOOR_PANEL_WIDTH
+    const bb = { minX: 0, maxX: 6000, minY: 0, maxY: 4000 };
+    // Opening that creates a clear span with awkward remainder
+    const openings = [
+      { ref: 'P1', type: 'rectangular', width: 300, length: 200, x: 1100, y: 2000 },
+    ];
+    const cols = computeColumnPositions(bb, 0, openings);
+    for (const col of cols) {
+      if (!col.isPenetration) {
+        expect(col.width).toBeGreaterThanOrEqual(MIN_FLOOR_PANEL_WIDTH - 1);
+      }
+    }
+  });
+
+  it('multiple adjacent penetrations — zones merge', () => {
+    // Two openings with overlapping exclusion zones
+    const withTwoPens = {
+      ...simpleRect,
+      openings: [
+        { ref: 'P1', type: 'rectangular', width: 200, length: 200, x: 1100, y: 2000 },
+        { ref: 'P2', type: 'rectangular', width: 200, length: 200, x: 1250, y: 2000 },
+      ],
+    };
+    const result = calculateFloorLayout(withTwoPens);
+    // Overlapping zones should merge into one penetration column
+    const penCols = result.columnPositions.filter(c => c.isPenetration);
+    expect(penCols.length).toBe(1);
+    // Merged column should reference both openings
+    expect(penCols[0].openingIndices.length).toBe(2);
+  });
+
+  it('dir=90 penetration — repositions Y-axis columns', () => {
+    const floor90pen = {
+      ...simpleRect,
+      panelDirection: 90,
+      openings: [
+        { ref: 'P1', type: 'rectangular', width: 200, length: 200, x: 2000, y: 1100 },
+      ],
+    };
+    const result = calculateFloorLayout(floor90pen);
+    // Should have a penetration column along Y axis
+    const penCols = result.columnPositions.filter(c => c.isPenetration);
+    expect(penCols.length).toBe(1);
+    // All columns must be >= MIN_FLOOR_PANEL_WIDTH
+    for (const col of result.columnPositions) {
+      expect(col.width).toBeGreaterThanOrEqual(MIN_FLOOR_PANEL_WIDTH - 1);
+    }
+  });
+
+  // ── Span-break penetration tests ──
+
+  it('backward compat — no span-axis conflicts produces standard breaks', () => {
+    const result = calculateFloorLayout(simpleRect);
+    // 6000x4000, dir=0 → span axis Y: break at 3050
+    expect(result.spanBreaks).toEqual([0, 3050, 4000]);
+    // Still 10 panels, short-edge join at 3050
+    expect(result.panels.length).toBe(10);
+    expect(result.shortEdgeJoins.length).toBe(1);
+    expect(result.shortEdgeJoins[0].position).toBe(3050);
+  });
+
+  it('penetration at span break — shifts break to clear opening', () => {
+    // Opening at Y=3000 with length=100 → exclusion zone [2955, 3145]
+    // Spline band at 3050 ± 73 = [2977, 3123] overlaps → break must shift
+    const withSpanPen = {
+      ...simpleRect,
+      openings: [
+        { ref: 'P1', type: 'rectangular', width: 200, length: 100, x: 1500, y: 3000 },
+      ],
+    };
+    const result = calculateFloorLayout(withSpanPen);
+    // Break should have moved away from 3050
+    const shifted = result.spanBreaks.filter(b => b > 0 && b < 4000);
+    expect(shifted.length).toBeGreaterThanOrEqual(1);
+    expect(shifted.includes(3050)).toBe(false);
+    // All segments must be >= MIN_FLOOR_PANEL_WIDTH and <= MAX_SHEET_HEIGHT
+    for (let i = 0; i < result.spanBreaks.length - 1; i++) {
+      const seg = result.spanBreaks[i + 1] - result.spanBreaks[i];
+      expect(seg).toBeGreaterThanOrEqual(MIN_FLOOR_PANEL_WIDTH);
+      expect(seg).toBeLessThanOrEqual(MAX_SHEET_HEIGHT);
+    }
+    // Short-edge joins should match interior breaks
+    const interiorBreaks = result.spanBreaks.slice(1, -1);
+    expect(result.shortEdgeJoins.length).toBe(interiorBreaks.length);
+  });
+
+  it('small penetration not near span break — breaks unchanged', () => {
+    // Opening at Y=1500, well away from break at 3050
+    const withFarPen = {
+      ...simpleRect,
+      openings: [
+        { ref: 'P1', type: 'circular', diameter: 110, x: 3000, y: 1500 },
+      ],
+    };
+    const result = calculateFloorLayout(withFarPen);
+    expect(result.spanBreaks).toEqual([0, 3050, 4000]);
+  });
+
+  it('dir=90 span break conflict — shifts X-break and keeps all segments <= MAX_SHEET_HEIGHT', () => {
+    // 6000x4000, dir=90 → span axis is X, break at X=3050
+    // Opening near X=3050
+    const floor90spanPen = {
+      ...simpleRect,
+      panelDirection: 90,
+      openings: [
+        { ref: 'P1', type: 'rectangular', width: 100, length: 200, x: 3000, y: 1500 },
+      ],
+    };
+    const result = calculateFloorLayout(floor90spanPen);
+    // Break should have shifted away from 3050
+    expect(result.spanBreaks.includes(3050)).toBe(false);
+    // All segments must be >= MIN_FLOOR_PANEL_WIDTH and <= MAX_SHEET_HEIGHT
+    for (let i = 0; i < result.spanBreaks.length - 1; i++) {
+      const seg = result.spanBreaks[i + 1] - result.spanBreaks[i];
+      expect(seg).toBeGreaterThanOrEqual(MIN_FLOOR_PANEL_WIDTH);
+      expect(seg).toBeLessThanOrEqual(MAX_SHEET_HEIGHT);
+    }
+    // No panel should exceed MAX_SHEET_HEIGHT
+    for (const p of result.panels) {
+      expect(p.width).toBeLessThanOrEqual(MAX_SHEET_HEIGHT);
+      expect(p.length).toBeLessThanOrEqual(MAX_SHEET_HEIGHT);
+    }
+  });
+
+  it('no panel dimension exceeds MAX_SHEET_HEIGHT (simple rect)', () => {
+    const result = calculateFloorLayout(simpleRect);
+    for (const p of result.panels) {
+      expect(p.width).toBeLessThanOrEqual(MAX_SHEET_HEIGHT);
+      expect(p.length).toBeLessThanOrEqual(MAX_SHEET_HEIGHT);
+    }
+  });
+
+  it('no panel dimension exceeds MAX_SHEET_HEIGHT (tall rect)', () => {
+    const tallRect = {
+      ...simpleRect,
+      polygon: [
+        { x: 0, y: 0 }, { x: 6000, y: 0 },
+        { x: 6000, y: 7000 }, { x: 0, y: 7000 },
+      ],
+    };
+    const result = calculateFloorLayout(tallRect);
+    for (const p of result.panels) {
+      expect(p.width).toBeLessThanOrEqual(MAX_SHEET_HEIGHT);
+      expect(p.length).toBeLessThanOrEqual(MAX_SHEET_HEIGHT);
+    }
+  });
+
+  it('no panel dimension exceeds MAX_SHEET_HEIGHT (dir=90)', () => {
+    const floor90 = { ...simpleRect, panelDirection: 90 };
+    const result = calculateFloorLayout(floor90);
+    for (const p of result.panels) {
+      expect(p.width).toBeLessThanOrEqual(MAX_SHEET_HEIGHT);
+      expect(p.length).toBeLessThanOrEqual(MAX_SHEET_HEIGHT);
+    }
+  });
+
+  it('opening conflicts with both column spline and span break — both adjust', () => {
+    // Place opening at intersection of first spline (~1202.5) and span break (3050)
+    const withBothConflict = {
+      ...simpleRect,
+      openings: [
+        { ref: 'P1', type: 'rectangular', width: 200, length: 200, x: 1100, y: 2960 },
+      ],
+    };
+    const result = calculateFloorLayout(withBothConflict);
+    // Column spline should have been repositioned
+    const penCols = result.columnPositions.filter(c => c.isPenetration);
+    expect(penCols.length).toBe(1);
+    // Span break should have shifted
+    expect(result.spanBreaks.includes(3050)).toBe(false);
+    // All segments must be <= MAX_SHEET_HEIGHT
+    for (let i = 0; i < result.spanBreaks.length - 1; i++) {
+      const seg = result.spanBreaks[i + 1] - result.spanBreaks[i];
+      expect(seg).toBeGreaterThanOrEqual(MIN_FLOOR_PANEL_WIDTH);
+      expect(seg).toBeLessThanOrEqual(MAX_SHEET_HEIGHT);
     }
   });
 });
