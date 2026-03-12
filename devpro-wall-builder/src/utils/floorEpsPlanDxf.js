@@ -2,7 +2,7 @@
  * Floor EPS Plan DXF Export
  */
 import { createDrawing } from './dxfExporter.js';
-import { EPS_GAP } from './constants.js';
+import { computeFloorEpsDeductions } from './floorEpsDeductions.js';
 
 export function buildFloorEpsPlanDxf(layout) {
   const d = createDrawing();
@@ -21,9 +21,10 @@ export function buildFloorEpsPlanDxf(layout) {
   // Panel EPS
   d.setActiveLayer('EPS');
   for (const panel of panels) {
+    const ded = computeFloorEpsDeductions(panel, layout);
     d.drawRect(
-      panel.x + EPS_GAP, panel.y + EPS_GAP,
-      panel.x + panel.width - EPS_GAP, panel.y + panel.length - EPS_GAP
+      panel.x + ded.left, panel.y + ded.bottom,
+      panel.x + panel.width - ded.right, panel.y + panel.length - ded.top
     );
   }
 
