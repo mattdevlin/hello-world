@@ -13,7 +13,8 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
   if (!layout || !layout.panels || layout.panels.length === 0) return null;
 
   const { polygon, panels, reinforcedSplines, unreinforcedSplines,
-    openings, recesses, shortEdgeJoins = [], boundingBox: bb } = layout;
+    openings, recesses, shortEdgeJoins = [], boundingBox: bb,
+    boundaryJoistCount = 1, joistRecess = 0 } = layout;
 
   const drawW = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
   const drawH = MAX_SVG_HEIGHT - MARGIN.top - MARGIN.bottom;
@@ -29,23 +30,77 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
 
   const polyPoints = polygon.map(p => `${tx(p.x)},${ty(p.y)}`).join(' ');
 
+  // Inset polygon for EPS clipping — recessed by boundary joists + gap
+  const perimeterRecess = joistRecess > 0 ? joistRecess : EPS_INSET;
+  const insetPolygon = (() => {
+    const n = polygon.length;
+    if (n < 3) return polygon;
+    // Compute inward-offset edges, then intersect consecutive pairs
+    const offsetEdges = [];
+    for (let i = 0; i < n; i++) {
+      const p1 = polygon[i];
+      const p2 = polygon[(i + 1) % n];
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 0.001) continue;
+      // Inward normal for CCW polygon
+      const nx = -dy / len;
+      const ny = dx / len;
+      offsetEdges.push({
+        x1: p1.x + nx * perimeterRecess,
+        y1: p1.y + ny * perimeterRecess,
+        x2: p2.x + nx * perimeterRecess,
+        y2: p2.y + ny * perimeterRecess,
+      });
+    }
+    // Intersect consecutive offset edges to find inset polygon vertices
+    const result = [];
+    for (let i = 0; i < offsetEdges.length; i++) {
+      const e1 = offsetEdges[i];
+      const e2 = offsetEdges[(i + 1) % offsetEdges.length];
+      const d1x = e1.x2 - e1.x1, d1y = e1.y2 - e1.y1;
+      const d2x = e2.x2 - e2.x1, d2y = e2.y2 - e2.y1;
+      const denom = d1x * d2y - d1y * d2x;
+      if (Math.abs(denom) < 0.001) {
+        result.push({ x: e1.x2, y: e1.y2 });
+      } else {
+        const t = ((e2.x1 - e1.x1) * d2y - (e2.y1 - e1.y1) * d2x) / denom;
+        result.push({ x: e1.x1 + t * d1x, y: e1.y1 + t * d1y });
+      }
+    }
+    return result;
+  })();
+  const insetPolyPoints = insetPolygon.map(p => `${tx(p.x)},${ty(p.y)}`).join(' ');
+
   return (
     <div ref={sectionRef} data-print-section style={{ background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e0e0e0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>EPS Plan — {floorName} ({FLOOR_EPS_DEPTH}mm panel / {FLOOR_SPLINE_DEPTH}mm spline)</div>
-        <PrintButton sectionRef={sectionRef} label="EPS Plan" projectName={projectName} wallName={floorName} />
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>
+          EPS Floor Plan — {floorName} ({FLOOR_EPS_DEPTH}mm panel / {FLOOR_SPLINE_DEPTH}mm spline)
+          {boundaryJoistCount > 1 && ` · ${boundaryJoistCount}× boundary joists`}
+        </div>
+        <PrintButton sectionRef={sectionRef} label="EPS Floor Plan" projectName={projectName} wallName={floorName} />
       </div>
 
       <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ background: '#F5F5F0' }}>
-        {/* Clip path for polygon boundary */}
+        {/* Clip path — inset polygon accounting for boundary joists + gap */}
         <defs>
           <clipPath id="floor-eps-clip">
-            <polygon points={polyPoints} />
+            <polygon points={insetPolyPoints} />
           </clipPath>
         </defs>
 
         {/* Polygon outline */}
         <polygon points={polyPoints} fill="none" stroke="#333" strokeWidth={2} />
+
+        {/* Boundary joist zone — shaded area between polygon and inset polygon */}
+        <defs>
+          <clipPath id="floor-joist-zone-clip">
+            <polygon points={polyPoints} />
+          </clipPath>
+        </defs>
+        <polygon points={insetPolyPoints} fill="none" stroke="#8B4513" strokeWidth={0.75} strokeDasharray="4,2" clipPath="url(#floor-joist-zone-clip)" />
 
         {/* Panel EPS blocks — inset EPS_INSET from all panel edges, clipped to polygon */}
         {panels.map((p, i) => {
@@ -64,8 +119,11 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
                 fill="#B3D9FF" fillOpacity={0.4} stroke="#4A90D9" strokeWidth={0.5}
                 clipPath="url(#floor-eps-clip)"
               />
-              <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#2C5F8A">
+              <text x={cx} y={cy - 6} textAnchor="middle" dominantBaseline="middle" fontSize={9} fontWeight="bold" fill="#2C5F8A">
                 P{p.index + 1}
+              </text>
+              <text x={cx} y={cy + 6} textAnchor="middle" dominantBaseline="middle" fontSize={7} fill="#4A6A8A">
+                {Math.round(p.width)}×{Math.round(p.length)}
               </text>
             </g>
           );

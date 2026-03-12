@@ -194,9 +194,9 @@ describe('calculateFloorLayout', () => {
       // Y centered on join position 3050
       expect(us.y + us.length / 2).toBeCloseTo(3050, 0);
     }
-    // First column has no left spline → starts at polygon edge (x=0)
+    // First column has no left spline → starts at polygon edge + joistRecess (50mm)
     const sorted = [...result.unreinforcedSplines].sort((a, b) => a.x - b.x);
-    expect(sorted[0].x).toBeCloseTo(0, 0);
+    expect(sorted[0].x).toBeCloseTo(50, 0);
     // Middle columns start at right edge of reinforced spline
     expect(sorted[1].x).toBeGreaterThan(1200);
   });

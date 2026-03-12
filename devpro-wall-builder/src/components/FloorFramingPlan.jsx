@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
 
-const MARGIN = { top: 80, right: 90, bottom: 130, left: 90 };
+const MARGIN = { top: 80, right: 90, bottom: 150, left: 90 };
 const MAX_SVG_WIDTH = 1200;
 const MAX_SVG_HEIGHT = 600;
 
@@ -20,7 +20,7 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
 
   const { polygon, perimeterPlates, reinforcedSplines, unreinforcedSplines,
     bearerLines, shortEdgeJoins = [], recesses, boundingBox: bb,
-    panelDirection = 0 } = layout;
+    panelDirection = 0, boundaryJoistCount = 1, perimeterPlateWidth = 45 } = layout;
 
   const drawW = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
   const drawH = MAX_SVG_HEIGHT - MARGIN.top - MARGIN.bottom;
@@ -47,19 +47,37 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
         {/* Polygon outline */}
         <polygon points={polyPoints} fill="none" stroke={COLORS.OUTLINE} strokeWidth={2} />
 
-        {/* Perimeter plates */}
+        {/* Boundary joists — 1 or 2 per edge, drawn as rectangles */}
         {perimeterPlates.map((plate, i) => {
           const dx = plate.x2 - plate.x1;
           const dy = plate.y2 - plate.y1;
           const len = Math.sqrt(dx * dx + dy * dy);
           if (len < 1) return null;
-          // Draw plate as thick line along edge
-          return (
-            <line key={`pp${i}`}
-              x1={tx(plate.x1)} y1={ty(plate.y1)} x2={tx(plate.x2)} y2={ty(plate.y2)}
-              stroke={COLORS.PLATE} strokeWidth={Math.max(2, plate.width * scale)} strokeOpacity={0.6}
-            />
-          );
+          // Unit normal pointing inward (CCW polygon → left-hand normal is inward)
+          const nx = -dy / len;
+          const ny = dx / len;
+          const joistW = perimeterPlateWidth;
+          const joists = [];
+          for (let j = 0; j < boundaryJoistCount; j++) {
+            // Outer joist (j=0) aligns with panel edge, inner joist (j=1) offset by one joist width + gap
+            const offsetStart = j * joistW;
+            const offsetEnd = offsetStart + joistW;
+            // Build rectangle corners along edge with normal offset
+            const x1 = plate.x1 + nx * offsetStart;
+            const y1 = plate.y1 + ny * offsetStart;
+            const x2 = plate.x2 + nx * offsetStart;
+            const y2 = plate.y2 + ny * offsetStart;
+            const x3 = plate.x2 + nx * offsetEnd;
+            const y3 = plate.y2 + ny * offsetEnd;
+            const x4 = plate.x1 + nx * offsetEnd;
+            const y4 = plate.y1 + ny * offsetEnd;
+            const pts = `${tx(x1)},${ty(y1)} ${tx(x2)},${ty(y2)} ${tx(x3)},${ty(y3)} ${tx(x4)},${ty(y4)}`;
+            joists.push(
+              <polygon key={`bj${i}-${j}`} points={pts}
+                fill={COLORS.PLATE} fillOpacity={0.4} stroke={COLORS.PLATE} strokeWidth={0.75} />
+            );
+          }
+          return <g key={`pp${i}`}>{joists}</g>;
         })}
 
         {/* Reinforced splines (red) */}
@@ -251,40 +269,6 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
           );
         })()}
 
-        {/* Top X-axis: Running measure from left */}
-        {(() => {
-          const DIM_COLOR = '#666';
-          const tickH = 5;
-          const dimY = MARGIN.top - 20;
-          const origin = bb.minX;
-          // Collect all notable X positions: spline centres + bearer positions
-          const allSplines = [...reinforcedSplines, ...unreinforcedSplines];
-          const verticalSplineCXs = allSplines.filter(s => s.width < s.length).map(s => Math.round(s.x + s.width / 2));
-          const verticalBearerXs = bearerLines
-            .filter(bl => (bl.orientation || 'vertical') === 'vertical')
-            .map(bl => Math.round(bl.position));
-          const allXs = [...new Set([origin, ...verticalSplineCXs, ...verticalBearerXs, Math.round(bb.maxX)])].sort((a, b) => a - b);
-          return (
-            <g>
-              <line x1={tx(allXs[0])} y1={dimY} x2={tx(allXs[allXs.length - 1])} y2={dimY} stroke={DIM_COLOR} strokeWidth={0.5} />
-              {allXs.map((pos, i) => {
-                const x = tx(pos);
-                const cumulative = Math.round(pos - origin);
-                const prevX = i > 0 ? tx(allXs[i - 1]) : x;
-                const showLabel = cumulative > 0 && (x - prevX) > 20;
-                return (
-                  <g key={`rmx${i}`}>
-                    <line x1={x} y1={dimY - tickH} x2={x} y2={dimY + tickH} stroke={DIM_COLOR} strokeWidth={0.5} />
-                    {showLabel && (
-                      <text x={x} y={dimY - 7} textAnchor="middle" fontSize={9} fill={DIM_COLOR}>{cumulative}</text>
-                    )}
-                  </g>
-                );
-              })}
-            </g>
-          );
-        })()}
-
         {/* Far-left Y-axis: Running measure from bottom */}
         {(() => {
           const DIM_COLOR = '#666';
@@ -320,10 +304,46 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
           );
         })()}
 
+        {/* Bottom X-axis: Running measure (cumulative from left) */}
+        {(() => {
+          const DIM_COLOR = '#444';
+          const tickH = 5;
+          const origin = bb.minX;
+          // Collect all notable X positions
+          const allSplines = [...reinforcedSplines, ...unreinforcedSplines];
+          const vertSplineCXs = allSplines.filter(s => s.width < s.length).map(s => Math.round(s.x + s.width / 2));
+          const vertBearerXs = bearerLines
+            .filter(bl => (bl.orientation || 'vertical') === 'vertical')
+            .map(bl => Math.round(bl.position));
+          const polyXs = polygon.map(p => Math.round(p.x));
+          const allXs = [...new Set([Math.round(origin), ...vertSplineCXs, ...vertBearerXs, ...polyXs, Math.round(bb.maxX)])].sort((a, b) => a - b);
+          const dimY = svgH - MARGIN.bottom + 64;
+          return (
+            <g>
+              <text x={tx(origin) - 4} y={dimY + 4} textAnchor="end" fontSize={8} fill={DIM_COLOR}>Running</text>
+              <line x1={tx(allXs[0])} y1={dimY} x2={tx(allXs[allXs.length - 1])} y2={dimY} stroke={DIM_COLOR} strokeWidth={0.75} />
+              {allXs.map((pos, i) => {
+                const x = tx(pos);
+                const cumulative = Math.round(pos - origin);
+                const prevX = i > 0 ? tx(allXs[i - 1]) : x;
+                const showLabel = i === 0 || (x - prevX) > 24;
+                return (
+                  <g key={`rmxb${i}`}>
+                    <line x1={x} y1={dimY - tickH} x2={x} y2={dimY + tickH} stroke={DIM_COLOR} strokeWidth={0.75} />
+                    {showLabel && (
+                      <text x={x} y={dimY + 16} textAnchor="middle" fontSize={9} fontWeight={i === 0 || i === allXs.length - 1 ? 'bold' : 'normal'} fill={DIM_COLOR}>{cumulative}</text>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })()}
+
         {/* Legend — horizontal row below dimension chains */}
         <g transform={`translate(${MARGIN.left}, ${svgH - 18})`}>
           {[
-            { type: 'rect', fill: COLORS.PLATE, opacity: 0.6, label: 'Boundary Joists' },
+            { type: 'rect', fill: COLORS.PLATE, opacity: 0.4, label: `Boundary Joists (×${boundaryJoistCount})` },
             { type: 'rect', fill: COLORS.REINFORCED, opacity: 0.4, label: 'Reinforced Splines' },
             { type: 'rect', fill: COLORS.UNREINFORCED, opacity: 0.3, label: 'Unreinforced Splines' },
             { type: 'line', stroke: COLORS.BEARER, dash: '4,2', label: 'Bearer Lines' },

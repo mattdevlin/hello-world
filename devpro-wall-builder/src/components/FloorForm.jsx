@@ -12,6 +12,7 @@ const defaultFloor = {
   ],
   panelDirection: 0,
   perimeterPlateWidth: DEFAULT_PERIMETER_PLATE_WIDTH,
+  boundaryJoistCount: 1,
   bearerLines: [],
   openings: [],
   recesses: [],
@@ -285,6 +286,36 @@ export default function FloorForm({ onCalculate, onChange, initialFloor }) {
           <button type="button" onClick={() => removeBearerLine(i)} style={styles.removeBtn}>Remove</button>
         </div>
       ))}
+
+      <div style={styles.divider} />
+
+      {/* Boundary Joists */}
+      <h2 style={styles.heading}>Boundary Joists</h2>
+      <div style={styles.row}>
+        <div style={styles.field}>
+          <label style={styles.label}>Number of Boundary Joists</label>
+          <select
+            value={floor.boundaryJoistCount || 1}
+            onChange={e => updateField('boundaryJoistCount', parseInt(e.target.value))}
+            style={styles.input}
+          >
+            <option value={1}>1 (single)</option>
+            <option value={2}>2 (double)</option>
+          </select>
+        </div>
+        <div style={styles.field}>
+          <label style={styles.label}>Width</label>
+          <input type="text" value="45 mm" disabled style={{ ...styles.input, background: '#f0f0f0', color: '#666' }} />
+        </div>
+        <div style={styles.field}>
+          <label style={styles.label}>Depth</label>
+          <input type="text" value="170 mm" disabled style={{ ...styles.input, background: '#f0f0f0', color: '#666' }} />
+        </div>
+      </div>
+      <p style={{ fontSize: 12, color: '#888', margin: '0 0 4px', fontStyle: 'italic' }}>
+        Outer joist aligns with panel edge. EPS recessed to fit.
+        {(floor.boundaryJoistCount || 1) === 2 && ' Inner joist offset with standard gap to EPS.'}
+      </p>
 
       <div style={styles.divider} />
 
