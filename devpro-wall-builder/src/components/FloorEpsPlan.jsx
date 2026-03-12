@@ -37,46 +37,62 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
       </div>
 
       <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ background: '#F5F5F0' }}>
+        {/* Clip path for polygon boundary */}
+        <defs>
+          <clipPath id="floor-eps-clip">
+            <polygon points={polyPoints} />
+          </clipPath>
+        </defs>
+
         {/* Polygon outline */}
         <polygon points={polyPoints} fill="none" stroke="#333" strokeWidth={2} />
 
-        {/* Panel EPS blocks (inset from panel edges) */}
+        {/* Panel EPS blocks — inset EPS_INSET from all panel edges, clipped to polygon */}
         {panels.map((p, i) => {
           const inset = EPS_INSET * scale;
-          if (p.clippedPolygon && p.clippedPolygon.length >= 3) {
-            // For clipped panels, just show the panel area with EPS color
-            const pts = p.clippedPolygon.map(pt => `${tx(pt.x)},${ty(pt.y)}`).join(' ');
-            return (
-              <g key={i}>
-                <polygon points={pts} fill="#B3D9FF" fillOpacity={0.4} stroke="#4A90D9" strokeWidth={0.5} />
-                <text x={tx(p.clippedPolygon.reduce((s, pt) => s + pt.x, 0) / p.clippedPolygon.length)} y={ty(p.clippedPolygon.reduce((s, pt) => s + pt.y, 0) / p.clippedPolygon.length)} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#2C5F8A">
-                  P{p.index + 1}
-                </text>
-              </g>
-            );
-          }
+          const epsX = tx(p.x) + inset;
+          const epsY = ty(p.y + p.length) + inset;
+          const epsW = Math.max(0, p.width * scale - inset * 2);
+          const epsH = Math.max(0, p.length * scale - inset * 2);
+          if (epsW <= 0 || epsH <= 0) return null;
+          const cx = tx(p.clippedPolygon ? p.clippedPolygon.reduce((s, pt) => s + pt.x, 0) / p.clippedPolygon.length : p.x + p.width / 2);
+          const cy = ty(p.clippedPolygon ? p.clippedPolygon.reduce((s, pt) => s + pt.y, 0) / p.clippedPolygon.length : p.y + p.length / 2);
           return (
-            <rect key={i}
-              x={tx(p.x) + inset} y={ty(p.y + p.length) + inset}
-              width={Math.max(0, p.width * scale - inset * 2)} height={Math.max(0, p.length * scale - inset * 2)}
-              fill="#B3D9FF" fillOpacity={0.4} stroke="#4A90D9" strokeWidth={0.5} />
+            <g key={i}>
+              <rect
+                x={epsX} y={epsY} width={epsW} height={epsH}
+                fill="#B3D9FF" fillOpacity={0.4} stroke="#4A90D9" strokeWidth={0.5}
+                clipPath="url(#floor-eps-clip)"
+              />
+              <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#2C5F8A">
+                P{p.index + 1}
+              </text>
+            </g>
           );
         })}
 
-        {/* Reinforced spline EPS */}
-        {reinforcedSplines.map((s, i) => (
-          <rect key={`rse${i}`}
-            x={tx(s.x)} y={ty(s.y + s.length)} width={s.width * scale} height={s.length * scale}
-            fill="#90EE90" fillOpacity={0.4} stroke="#27ae60" strokeWidth={1} />
-        ))}
+        {/* Reinforced spline EPS — inset EPS_INSET from magboard faces */}
+        {reinforcedSplines.map((s, i) => {
+          const inset = EPS_INSET * scale;
+          return (
+            <rect key={`rse${i}`}
+              x={tx(s.x) + inset} y={ty(s.y + s.length) + inset}
+              width={Math.max(0, s.width * scale - inset * 2)} height={Math.max(0, s.length * scale - inset * 2)}
+              fill="#90EE90" fillOpacity={0.4} stroke="#27ae60" strokeWidth={1} />
+          );
+        })}
 
-        {/* Unreinforced spline EPS (between reinforced, at sheet joins) */}
-        {unreinforcedSplines.map((s, i) => (
-          <rect key={`use${i}`}
-            x={tx(s.x)} y={ty(s.y + s.length)} width={s.width * scale} height={s.length * scale}
-            fill="#90EE90" fillOpacity={0.2} stroke="#27ae60" strokeWidth={0.5}
-            strokeDasharray="4,2" />
-        ))}
+        {/* Unreinforced spline EPS — inset EPS_INSET from magboard faces */}
+        {unreinforcedSplines.map((s, i) => {
+          const inset = EPS_INSET * scale;
+          return (
+            <rect key={`use${i}`}
+              x={tx(s.x) + inset} y={ty(s.y + s.length) + inset}
+              width={Math.max(0, s.width * scale - inset * 2)} height={Math.max(0, s.length * scale - inset * 2)}
+              fill="#90EE90" fillOpacity={0.2} stroke="#27ae60" strokeWidth={0.5}
+              strokeDasharray="4,2" />
+          );
+        })}
 
         {/* Short-edge joins */}
         {shortEdgeJoins.map((join, i) =>
