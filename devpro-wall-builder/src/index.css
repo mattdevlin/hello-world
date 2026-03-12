@@ -15,8 +15,29 @@ body {
   width: 100%;
 }
 
+/* ── Print watermark: hidden on screen ── */
+.print-watermark {
+  display: none;
+}
+
 /* ── Print styles: A3 landscape ── */
 @media print {
+
+  /* Watermark overlay */
+  .print-watermark {
+    display: block !important;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.08;
+    z-index: 9999;
+    pointer-events: none;
+  }
+  .print-watermark img {
+    width: 500px;
+    height: auto;
+  }
   @page {
     size: A3 landscape;
     margin: 10mm;
