@@ -5,8 +5,9 @@ import {
   copyWallToProject, getProjectConnections, saveProjectConnections,
   getProjectPlacements, saveProjectPlacements,
   getProjectWallPositions, saveProjectWallPositions,
-  getProjectFloors, deleteFloor,
+  getProjectFloors, deleteFloor, updateProjectDetails,
 } from '../utils/storage.js';
+import { TERRITORIAL_AUTHORITIES, TA_CLIMATE_ZONES } from '../utils/h1Constants.js';
 import EpsBlockSummary from '../components/EpsBlockSummary.jsx';
 import MagboardSheetSummary from '../components/MagboardSheetSummary.jsx';
 import GlueSummary from '../components/GlueSummary.jsx';
@@ -28,6 +29,8 @@ export default function ProjectPage() {
   const [placedWallIds, setPlacedWallIds] = useState([]);
   const [wallPositions, setWallPositions] = useState({});
   const [floors, setFloors] = useState([]);
+  const [address, setAddress] = useState('');
+  const [ta, setTa] = useState('');
 
   useEffect(() => {
     const projects = getProjects();
@@ -37,6 +40,8 @@ export default function ProjectPage() {
       return;
     }
     setProject(p);
+    setAddress(p.address || '');
+    setTa(p.territorialAuthority || '');
     setWalls(getProjectWalls(projectId));
     setFloors(getProjectFloors(projectId));
     setConnections(getProjectConnections(projectId));
@@ -95,6 +100,16 @@ export default function ProjectPage() {
     refresh();
   };
 
+  const handleAddressBlur = () => {
+    updateProjectDetails(projectId, { address });
+  };
+
+  const handleTaChange = (e) => {
+    const newTa = e.target.value;
+    setTa(newTa);
+    updateProjectDetails(projectId, { territorialAuthority: newTa });
+  };
+
   if (!project) return null;
 
   const otherProjects = getProjects().filter(p => p.id !== projectId);
@@ -137,6 +152,12 @@ export default function ProjectPage() {
           <div style={styles.headerButtons}>
             <ExportProjectButton projectName={project.name} walls={walls} floors={floors} />
             <button
+              onClick={() => navigate(`/project/${projectId}/h1`)}
+              style={styles.h1Btn}
+            >
+              H1 Calculator
+            </button>
+            <button
               onClick={() => navigate(`/project/${projectId}/wall/new`)}
               style={styles.newWallBtn}
             >
@@ -149,6 +170,38 @@ export default function ProjectPage() {
               + New Floor
             </button>
           </div>
+        </div>
+
+        {/* Location */}
+        <div style={styles.locationRow}>
+          <div style={styles.locationField}>
+            <label style={styles.locationLabel}>Address</label>
+            <input
+              value={address}
+              onChange={e => setAddress(e.target.value)}
+              onBlur={handleAddressBlur}
+              placeholder="Property address"
+              style={styles.locationInput}
+            />
+          </div>
+          <div style={styles.locationField}>
+            <label style={styles.locationLabel}>Territorial Authority</label>
+            <input
+              list="ta-list"
+              value={ta}
+              onChange={handleTaChange}
+              placeholder="Select territorial authority"
+              style={styles.locationInput}
+            />
+            <datalist id="ta-list">
+              {TERRITORIAL_AUTHORITIES.map(t => <option key={t} value={t} />)}
+            </datalist>
+          </div>
+          {ta && TA_CLIMATE_ZONES[ta] && (
+            <div style={styles.zoneBadge}>
+              Zone {TA_CLIMATE_ZONES[ta]}
+            </div>
+          )}
         </div>
 
         {/* 3D Model Viewer */}
@@ -369,6 +422,60 @@ const styles = {
     fontWeight: 600,
     whiteSpace: 'nowrap',
     flexShrink: 0,
+  },
+  h1Btn: {
+    padding: '10px 20px',
+    background: '#2E7D32',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+
+  // Location
+  locationRow: {
+    display: 'flex',
+    gap: 12,
+    alignItems: 'flex-end',
+    marginBottom: 16,
+    flexWrap: 'wrap',
+  },
+  locationField: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3,
+    flex: 1,
+    minWidth: 200,
+  },
+  locationLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: '#888',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  locationInput: {
+    padding: '8px 12px',
+    fontSize: 14,
+    border: '1px solid #ddd',
+    borderRadius: 6,
+    background: '#fff',
+    outline: 'none',
+    fontFamily: 'inherit',
+  },
+  zoneBadge: {
+    padding: '8px 16px',
+    background: '#E8F5E9',
+    color: '#2E7D32',
+    borderRadius: 6,
+    fontSize: 14,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    marginBottom: 1,
   },
 
   // Empty
