@@ -1,9 +1,10 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import PrintButton from './PrintButton.jsx';
 
-const MARGIN = { top: 80, right: 90, bottom: 150, left: 90 };
+const MARGIN = { top: 80, right: 110, bottom: 170, left: 90 };
 const MAX_SVG_WIDTH = 1200;
 const MAX_SVG_HEIGHT = 600;
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
 
 const COLORS = {
   PLATE: '#8B4513',
@@ -16,6 +17,8 @@ const COLORS = {
 
 export default function FloorFramingPlan({ layout, floorName, projectName }) {
   const sectionRef = useRef(null);
+  const [zoomIdx, setZoomIdx] = useState(2);
+  const zoom = ZOOM_STEPS[zoomIdx];
   if (!layout || !layout.panels || layout.panels.length === 0) return null;
 
   const { polygon, perimeterPlates, reinforcedSplines, unreinforcedSplines,
@@ -26,7 +29,7 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
   const drawH = MAX_SVG_HEIGHT - MARGIN.top - MARGIN.bottom;
   const scaleX = drawW / (bb.width || 1);
   const scaleY = drawH / (bb.height || 1);
-  const scale = Math.min(scaleX, scaleY);
+  const scale = Math.min(scaleX, scaleY) * zoom;
 
   const svgW = bb.width * scale + MARGIN.left + MARGIN.right;
   const svgH = bb.height * scale + MARGIN.top + MARGIN.bottom;
@@ -40,9 +43,19 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
     <div ref={sectionRef} data-print-section style={{ background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e0e0e0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>Framing Plan — {floorName}</div>
-        <PrintButton sectionRef={sectionRef} label="Framing Plan" projectName={projectName} wallName={floorName} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={() => setZoomIdx(i => Math.max(0, i - 1))} disabled={zoomIdx === 0}
+              style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>-</button>
+            <span style={{ fontSize: 12, minWidth: 40, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1))} disabled={zoomIdx === ZOOM_STEPS.length - 1}
+              style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>+</button>
+          </div>
+          <PrintButton sectionRef={sectionRef} label="Framing Plan" projectName={projectName} wallName={floorName} />
+        </div>
       </div>
 
+      <div style={{ overflow: 'auto', maxHeight: 700 }}>
       <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ background: '#F5F5F0' }}>
         {/* Polygon outline */}
         <polygon points={polyPoints} fill="none" stroke={COLORS.OUTLINE} strokeWidth={2} />
@@ -201,6 +214,45 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
           );
         })()}
 
+        {/* Right Y-axis: Reinforced spline edge dimensions */}
+        {(() => {
+          const verticalSplines = reinforcedSplines.filter(s => s.width < s.length);
+          if (verticalSplines.length === 0) return null;
+          const tickW = 5;
+          const DIM_COLOR = COLORS.REINFORCED;
+          // Collect unique top/bottom edges of reinforced splines
+          const edgeYs = new Set();
+          verticalSplines.forEach(s => {
+            edgeYs.add(Math.round(s.y));
+            edgeYs.add(Math.round(s.y + s.length));
+          });
+          const positions = [bb.minY, ...edgeYs, bb.maxY].sort((a, b) => a - b)
+            .filter((v, i, arr) => i === 0 || v !== arr[i - 1]);
+          const dimX = svgW - MARGIN.right + 50;
+          return (
+            <g>
+              <text x={dimX} y={ty(bb.maxY) - 6} textAnchor="middle" fontSize={8} fill={DIM_COLOR}>Reinf.</text>
+              <line x1={dimX} y1={ty(bb.minY)} x2={dimX} y2={ty(bb.maxY)} stroke={DIM_COLOR} strokeWidth={0.5} />
+              {positions.map((pos, i) => {
+                const y = ty(pos);
+                return (
+                  <g key={`rsy${i}`}>
+                    <line x1={dimX - tickW} y1={y} x2={dimX + tickW} y2={y} stroke={DIM_COLOR} strokeWidth={0.5} />
+                    {i < positions.length - 1 && (() => {
+                      const y2 = ty(positions[i + 1]);
+                      const segH = Math.round(positions[i + 1] - pos);
+                      if (Math.abs(y - y2) < 28) return null;
+                      const midY = (y + y2) / 2;
+                      return <text x={dimX} y={midY} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill={DIM_COLOR}
+                        transform={`rotate(-90,${dimX},${midY})`}>{segH}</text>;
+                    })()}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })()}
+
         {/* Bottom X-axis: Vertical bearer setout dimensions */}
         {(() => {
           if (!bearerLines || bearerLines.length === 0) return null;
@@ -236,7 +288,7 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
           );
         })()}
 
-        {/* Bottom X-axis: Vertical spline centre setout dimensions */}
+        {/* Bottom X-axis: Reinforced spline centre setout dimensions */}
         {(() => {
           const allSplines = [...reinforcedSplines, ...unreinforcedSplines];
           const verticalSplines = allSplines.filter(s => s.width < s.length);
@@ -255,6 +307,43 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
                 const x = tx(pos);
                 return (
                   <g key={`stx${i}`}>
+                    <line x1={x} y1={dimY - tickH} x2={x} y2={dimY + tickH} stroke={DIM_COLOR} strokeWidth={0.5} />
+                    {i < positions.length - 1 && (() => {
+                      const x2 = tx(positions[i + 1]);
+                      const segW = Math.round(positions[i + 1] - pos);
+                      if (x2 - x < 28) return null;
+                      return <text x={(x + x2) / 2} y={dimY + 14} textAnchor="middle" fontSize={9} fill={DIM_COLOR}>{segW}</text>;
+                    })()}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })()}
+
+        {/* Bottom X-axis: Unreinforced spline edge dimensions */}
+        {(() => {
+          const horizontalSplines = unreinforcedSplines.filter(s => s.width > s.length);
+          if (horizontalSplines.length === 0) return null;
+          const tickH = 5;
+          const DIM_COLOR = COLORS.UNREINFORCED;
+          // Collect unique left/right edges of unreinforced splines
+          const edgeXs = new Set();
+          horizontalSplines.forEach(s => {
+            edgeXs.add(Math.round(s.x));
+            edgeXs.add(Math.round(s.x + s.width));
+          });
+          const positions = [bb.minX, ...edgeXs, bb.maxX].sort((a, b) => a - b)
+            .filter((v, i, arr) => i === 0 || v !== arr[i - 1]);
+          const dimY = svgH - MARGIN.bottom + 64;
+          return (
+            <g>
+              <text x={tx(bb.minX) - 4} y={dimY + 4} textAnchor="end" fontSize={8} fill={DIM_COLOR}>Unreinf.</text>
+              <line x1={tx(bb.minX)} y1={dimY} x2={tx(bb.maxX)} y2={dimY} stroke={DIM_COLOR} strokeWidth={0.5} />
+              {positions.map((pos, i) => {
+                const x = tx(pos);
+                return (
+                  <g key={`usx${i}`}>
                     <line x1={x} y1={dimY - tickH} x2={x} y2={dimY + tickH} stroke={DIM_COLOR} strokeWidth={0.5} />
                     {i < positions.length - 1 && (() => {
                       const x2 = tx(positions[i + 1]);
@@ -317,7 +406,7 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
             .map(bl => Math.round(bl.position));
           const polyXs = polygon.map(p => Math.round(p.x));
           const allXs = [...new Set([Math.round(origin), ...vertSplineCXs, ...vertBearerXs, ...polyXs, Math.round(bb.maxX)])].sort((a, b) => a - b);
-          const dimY = svgH - MARGIN.bottom + 64;
+          const dimY = svgH - MARGIN.bottom + 86;
           return (
             <g>
               <text x={tx(origin) - 4} y={dimY + 4} textAnchor="end" fontSize={8} fill={DIM_COLOR}>Running</text>
@@ -366,6 +455,7 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
           }, { elements: [], offset: 0 }).elements}
         </g>
       </svg>
+      </div>
     </div>
   );
 }

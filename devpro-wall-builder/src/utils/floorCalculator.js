@@ -11,7 +11,7 @@
  */
 
 import {
-  PANEL_PITCH, PANEL_WIDTH, PANEL_GAP, SPLINE_WIDTH,
+  PANEL_PITCH, PANEL_WIDTH, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE,
   FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, FLOOR_PLATE_DEPTH,
   FLOOR_THICKNESS, DEFAULT_PERIMETER_PLATE_WIDTH, MAX_SHEET_HEIGHT,
   MIN_FLOOR_PANEL_WIDTH, FLOOR_PENETRATION_CLEARANCE, EPS_GAP,
@@ -151,7 +151,7 @@ export function calculateFloorLayout(floor) {
   const perimeterPlates = generatePerimeterPlates(poly, perimeterPlateWidth);
 
   // ── Generate splines ──
-  const joistRecess = boundaryJoistCount * perimeterPlateWidth + PANEL_GAP;
+  const joistRecess = boundaryJoistCount * perimeterPlateWidth + HSPLINE_CLEARANCE;
   const { reinforcedSplines, unreinforcedSplines } = generateSplines(
     panels, poly, bb, panelDirection, bearerLines, columnPositions, spanBreaks, joistRecess
   );
@@ -746,13 +746,13 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines, colum
         let leftEdge = colX;
         // Find closest reinforced spline to the left (last one less than colX)
         for (let si = reinforcedCenters.length - 1; si >= 0; si--) {
-          if (reinforcedCenters[si] < colX) { leftEdge = reinforcedCenters[si] + SPLINE_WIDTH / 2; break; }
+          if (reinforcedCenters[si] < colX) { leftEdge = reinforcedCenters[si] + SPLINE_WIDTH / 2 + HSPLINE_CLEARANCE; break; }
         }
 
         let rightEdge = colX + colW;
         // Find closest reinforced spline to the right (first one greater than colX + colW)
         const rightSpline = reinforcedCenters.find(sx => sx > colX);
-        if (rightSpline != null) rightEdge = rightSpline - SPLINE_WIDTH / 2;
+        if (rightSpline != null) rightEdge = rightSpline - SPLINE_WIDTH / 2 - HSPLINE_CLEARANCE;
 
         for (let k = 0; k < polyIntersections.length - 1; k += 2) {
           const polyL = polyIntersections[k] + joistRecess;
@@ -803,12 +803,12 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines, colum
 
         let topEdge = rowY;
         for (let si = reinforcedYCenters.length - 1; si >= 0; si--) {
-          if (reinforcedYCenters[si] < rowY) { topEdge = reinforcedYCenters[si] + SPLINE_WIDTH / 2; break; }
+          if (reinforcedYCenters[si] < rowY) { topEdge = reinforcedYCenters[si] + SPLINE_WIDTH / 2 + HSPLINE_CLEARANCE; break; }
         }
 
         let bottomEdge = rowY + rowH;
         const bottomSpline = reinforcedYCenters.find(sy => sy > rowY);
-        if (bottomSpline != null) bottomEdge = bottomSpline - SPLINE_WIDTH / 2;
+        if (bottomSpline != null) bottomEdge = bottomSpline - SPLINE_WIDTH / 2 - HSPLINE_CLEARANCE;
 
         for (let k = 0; k < polyIntersections.length - 1; k += 2) {
           const polyT = polyIntersections[k] + joistRecess;
