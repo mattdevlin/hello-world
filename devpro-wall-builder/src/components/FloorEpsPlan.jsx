@@ -1,17 +1,21 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import PrintButton from './PrintButton.jsx';
-import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, SPLINE_WIDTH, EPS_GAP } from '../utils/constants.js';
+import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, EPS_GAP } from '../utils/constants.js';
+import { computeFloorEpsDeductions } from '../utils/floorEpsDeductions.js';
 
 const MARGIN = { top: 60, right: 40, bottom: 80, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 const MAX_SVG_HEIGHT = 600;
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
 
 
 export default function FloorEpsPlan({ layout, floorName, projectName }) {
   const sectionRef = useRef(null);
+  const [zoomIdx, setZoomIdx] = useState(2);
+  const zoom = ZOOM_STEPS[zoomIdx];
   if (!layout || !layout.panels || layout.panels.length === 0) return null;
 
-  const { polygon, panels, reinforcedSplines, unreinforcedSplines,
+  const { polygon, panels,
     openings, recesses, shortEdgeJoins = [], boundingBox: bb,
     boundaryJoistCount = 1, joistRecess = 0 } = layout;
 
@@ -19,7 +23,7 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
   const drawH = MAX_SVG_HEIGHT - MARGIN.top - MARGIN.bottom;
   const scaleX = drawW / (bb.width || 1);
   const scaleY = drawH / (bb.height || 1);
-  const scale = Math.min(scaleX, scaleY);
+  const scale = Math.min(scaleX, scaleY) * zoom;
 
   const svgW = bb.width * scale + MARGIN.left + MARGIN.right;
   const svgH = bb.height * scale + MARGIN.top + MARGIN.bottom;
@@ -79,9 +83,19 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
           EPS Floor Plan — {floorName} ({FLOOR_EPS_DEPTH}mm panel / {FLOOR_SPLINE_DEPTH}mm spline)
           {boundaryJoistCount > 1 && ` · ${boundaryJoistCount}× boundary joists`}
         </div>
-        <PrintButton sectionRef={sectionRef} label="EPS Floor Plan" projectName={projectName} wallName={floorName} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={() => setZoomIdx(i => Math.max(0, i - 1))} disabled={zoomIdx === 0}
+              style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>-</button>
+            <span style={{ fontSize: 12, minWidth: 40, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1))} disabled={zoomIdx === ZOOM_STEPS.length - 1}
+              style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>+</button>
+          </div>
+          <PrintButton sectionRef={sectionRef} label="EPS Floor Plan" projectName={projectName} wallName={floorName} />
+        </div>
       </div>
 
+      <div style={{ overflow: 'auto', maxHeight: 700 }}>
       <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ background: '#F5F5F0' }}>
         {/* Clip path — inset polygon accounting for boundary joists + gap */}
         <defs>
@@ -101,14 +115,16 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
         </defs>
         <polygon points={insetPolyPoints} fill="none" stroke="#8B4513" strokeWidth={0.75} strokeDasharray="4,2" clipPath="url(#floor-joist-zone-clip)" />
 
-        {/* Panel EPS blocks — inset EPS_GAP from all panel edges, clipped to polygon */}
+        {/* Panel EPS blocks — per-edge deductions, clipped to polygon */}
         {panels.map((p, i) => {
-          const inset = EPS_GAP * scale;
-          const epsX = tx(p.x) + inset;
-          const epsY = ty(p.y + p.length) + inset;
-          const epsW = Math.max(0, p.width * scale - inset * 2);
-          const epsH = Math.max(0, p.length * scale - inset * 2);
+          const ded = computeFloorEpsDeductions(p, layout);
+          const epsX = tx(p.x) + ded.left * scale;
+          const epsY = ty(p.y + p.length) + ded.top * scale;
+          const epsW = Math.max(0, (p.width - ded.left - ded.right) * scale);
+          const epsH = Math.max(0, (p.length - ded.bottom - ded.top) * scale);
           if (epsW <= 0 || epsH <= 0) return null;
+          const epsWidthMm = Math.round(p.width - ded.left - ded.right);
+          const epsHeightMm = Math.round(p.length - ded.bottom - ded.top);
           const cx = tx(p.clippedPolygon ? p.clippedPolygon.reduce((s, pt) => s + pt.x, 0) / p.clippedPolygon.length : p.x + p.width / 2);
           const cy = ty(p.clippedPolygon ? p.clippedPolygon.reduce((s, pt) => s + pt.y, 0) / p.clippedPolygon.length : p.y + p.length / 2);
           return (
@@ -122,76 +138,11 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
                 P{p.index + 1}
               </text>
               <text x={cx} y={cy + 6} textAnchor="middle" dominantBaseline="middle" fontSize={7} fill="#4A6A8A">
-                {Math.round(p.width - 2 * EPS_GAP)}×{Math.round(p.length - 2 * EPS_GAP)}
+                {epsWidthMm}×{epsHeightMm}
               </text>
             </g>
           );
         })}
-
-        {/* Reinforced spline EPS — inset EPS_GAP from magboard faces */}
-        {reinforcedSplines.map((s, i) => {
-          const inset = EPS_GAP * scale;
-          return (
-            <rect key={`rse${i}`}
-              x={tx(s.x) + inset} y={ty(s.y + s.length) + inset}
-              width={Math.max(0, s.width * scale - inset * 2)} height={Math.max(0, s.length * scale - inset * 2)}
-              fill="#90EE90" fillOpacity={0.4} stroke="#27ae60" strokeWidth={1} />
-          );
-        })}
-
-        {/* Unreinforced spline EPS — inset EPS_GAP from magboard faces */}
-        {unreinforcedSplines.map((s, i) => {
-          const inset = EPS_GAP * scale;
-          return (
-            <rect key={`use${i}`}
-              x={tx(s.x) + inset} y={ty(s.y + s.length) + inset}
-              width={Math.max(0, s.width * scale - inset * 2)} height={Math.max(0, s.length * scale - inset * 2)}
-              fill="#90EE90" fillOpacity={0.2} stroke="#27ae60" strokeWidth={0.5}
-              strokeDasharray="4,2" />
-          );
-        })}
-
-        {/* Spline width dimension — annotate first reinforced spline */}
-        {(() => {
-          if (reinforcedSplines.length === 0) return null;
-          const s = reinforcedSplines[0];
-          const isVertical = s.width < s.length;
-          const scaledW = (isVertical ? s.width : s.length) * scale;
-          if (scaledW <= 20) return null;
-          const tickLen = 5;
-          const dimLabel = Math.round(SPLINE_WIDTH);
-          if (isVertical) {
-            // Horizontal dimension across top of spline
-            const dY = ty(s.y + s.length) - 8;
-            const x1 = tx(s.x);
-            const x2 = tx(s.x + s.width);
-            return (
-              <g>
-                <line x1={x1} y1={dY} x2={x2} y2={dY} stroke="#666" strokeWidth={0.5} />
-                <line x1={x1} y1={dY - tickLen} x2={x1} y2={dY + tickLen} stroke="#666" strokeWidth={0.5} />
-                <line x1={x2} y1={dY - tickLen} x2={x2} y2={dY + tickLen} stroke="#666" strokeWidth={0.5} />
-                <text x={(x1 + x2) / 2} y={dY - 3} textAnchor="middle" fontSize={9} fill="#666">{dimLabel}</text>
-              </g>
-            );
-          } else {
-            // Vertical dimension on left side of spline
-            const dX = tx(s.x) - 8;
-            const y1 = ty(s.y);
-            const y2 = ty(s.y + s.length);
-            return (
-              <g>
-                <line x1={dX} y1={y1} x2={dX} y2={y2} stroke="#666" strokeWidth={0.5} />
-                <line x1={dX - tickLen} y1={y1} x2={dX + tickLen} y2={y1} stroke="#666" strokeWidth={0.5} />
-                <line x1={dX - tickLen} y1={y2} x2={dX + tickLen} y2={y2} stroke="#666" strokeWidth={0.5} />
-                {(() => {
-                  const midY = (y1 + y2) / 2;
-                  return <text x={dX} y={midY} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#666"
-                    transform={`rotate(-90,${dX},${midY})`}>{dimLabel}</text>;
-                })()}
-              </g>
-            );
-          }
-        })()}
 
         {/* Short-edge joins */}
         {shortEdgeJoins.map((join, i) =>
@@ -222,6 +173,7 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
             fill="#FFE0B2" fillOpacity={0.5} stroke="#E65100" strokeWidth={1} strokeDasharray="4,2" />
         ))}
       </svg>
+      </div>
     </div>
   );
 }
