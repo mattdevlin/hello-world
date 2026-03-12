@@ -15,6 +15,9 @@ export const FLOOR_PLATE_DEPTH = 170;         // mm
 export const FLOOR_PANEL_SLABS_PER_BLOCK = 3; // 172×3 = 516mm from 630
 export const FLOOR_SPLINE_SLABS_PER_BLOCK = 3;// 170×3 = 510mm from 630
 export const DEFAULT_PERIMETER_PLATE_WIDTH = 45; // mm
+export const MIN_FLOOR_PANEL_WIDTH = 498;          // mm (332mm EPS + 2×83mm recess)
+export const FLOOR_EPS_RECESS = 83;                // mm EPS inset from panel edge
+export const FLOOR_PENETRATION_CLEARANCE = 45;     // mm clearance from penetration edge to panel boundary
 
 // Panel heights available
 export const PANEL_HEIGHTS = [2440, 2745, 3050]; // mm
@@ -35,6 +38,13 @@ export const LINTEL_DEPTH = 300;        // mm default
 export const WINDOW_PLATE = 45;         // mm — sill plate and jamb plate thickness
 export const DOOR_JAMB_PLATE = 45;      // mm — door jamb plate thickness
 export const CNC_KERF = 10;            // mm
+
+// Timber plates
+export const MAX_PLATE_LENGTH = 4800;        // mm
+export const WALL_PLATE_WIDTH = 140;         // mm
+export const WALL_PLATE_DEPTH = 45;          // mm
+export const LINTEL_WIDTH = 142;             // mm (fills EPS cavity)
+export const TOP_PLATE_STAGGER = 600;        // mm join offset between top plates
 
 // Splines
 export const SPLINE_WIDTH = 146;           // mm
