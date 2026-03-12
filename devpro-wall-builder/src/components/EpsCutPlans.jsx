@@ -266,7 +266,7 @@ export default function EpsCutPlans({ layout, wallName, projectName }) {
   return (
     <div ref={sectionRef} data-print-section>
       {hasPanelEps && (
-        <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
+        <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <h3 style={{ margin: 0, fontSize: 16, color: '#333' }}>
               EPS Cut Plans — 142mm thick {wallName && `— ${wallName}`}
@@ -290,7 +290,7 @@ export default function EpsCutPlans({ layout, wallName, projectName }) {
         </div>
       )}
       {hasSplineEps && (
-        <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16, marginTop: 16 }}>
+        <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd', padding: 16 }}>
           <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: '#333' }}>
             EPS Cut Plans — Wall Splines 120mm thick
           </h3>

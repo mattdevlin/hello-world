@@ -10,6 +10,8 @@ import EpsBlockSummary from '../components/EpsBlockSummary.jsx';
 import MagboardSheetSummary from '../components/MagboardSheetSummary.jsx';
 import GlueSummary from '../components/GlueSummary.jsx';
 import ModelViewer3D from '../components/ModelViewer3D.jsx';
+import CollapsibleSection from '../components/CollapsibleSection.jsx';
+import ProjectWallSummary from '../components/ProjectWallSummary.jsx';
 import ExportProjectButton from '../components/ExportProjectButton.jsx';
 
 export default function ProjectPage() {
@@ -133,20 +135,29 @@ export default function ProjectPage() {
 
         {/* 3D Model Viewer */}
         {walls.length > 0 && (
-          <ModelViewer3D
-            walls={walls}
-            connections={connections}
-            onConnectionsChange={handleConnectionsChange}
-            placedWallIds={placedWallIds}
-            onPlacementsChange={handlePlacementsChange}
-            wallPositions={wallPositions}
-            onWallPositionsChange={handleWallPositionsChange}
-          />
+          <CollapsibleSection sectionKey="project-3d-viewer" title="3D Model Viewer" defaultCollapsed={true}>
+            <ModelViewer3D
+              walls={walls}
+              connections={connections}
+              onConnectionsChange={handleConnectionsChange}
+              placedWallIds={placedWallIds}
+              onPlacementsChange={handlePlacementsChange}
+              wallPositions={wallPositions}
+              onWallPositionsChange={handleWallPositionsChange}
+            />
+          </CollapsibleSection>
+        )}
+
+        {/* Wall Summary */}
+        {walls.length > 0 && (
+          <CollapsibleSection sectionKey="project-wall-summary" title="Wall Summary">
+            <ProjectWallSummary walls={walls} projectName={project.name} />
+          </CollapsibleSection>
         )}
 
         {/* Material Summaries */}
-        {walls.length > 0 && <EpsBlockSummary walls={walls} />}
         {walls.length > 0 && <MagboardSheetSummary walls={walls} />}
+        {walls.length > 0 && <EpsBlockSummary walls={walls} projectName={project.name} />}
         {walls.length > 0 && <GlueSummary walls={walls} />}
 
         {/* Wall list */}

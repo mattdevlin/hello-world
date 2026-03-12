@@ -5,6 +5,7 @@ import ExportDxfButton from './ExportDxfButton.jsx';
 
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
+const MAX_SVG_HEIGHT = 500;
 
 export default function WallDrawing({ layout, wallName, projectName }) {
   const sectionRef = useRef(null);
@@ -21,6 +22,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
   const drawMaxH = (maxHeight || height) * scale;
   const svgWidth = MAX_SVG_WIDTH;
   const svgHeight = drawMaxH + MARGIN.top + MARGIN.bottom;
+  const displayHeight = Math.min(svgHeight, MAX_SVG_HEIGHT);
 
   const s = (mm) => mm * scale;
   // Y coordinate: 0 is at bottom of wall, SVG Y increases downward
@@ -50,8 +52,9 @@ export default function WallDrawing({ layout, wallName, projectName }) {
       </div>
       <svg
         width={svgWidth}
-        height={svgHeight}
+        height={displayHeight}
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block', margin: '0 auto' }}
       >
         {/* Title */}

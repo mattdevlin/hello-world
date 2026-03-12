@@ -73,7 +73,7 @@ export function deleteProject(id) {
 
 export function getProjectWalls(projectId) {
   return (readJson(projectWallsKey(projectId)) || []).sort(
-    (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)
+    (a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' })
   );
 }
 

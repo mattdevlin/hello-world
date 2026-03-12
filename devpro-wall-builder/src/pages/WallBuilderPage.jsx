@@ -8,6 +8,7 @@ import FramingElevation from '../components/FramingElevation.jsx';
 import EpsElevation from '../components/EpsElevation.jsx';
 import EpsCutPlans from '../components/EpsCutPlans.jsx';
 import Offcuts from '../components/Offcuts.jsx';
+import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import { calculateWallLayout } from '../utils/calculator.js';
 import { getProjects, getProjectWalls, saveWall } from '../utils/storage.js';
 
@@ -20,6 +21,7 @@ export default function WallBuilderPage() {
   const [wallName, setWallName] = useState('');
   const [wallInput, setWallInput] = useState(null);
   const [loadKey, setLoadKey] = useState(0);
+  const [generateKey, setGenerateKey] = useState(0);
 
   useEffect(() => {
     const p = getProjects().find(p => p.id === projectId);
@@ -49,6 +51,7 @@ export default function WallBuilderPage() {
     setLayout(result);
     setWallName(wall.name);
     setWallInput(wall);
+    setGenerateKey(k => k + 1);
   };
 
   const handleSave = () => {
@@ -99,13 +102,27 @@ export default function WallBuilderPage() {
 
         {layout && (
           <>
-            <WallDrawing layout={layout} wallName={wallName} projectName={project.name} />
-            <FramingElevation layout={layout} wallName={wallName} projectName={project.name} />
-            <EpsElevation layout={layout} wallName={wallName} projectName={project.name} />
-            <PanelPlans layout={layout} wallName={wallName} projectName={project.name} />
-            <EpsCutPlans layout={layout} wallName={wallName} projectName={project.name} />
-            <Offcuts layout={layout} wallName={wallName} projectName={project.name} />
-            <WallSummary layout={layout} wallName={wallName} projectName={project.name} />
+            <CollapsibleSection sectionKey="wallDrawing" title="External Elevation" forceOpen={generateKey}>
+              <WallDrawing layout={layout} wallName={wallName} projectName={project.name} />
+            </CollapsibleSection>
+            <CollapsibleSection sectionKey="framing" title="Framing Elevation" forceOpen={generateKey}>
+              <FramingElevation layout={layout} wallName={wallName} projectName={project.name} />
+            </CollapsibleSection>
+            <CollapsibleSection sectionKey="eps" title="EPS Elevation" defaultCollapsed forceOpen={generateKey}>
+              <EpsElevation layout={layout} wallName={wallName} projectName={project.name} />
+            </CollapsibleSection>
+            <CollapsibleSection sectionKey="panelPlans" title="CNC Panel Plans" defaultCollapsed>
+              <PanelPlans layout={layout} wallName={wallName} projectName={project.name} />
+            </CollapsibleSection>
+            <CollapsibleSection sectionKey="epsCutPlans" title="EPS Cut Plans" defaultCollapsed>
+              <EpsCutPlans layout={layout} wallName={wallName} projectName={project.name} />
+            </CollapsibleSection>
+            <CollapsibleSection sectionKey="offcuts" title="Offcuts" defaultCollapsed>
+              <Offcuts layout={layout} wallName={wallName} projectName={project.name} />
+            </CollapsibleSection>
+            <CollapsibleSection sectionKey="summary" title="Wall Summary">
+              <WallSummary layout={layout} wallName={wallName} projectName={project.name} />
+            </CollapsibleSection>
           </>
         )}
       </main>

@@ -82,6 +82,12 @@ body {
     gap: 8px;
   }
 
+  /* Expand collapsed sections for printing */
+  .collapsible-content {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
   /* Tables inside active section */
   [data-print-active="true"] table {
     width: 100%;
