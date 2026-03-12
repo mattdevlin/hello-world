@@ -73,11 +73,10 @@ export function buildEpsElevationDxf(layout, wallName) {
   }
 
   for (const op of openings) {
-    const hasSill = op.y > 0;
     exclusions.push([op.x - BOTTOM_PLATE, op.x]);
-    if (hasSill) exclusions.push([op.x - BOTTOM_PLATE - SPLINE_WIDTH, op.x - BOTTOM_PLATE]);
+    exclusions.push([op.x - BOTTOM_PLATE - SPLINE_WIDTH, op.x - BOTTOM_PLATE]);
     exclusions.push([op.x + op.drawWidth, op.x + op.drawWidth + BOTTOM_PLATE]);
-    if (hasSill) exclusions.push([op.x + op.drawWidth + BOTTOM_PLATE, op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH]);
+    exclusions.push([op.x + op.drawWidth + BOTTOM_PLATE, op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH]);
     exclusions.push([op.x, op.x + op.drawWidth]);
   }
 
@@ -265,10 +264,9 @@ export function buildEpsElevationDxf(layout, wallName) {
     // Timber lintel
     const op = openings.find(o => o.ref === l.ref);
     if (op) {
-      const hasSill = op.y > 0;
       const lintelH = l.lintelHeight || 200;
-      const lintelLeft = hasSill ? op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET : op.x - BOTTOM_PLATE + EPS_INSET;
-      const lintelRight = hasSill ? op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET : op.x + op.drawWidth + BOTTOM_PLATE - EPS_INSET;
+      const lintelLeft = op.x - BOTTOM_PLATE - SPLINE_WIDTH + EPS_INSET;
+      const lintelRight = op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH - EPS_INSET;
       const lintelBot = l.y;
       const lintelTop = l.y + lintelH;
       d.drawPolyline([

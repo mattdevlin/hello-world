@@ -309,10 +309,74 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                         y={s(yBottom) + 14}
                         textAnchor="middle" fontSize="9" fill="#999"
                       >
-                        {panel.width}
+                        {panel.baseWidth}
                       </text>
                     </g>
                   );
+                })}
+                {/* Course boundary lines — horizontal edges where panels from different courses meet */}
+                {isMultiCourse && courses.slice(1).map((course, ci) => {
+                  const boundaryY = yBottom - course.y;
+                  return basePanels.map((panel, pi) => {
+                    const pLeft = panel.x;
+                    const pRight = panel.x + panel.width;
+
+                    // Clip to wall extents: skip if wall top is below the boundary at both edges
+                    if (yTop(pLeft) >= boundaryY && yTop(pRight) >= boundaryY) return null;
+
+                    // Clamp x-range to where wall is tall enough for this boundary
+                    let xL = pLeft;
+                    let xR = pRight;
+                    if (heightAt) {
+                      // For raked/gable, find where the wall height crosses the course boundary
+                      // heightAt(x) gives wall height; course.y is boundary height from floor
+                      // Wall extends above boundary where heightAt(x) > course.y
+                      if (yTop(pLeft) >= boundaryY) {
+                        // Left edge is outside wall — find crossing point
+                        for (let x = pLeft; x <= pRight; x += 1) {
+                          if (yTop(x) < boundaryY) { xL = x; break; }
+                        }
+                      }
+                      if (yTop(pRight) >= boundaryY) {
+                        for (let x = pRight; x >= pLeft; x -= 1) {
+                          if (yTop(x) < boundaryY) { xR = x; break; }
+                        }
+                      }
+                    }
+                    if (xR <= xL) return null;
+
+                    // Split into segments that skip lintel panel zones
+                    const excl = [];
+                    for (const l of lintelPanels) {
+                      const lLeft = l.x;
+                      const lRight = l.x + l.width;
+                      // Lintel overlaps this panel's x-range and spans the boundary y
+                      const lTop = yBottom - l.y - Math.max(l.heightLeft ?? l.height, l.heightRight ?? l.height, l.peakHeight ?? 0);
+                      const lBot = yBottom - l.y;
+                      if (lRight > xL && lLeft < xR && lTop <= boundaryY && lBot >= boundaryY) {
+                        excl.push([Math.max(lLeft, xL), Math.min(lRight, xR)]);
+                      }
+                    }
+                    excl.sort((a, b) => a[0] - b[0]);
+
+                    // Build visible segments
+                    const segs = [];
+                    let cursor = xL;
+                    for (const [eL, eR] of excl) {
+                      if (cursor < eL) segs.push([cursor, eL]);
+                      cursor = Math.max(cursor, eR);
+                    }
+                    if (cursor < xR) segs.push([cursor, xR]);
+
+                    return segs.map(([segL, segR], si) => (
+                      <line
+                        key={`course-edge-c${ci}-p${pi}-s${si}`}
+                        x1={s(segL)} y1={s(boundaryY)}
+                        x2={s(segR)} y2={s(boundaryY)}
+                        stroke={C_PANEL} strokeWidth={W_LIGHT} strokeDasharray={DASH_PANEL}
+                      />
+                    ));
+                  });
                 })}
                 {/* Panel labels — per course, positioned in each course's vertical region */}
                 {panels.map((panel, i) => {
@@ -492,7 +556,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                     />
                   </>
                 )}
-                {hasSill && (() => {
+                {(() => {
                   const spBot = yBottom - BOTTOM_PLATE;
                   const lSpXL = op.x - BOTTOM_PLATE - SPLINE_WIDTH;
                   const lSpXR = op.x - BOTTOM_PLATE;
@@ -531,7 +595,7 @@ export default function FramingElevation({ layout, wallName, projectName }) {
                 y={s(yBottom) + 14}
                 textAnchor="middle" fontSize="9" fill="#999"
               >
-                {f.width}
+                {f.baseWidth}
               </text>
             </g>
           ))}

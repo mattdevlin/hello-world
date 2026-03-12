@@ -70,17 +70,12 @@ export default function EpsElevation({ layout, wallName, projectName }) {
 
   // 3. Opening vertical plates (45mm) + splines (146mm) on each side
   for (const op of openings) {
-    const hasSill = op.y > 0;
     // Left side: 45mm plate at op.x - 45 to op.x, spline at op.x - 45 - 146 to op.x - 45
     exclusions.push([op.x - BOTTOM_PLATE, op.x]); // left vertical plate
-    if (hasSill) {
-      exclusions.push([op.x - BOTTOM_PLATE - SPLINE_WIDTH, op.x - BOTTOM_PLATE]); // left spline
-    }
+    exclusions.push([op.x - BOTTOM_PLATE - SPLINE_WIDTH, op.x - BOTTOM_PLATE]); // left spline
     // Right side: 45mm plate at op.x+w to op.x+w+45, spline at op.x+w+45 to op.x+w+45+146
     exclusions.push([op.x + op.drawWidth, op.x + op.drawWidth + BOTTOM_PLATE]); // right vertical plate
-    if (hasSill) {
-      exclusions.push([op.x + op.drawWidth + BOTTOM_PLATE, op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH]); // right spline
-    }
+    exclusions.push([op.x + op.drawWidth + BOTTOM_PLATE, op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH]); // right spline
     // The opening itself (no EPS in the opening area)
     exclusions.push([op.x, op.x + op.drawWidth]);
   }
@@ -613,8 +608,6 @@ export default function EpsElevation({ layout, wallName, projectName }) {
 
             // Find the matching opening for spline positions
             const op = openings.find(o => o.ref === l.ref);
-            const hasSill = op && op.y > 0;
-
             const shortH = Math.min(hL, hR);
 
             // Timber lintel and EPS fill (only when matching opening exists)
@@ -717,12 +710,10 @@ export default function EpsElevation({ layout, wallName, projectName }) {
             }
 
             for (const op of openings) {
-              if (op.y > 0) {
-                const lx = op.x - BOTTOM_PLATE - SPLINE_WIDTH;
-                splines.push({ xPos: lx, cx: lx + SPLINE_WIDTH / 2 });
-                const rx = op.x + op.drawWidth + BOTTOM_PLATE;
-                splines.push({ xPos: rx, cx: rx + SPLINE_WIDTH / 2 });
-              }
+              const lx = op.x - BOTTOM_PLATE - SPLINE_WIDTH;
+              splines.push({ xPos: lx, cx: lx + SPLINE_WIDTH / 2 });
+              const rx = op.x + op.drawWidth + BOTTOM_PLATE;
+              splines.push({ xPos: rx, cx: rx + SPLINE_WIDTH / 2 });
             }
 
             return splines.map((sp, i) => {

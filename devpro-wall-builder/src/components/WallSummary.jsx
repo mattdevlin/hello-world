@@ -63,11 +63,10 @@ export default function WallSummary({ layout, wallName, projectName }) {
   }
 
   for (const op of openings) {
-    const hasSill = op.y > 0;
     exclusions.push([op.x - BOTTOM_PLATE, op.x]);
-    if (hasSill) exclusions.push([op.x - BOTTOM_PLATE - SPLINE_WIDTH, op.x - BOTTOM_PLATE]);
+    exclusions.push([op.x - BOTTOM_PLATE - SPLINE_WIDTH, op.x - BOTTOM_PLATE]);
     exclusions.push([op.x + op.drawWidth, op.x + op.drawWidth + BOTTOM_PLATE]);
-    if (hasSill) exclusions.push([op.x + op.drawWidth + BOTTOM_PLATE, op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH]);
+    exclusions.push([op.x + op.drawWidth + BOTTOM_PLATE, op.x + op.drawWidth + BOTTOM_PLATE + SPLINE_WIDTH]);
     exclusions.push([op.x, op.x + op.drawWidth]);
   }
 

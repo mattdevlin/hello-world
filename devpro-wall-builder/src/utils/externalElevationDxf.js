@@ -84,7 +84,7 @@ export function buildExternalElevationDxf(layout, wallName) {
 
     // Width label (course 0 only)
     if (courseIdx === 0) {
-      d.drawText(pLeft + panel.width / 2 - 30, -40, 30, 0, `${panel.width}`);
+      d.drawText(pLeft + panel.width / 2 - 30, -40, 30, 0, `${panel.baseWidth}`);
     }
   });
 

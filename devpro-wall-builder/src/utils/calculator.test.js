@@ -7,6 +7,9 @@ import {
   STOCK_SHEET_HEIGHTS,
   WALL_PROFILES,
   OPENING_TYPES,
+  WINDOW_OVERHANG,
+  BOTTOM_PLATE,
+  DOOR_JAMB_PLATE,
 } from './constants.js';
 
 // ── Helpers ──
@@ -775,5 +778,106 @@ describe('raked wall fixes', () => {
     const layout = calculateWallLayout(wall);
     expect(layout.isMultiCourse).toBe(true);
     expect(layout.courses[0].height).toBe(2600);
+  });
+});
+
+// ── Door opening lintel gap logic ──
+
+describe('calculateWallLayout — door lintel panel gaps', () => {
+  const doorOpening = {
+    ref: 'D1',
+    type: OPENING_TYPES.DOOR,
+    width_mm: 900,
+    height_mm: 2100,
+    sill_mm: 0,
+    position_from_left_mm: 4000,
+  };
+
+  it('lintel panel has PANEL_GAP inset on left and right', () => {
+    const wall = makeWall({ openings: [doorOpening] });
+    const layout = calculateWallLayout(wall);
+    const lintel = layout.lintelPanels.find(l => l.ref === 'D1');
+
+    const expectedLeft = doorOpening.position_from_left_mm - WINDOW_OVERHANG + PANEL_GAP;
+    const expectedRight = doorOpening.position_from_left_mm + doorOpening.width_mm + WINDOW_OVERHANG - PANEL_GAP;
+    expect(lintel.x).toBe(expectedLeft);
+    expect(lintel.width).toBe(expectedRight - expectedLeft);
+  });
+
+  it('lintel panel sits flush at bottom (y = openTop, no gap)', () => {
+    const wall = makeWall({ openings: [doorOpening] });
+    const layout = calculateWallLayout(wall);
+    const lintel = layout.lintelPanels.find(l => l.ref === 'D1');
+
+    expect(lintel.y).toBe(doorOpening.height_mm);
+  });
+
+  it('lintel panel top matches wall top (no gap at top)', () => {
+    const wall = makeWall({ openings: [doorOpening] });
+    const layout = calculateWallLayout(wall);
+    const lintel = layout.lintelPanels.find(l => l.ref === 'D1');
+
+    const expectedHeight = wall.height_mm - doorOpening.height_mm;
+    expect(lintel.heightLeft).toBe(expectedHeight);
+    expect(lintel.heightRight).toBe(expectedHeight);
+  });
+
+  it('L-cut openTop is reduced by PANEL_GAP (return drops 5mm)', () => {
+    const wall = makeWall({ openings: [doorOpening] });
+    const layout = calculateWallLayout(wall);
+    const lcuts = layout.panels.filter(p => p.type === 'lcut');
+
+    expect(lcuts.length).toBeGreaterThan(0);
+    for (const lcut of lcuts) {
+      expect(lcut.openTop).toBe(doorOpening.height_mm - PANEL_GAP);
+    }
+  });
+
+  it('door jamb plates start at BOTTOM_PLATE and reach door top', () => {
+    const wall = makeWall({ openings: [doorOpening] });
+    const layout = calculateWallLayout(wall);
+    const op = layout.openings.find(o => o.ref === 'D1');
+
+    expect(op.leftJamb.y).toBe(BOTTOM_PLATE);
+    expect(op.leftJamb.width).toBe(DOOR_JAMB_PLATE);
+    expect(op.leftJamb.height).toBe(doorOpening.height_mm - BOTTOM_PLATE);
+    expect(op.rightJamb.y).toBe(BOTTOM_PLATE);
+    expect(op.rightJamb.width).toBe(DOOR_JAMB_PLATE);
+    expect(op.rightJamb.height).toBe(doorOpening.height_mm - BOTTOM_PLATE);
+  });
+});
+
+describe('calculateWallLayout — raked wall door lintel', () => {
+  it('lintel panel heights follow the rake minus PANEL_GAP', () => {
+    const wall = makeWall({
+      height_mm: 2700,
+      height_right_mm: 3200,
+      profile: WALL_PROFILES.RAKED,
+      openings: [{
+        ref: 'D1',
+        type: OPENING_TYPES.DOOR,
+        width_mm: 900,
+        height_mm: 2100,
+        sill_mm: 0,
+        position_from_left_mm: 4000,
+      }],
+    });
+    const layout = calculateWallLayout(wall);
+    const lintel = layout.lintelPanels.find(l => l.ref === 'D1');
+
+    // Raked: height increases linearly from 2700 (left) to 3200 (right)
+    // heightAt(x) = 2700 + (3200-2700) * x / 9740
+    const lintelLeft = 4000 - WINDOW_OVERHANG + PANEL_GAP;
+    const lintelRight = 4900 + WINDOW_OVERHANG - PANEL_GAP;
+    const hAtLeft = 2700 + 500 * (lintelLeft / 9740);
+    const hAtRight = 2700 + 500 * (lintelRight / 9740);
+
+    const expectedHeightLeft = Math.max(0, hAtLeft - 2100);
+    const expectedHeightRight = Math.max(0, hAtRight - 2100);
+
+    expect(lintel.heightLeft).toBeCloseTo(expectedHeightLeft, 0);
+    expect(lintel.heightRight).toBeCloseTo(expectedHeightRight, 0);
+    // Right side should be taller than left due to rake
+    expect(lintel.heightRight).toBeGreaterThan(lintel.heightLeft);
   });
 });

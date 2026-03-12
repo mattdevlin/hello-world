@@ -12,6 +12,7 @@ import GlueSummary from '../components/GlueSummary.jsx';
 import ModelViewer3D from '../components/ModelViewer3D.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import ProjectWallSummary from '../components/ProjectWallSummary.jsx';
+import ExportProjectButton from '../components/ExportProjectButton.jsx';
 
 export default function ProjectPage() {
   const { projectId } = useParams();
@@ -121,12 +122,15 @@ export default function ProjectPage() {
               {walls.length} wall{walls.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <button
-            onClick={() => navigate(`/project/${projectId}/wall/new`)}
-            style={styles.newWallBtn}
-          >
-            + New Wall
-          </button>
+          <div style={styles.headerButtons}>
+            <ExportProjectButton projectName={project.name} walls={walls} />
+            <button
+              onClick={() => navigate(`/project/${projectId}/wall/new`)}
+              style={styles.newWallBtn}
+            >
+              + New Wall
+            </button>
+          </div>
         </div>
 
         {/* 3D Model Viewer */}
@@ -255,6 +259,12 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     padding: '12px 0 24px',
+  },
+  headerButtons: {
+    display: 'flex',
+    gap: 10,
+    alignItems: 'flex-start',
+    flexShrink: 0,
   },
   headerLeft: {},
   title: {
