@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateFloorLayout, computeColumnPositions, computeSpanBreaks } from './floorCalculator.js';
-import { MIN_FLOOR_PANEL_WIDTH, PANEL_PITCH, PANEL_WIDTH, PANEL_GAP, SPLINE_WIDTH, MAX_SHEET_HEIGHT } from './constants.js';
+import { MIN_FLOOR_PANEL_WIDTH, PANEL_PITCH, PANEL_WIDTH, PANEL_GAP, SPLINE_WIDTH, MAX_SHEET_HEIGHT, FLOOR_EPS_RECESS } from './constants.js';
 
 const simpleRect = {
   name: 'F1',
@@ -199,6 +199,9 @@ describe('calculateFloorLayout', () => {
     expect(sorted[0].x).toBeCloseTo(55, 0);
     // Middle columns start at right edge of reinforced spline
     expect(sorted[1].x).toBeGreaterThan(1200);
+    // Interior column unreinforced spline width matches EPS panel width
+    const interiorSpline = sorted[1];
+    expect(interiorSpline.width).toBeCloseTo(PANEL_WIDTH - 2 * FLOOR_EPS_RECESS, 0);
   });
 
   it('generates short-edge joins for rectangle exceeding MAX_SHEET_HEIGHT', () => {
