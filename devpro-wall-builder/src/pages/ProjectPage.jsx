@@ -10,6 +10,7 @@ import {
 import EpsBlockSummary from '../components/EpsBlockSummary.jsx';
 import MagboardSheetSummary from '../components/MagboardSheetSummary.jsx';
 import GlueSummary from '../components/GlueSummary.jsx';
+import TimberTakeoffSummary from '../components/TimberTakeoffSummary.jsx';
 import ModelViewer3D from '../components/ModelViewer3D.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import ProjectWallSummary from '../components/ProjectWallSummary.jsx';
@@ -176,6 +177,7 @@ export default function ProjectPage() {
         {(walls.length > 0 || floors.length > 0) && <MagboardSheetSummary walls={walls} floors={floors} />}
         {(walls.length > 0 || floors.length > 0) && <EpsBlockSummary walls={walls} floors={floors} projectName={project.name} />}
         {(walls.length > 0 || floors.length > 0) && <GlueSummary walls={walls} floors={floors} />}
+        {(walls.length > 0 || floors.length > 0) && <TimberTakeoffSummary walls={walls} floors={floors} />}
 
         {/* Wall list */}
         {walls.length === 0 ? (
