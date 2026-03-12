@@ -21,6 +21,10 @@ function projectFloorsKey(projectId) {
   return `devpro-project-${projectId}-floors`;
 }
 
+function projectH1Key(projectId) {
+  return `devpro-project-${projectId}-h1`;
+}
+
 function readJson(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -67,11 +71,22 @@ export function renameProject(id, name) {
   }
 }
 
+export function updateProjectDetails(id, fields) {
+  const projects = getProjects();
+  const p = projects.find(p => p.id === id);
+  if (p) {
+    Object.assign(p, fields);
+    p.updatedAt = Date.now();
+    saveProjects(projects);
+  }
+}
+
 export function deleteProject(id) {
   const projects = getProjects().filter(p => p.id !== id);
   saveProjects(projects);
   localStorage.removeItem(projectWallsKey(id));
   localStorage.removeItem(projectFloorsKey(id));
+  localStorage.removeItem(projectH1Key(id));
 }
 
 // ── Walls within a project ──
@@ -219,6 +234,16 @@ export function saveProjectWallPositions(projectId, positions) {
   localStorage.setItem(projectWallPositionsKey(projectId), JSON.stringify(positions));
 }
 
+// ── H1 Compliance Data ──
+
+export function getProjectH1(projectId) {
+  return readJson(projectH1Key(projectId)) || null;
+}
+
+export function saveProjectH1(projectId, h1Data) {
+  localStorage.setItem(projectH1Key(projectId), JSON.stringify(h1Data));
+}
+
 // ── Archive (export/import as JSON zip) ──
 
 export async function exportProject(projectId) {
@@ -230,11 +255,15 @@ export async function exportProject(projectId) {
   const walls = getProjectWalls(projectId);
   const connections = getProjectConnections(projectId);
   const floors = getProjectFloors(projectId);
+  const h1Data = getProjectH1(projectId);
   const zip = new JSZip();
   zip.file('project.json', JSON.stringify({ ...project, exportedAt: Date.now() }, null, 2));
   zip.file('walls.json', JSON.stringify(walls, null, 2));
   zip.file('connections.json', JSON.stringify(connections, null, 2));
   zip.file('floors.json', JSON.stringify(floors, null, 2));
+  if (h1Data) {
+    zip.file('h1.json', JSON.stringify(h1Data, null, 2));
+  }
 
   const blob = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(blob);
@@ -261,6 +290,8 @@ export async function importProject(file) {
   const project = {
     id: newId,
     name: projectData.name + ' (imported)',
+    address: projectData.address || '',
+    territorialAuthority: projectData.territorialAuthority || '',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     wallCount: wallsData.length,
@@ -305,6 +336,12 @@ export async function importProject(file) {
   }
   if (connections.length > 0) {
     saveProjectConnections(newId, connections);
+  }
+
+  // Import H1 data if present
+  const h1Json = await zip.file('h1.json')?.async('string');
+  if (h1Json) {
+    saveProjectH1(newId, JSON.parse(h1Json));
   }
 
   return project;
