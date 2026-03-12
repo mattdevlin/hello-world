@@ -25,7 +25,7 @@ export default function FloorPlanView({ layout, floorName, projectName }) {
   if (!layout || !layout.panels || layout.panels.length === 0) return null;
 
   const { polygon, panels, openings, recesses, reinforcedSplines, unreinforcedSplines,
-    bearerLines, boundingBox: bb } = layout;
+    bearerLines, shortEdgeJoins = [], boundingBox: bb } = layout;
 
   const drawW = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
   const drawH = MAX_SVG_HEIGHT - MARGIN.top - MARGIN.bottom;
@@ -63,7 +63,7 @@ export default function FloorPlanView({ layout, floorName, projectName }) {
             return (
               <g key={i}>
                 <polygon points={pts} fill={color} fillOpacity={0.3} stroke={COLORS.PANEL_STROKE} strokeWidth={0.5} />
-                <text x={tx(p.x + p.width / 2)} y={ty(p.y + p.length / 2)} textAnchor="middle" dominantBaseline="middle" fontSize={10} fill="#333">
+                <text x={tx(p.clippedPolygon.reduce((s, pt) => s + pt.x, 0) / p.clippedPolygon.length)} y={ty(p.clippedPolygon.reduce((s, pt) => s + pt.y, 0) / p.clippedPolygon.length)} textAnchor="middle" dominantBaseline="middle" fontSize={10} fill="#333">
                   P{p.index + 1}
                 </text>
               </g>
@@ -88,6 +88,16 @@ export default function FloorPlanView({ layout, floorName, projectName }) {
             fill={COLORS.SPLINE} fillOpacity={0.3} stroke={COLORS.SPLINE} strokeWidth={1}
           />
         ))}
+
+        {/* Short-edge joins */}
+        {shortEdgeJoins.map((join, i) =>
+          join.segments.map((seg, j) => (
+            <line key={`sej${i}-${j}`}
+              x1={tx(seg.x1)} y1={ty(seg.y1)} x2={tx(seg.x2)} y2={ty(seg.y2)}
+              stroke="#999" strokeWidth={1} strokeDasharray="6,3"
+            />
+          ))
+        )}
 
         {/* Bearer lines */}
         {bearerLines.map((bl, i) =>

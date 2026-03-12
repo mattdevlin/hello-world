@@ -116,4 +116,68 @@ describe('calculateFloorLayout', () => {
     expect(result.bearerLines).toHaveLength(2);
     expect(result.bearerLines[0].segments.length).toBeGreaterThan(0);
   });
+
+  it('generates short-edge joins for rectangle exceeding MAX_SHEET_HEIGHT', () => {
+    // 6000x4000, dir=0 → panels span Y=4000 > 3050 → 1 join at Y=3050
+    const result = calculateFloorLayout(simpleRect);
+    expect(result.shortEdgeJoins).toBeDefined();
+    expect(result.shortEdgeJoins.length).toBe(1);
+    expect(result.shortEdgeJoins[0].position).toBe(3050);
+    // Segment should span the full X width (0 to 6000)
+    expect(result.shortEdgeJoins[0].segments.length).toBe(1);
+    const seg = result.shortEdgeJoins[0].segments[0];
+    expect(seg.x1).toBeCloseTo(0, 0);
+    expect(seg.x2).toBeCloseTo(6000, 0);
+    expect(seg.y1).toBe(3050);
+    expect(seg.y2).toBe(3050);
+  });
+
+  it('generates no short-edge joins when span < MAX_SHEET_HEIGHT', () => {
+    const smallRect = {
+      ...simpleRect,
+      polygon: [
+        { x: 0, y: 0 }, { x: 2000, y: 0 },
+        { x: 2000, y: 2000 }, { x: 0, y: 2000 },
+      ],
+    };
+    const result = calculateFloorLayout(smallRect);
+    expect(result.shortEdgeJoins).toBeDefined();
+    expect(result.shortEdgeJoins.length).toBe(0);
+  });
+
+  it('clips short-edge joins to L-shaped polygon', () => {
+    // L-shape: bottom arm 8000x3000, left arm extends to 4000x6000
+    // dir=0 → panels span Y → join at Y=3050
+    // At Y=3050: bottom arm (x:0-8000) is below y=3000, left arm (x:0-4000) extends to y=6000
+    // So the join at Y=3050 should only be in the left arm (x:0 to x:4000)
+    const result = calculateFloorLayout(lShaped);
+    expect(result.shortEdgeJoins.length).toBeGreaterThan(0);
+    const joinAt3050 = result.shortEdgeJoins.find(j => j.position === 3050);
+    expect(joinAt3050).toBeDefined();
+    // Should have 1 segment spanning x:0 to x:4000 (left arm only)
+    expect(joinAt3050.segments.length).toBe(1);
+    expect(joinAt3050.segments[0].x1).toBeCloseTo(0, 0);
+    expect(joinAt3050.segments[0].x2).toBeCloseTo(4000, 0);
+  });
+
+  it('clips spline lengths to polygon boundary for L-shape', () => {
+    const result = calculateFloorLayout(lShaped);
+    const allSplines = [...result.reinforcedSplines, ...result.unreinforcedSplines];
+    expect(allSplines.length).toBeGreaterThan(0);
+
+    // Every spline segment must be fully inside the polygon bounds.
+    // For the L-shape, the notch starts at x=4000, y=3000.
+    // Splines with center x > 4000 should have length ≤ 3000 (only bottom arm).
+    for (const s of allSplines) {
+      const splineCenterX = s.x + s.width / 2;
+      if (splineCenterX > 4000) {
+        // In the narrow arm: spline must not exceed y=3000
+        expect(s.y + s.length).toBeLessThanOrEqual(3000 + 1);
+        expect(s.length).toBeLessThanOrEqual(3000 + 1);
+      }
+      // No spline should extend beyond the polygon bounding box
+      expect(s.y).toBeGreaterThanOrEqual(-1);
+      expect(s.y + s.length).toBeLessThanOrEqual(6000 + 1);
+    }
+  });
 });

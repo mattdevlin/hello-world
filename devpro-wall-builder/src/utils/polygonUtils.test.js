@@ -134,6 +134,20 @@ describe('clipRectToPolygon', () => {
     // With convex decomposition, at least part of the rect should be captured
     expect(area).toBeGreaterThan(0);
   });
+
+  it('clips rect spanning both arms of L-shape correctly', () => {
+    // Rect at x=2400-3600 spans the full height of the L-shape (both arms)
+    const rect = { x: 2400, y: 0, width: 1200, height: 6000 };
+    const clipped = clipRectToPolygon(rect, lShape);
+    expect(clipped.length).toBeGreaterThanOrEqual(4);
+    const area = Math.abs(polygonArea(clipped));
+    // Should cover: bottom arm 1200×3000 + left arm 600×3000 = 5,400,000
+    // (rect is 2400-3600, polygon notch starts at x=3000 above y=3000)
+    // Bottom: 2400-3600 × 0-3000 = 1200×3000 = 3,600,000
+    // Top: 2400-3000 × 3000-6000 = 600×3000 = 1,800,000
+    // Total = 5,400,000
+    expect(area).toBeCloseTo(5400000, -2);
+  });
 });
 
 describe('rectOverlapsOpening', () => {

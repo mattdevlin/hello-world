@@ -13,7 +13,7 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
   if (!layout || !layout.panels || layout.panels.length === 0) return null;
 
   const { polygon, panels, reinforcedSplines, unreinforcedSplines,
-    openings, recesses, boundingBox: bb } = layout;
+    openings, recesses, shortEdgeJoins = [], boundingBox: bb } = layout;
 
   const drawW = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
   const drawH = MAX_SVG_HEIGHT - MARGIN.top - MARGIN.bottom;
@@ -49,7 +49,7 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
             return (
               <g key={i}>
                 <polygon points={pts} fill="#B3D9FF" fillOpacity={0.4} stroke="#4A90D9" strokeWidth={0.5} />
-                <text x={tx(p.x + p.width / 2)} y={ty(p.y + p.length / 2)} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#2C5F8A">
+                <text x={tx(p.clippedPolygon.reduce((s, pt) => s + pt.x, 0) / p.clippedPolygon.length)} y={ty(p.clippedPolygon.reduce((s, pt) => s + pt.y, 0) / p.clippedPolygon.length)} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#2C5F8A">
                   {FLOOR_EPS_DEPTH}mm
                 </text>
               </g>
@@ -69,6 +69,16 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
             x={tx(s.x)} y={ty(s.y + s.length)} width={s.width * scale} height={s.length * scale}
             fill="#90EE90" fillOpacity={0.4} stroke="#27ae60" strokeWidth={1} />
         ))}
+
+        {/* Short-edge joins */}
+        {shortEdgeJoins.map((join, i) =>
+          join.segments.map((seg, j) => (
+            <line key={`sej${i}-${j}`}
+              x1={tx(seg.x1)} y1={ty(seg.y1)} x2={tx(seg.x2)} y2={ty(seg.y2)}
+              stroke="#999" strokeWidth={1} strokeDasharray="6,3"
+            />
+          ))
+        )}
 
         {/* Opening voids */}
         {openings.map((op, i) => {

@@ -111,26 +111,9 @@ export function clipRectToPolygon(rect, polygon) {
     return clipPolygonSH(rectPoly, polygon);
   }
 
-  // For concave polygons, clip rect against each convex part and merge
-  const convexParts = decomposeConvex(polygon);
-  const results = [];
-  for (const part of convexParts) {
-    const clipped = clipPolygonSH(rectPoly, part);
-    if (clipped.length >= 3) results.push(clipped);
-  }
-
-  // Return the largest clipped region (simplified approach)
-  if (results.length === 0) return [];
-  if (results.length === 1) return results[0];
-
-  // For multiple parts, return the union approximated by the one with largest area
-  let best = results[0];
-  let bestArea = Math.abs(polygonArea(best));
-  for (let i = 1; i < results.length; i++) {
-    const a = Math.abs(polygonArea(results[i]));
-    if (a > bestArea) { best = results[i]; bestArea = a; }
-  }
-  return best;
+  // For concave polygons: clip polygon (subject) against rect (clip).
+  // Rect is convex, so SH works directly and handles concave subjects correctly.
+  return clipPolygonSH(polygon, rectPoly);
 }
 
 /**

@@ -19,7 +19,7 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
   if (!layout || !layout.panels || layout.panels.length === 0) return null;
 
   const { polygon, perimeterPlates, reinforcedSplines, unreinforcedSplines,
-    bearerLines, recesses, boundingBox: bb } = layout;
+    bearerLines, shortEdgeJoins = [], recesses, boundingBox: bb } = layout;
 
   const drawW = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
   const drawH = MAX_SVG_HEIGHT - MARGIN.top - MARGIN.bottom;
@@ -90,6 +90,16 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
           ))
         )}
 
+        {/* Short-edge joins */}
+        {shortEdgeJoins.map((join, i) =>
+          join.segments.map((seg, j) => (
+            <line key={`sej${i}-${j}`}
+              x1={tx(seg.x1)} y1={ty(seg.y1)} x2={tx(seg.x2)} y2={ty(seg.y2)}
+              stroke="#999" strokeWidth={1} strokeDasharray="6,3"
+            />
+          ))
+        )}
+
         {/* Recess plates */}
         {recesses.map((rec, ri) =>
           (rec.recessPlates || []).map((plate, pi) => (
@@ -101,7 +111,7 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
 
         {/* Legend */}
         <g transform={`translate(${svgW - 200}, 12)`}>
-          <rect x={0} y={0} width={180} height={90} fill="#fff" fillOpacity={0.9} stroke="#ccc" rx={4} />
+          <rect x={0} y={0} width={180} height={106} fill="#fff" fillOpacity={0.9} stroke="#ccc" rx={4} />
           <rect x={8} y={8} width={14} height={8} fill={COLORS.PLATE} fillOpacity={0.6} />
           <text x={28} y={16} fontSize={10} fill="#333">Perimeter Plates</text>
           <rect x={8} y={24} width={14} height={8} fill={COLORS.REINFORCED} fillOpacity={0.4} />
@@ -112,6 +122,8 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
           <text x={28} y={64} fontSize={10} fill="#333">Bearer Lines</text>
           <line x1={8} y1={76} x2={22} y2={76} stroke={COLORS.STEEL} strokeWidth={2} strokeDasharray="3,2" />
           <text x={28} y={80} fontSize={10} fill="#333">Steel Channel</text>
+          <line x1={8} y1={92} x2={22} y2={92} stroke="#999" strokeWidth={1} strokeDasharray="6,3" />
+          <text x={28} y={96} fontSize={10} fill="#333">Sheet Joins</text>
         </g>
       </svg>
     </div>

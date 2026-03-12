@@ -13,7 +13,7 @@
 import {
   PANEL_PITCH, PANEL_WIDTH, PANEL_GAP, SPLINE_WIDTH,
   FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, FLOOR_PLATE_DEPTH,
-  FLOOR_THICKNESS, DEFAULT_PERIMETER_PLATE_WIDTH,
+  FLOOR_THICKNESS, DEFAULT_PERIMETER_PLATE_WIDTH, MAX_SHEET_HEIGHT,
 } from './constants.js';
 
 import {
@@ -190,6 +190,9 @@ export function calculateFloorLayout(floor) {
     return { position: pos, segments };
   });
 
+  // ── Generate short-edge joins ──
+  const shortEdgeJoins = generateShortEdgeJoins(poly, bb, panelDirection);
+
   // ── Summary stats ──
   const fullPanels = panels.filter(p => p.type === 'full').length;
   const edgePanels = panels.filter(p => p.type === 'edge').length;
@@ -203,6 +206,7 @@ export function calculateFloorLayout(floor) {
     reinforcedSplines,
     unreinforcedSplines,
     bearerLines: enrichedBearerLines,
+    shortEdgeJoins,
     openings: enrichedOpenings,
     recesses: enrichedRecesses,
     totalPanels: panels.length,
@@ -317,36 +321,53 @@ function generatePerimeterPlates(polygon, plateWidth) {
 function generateSplines(panels, polygon, bb, panelDirection, bearerLines) {
   const reinforcedSplines = [];
   const unreinforcedSplines = [];
+  const edges = polygonEdges(polygon);
 
   if (panelDirection === 0) {
-    // Panels along X → long edges are top/bottom of panels (Y boundaries)
-    // Splines at panel pitch boundaries (between adjacent panels along X)
+    // Panels along X → splines at panel pitch boundaries (between adjacent panels along X)
     for (let i = 0; i < panels.length - 1; i++) {
       const p = panels[i];
       const nextP = panels[i + 1];
-      // Check if they are adjacent (share an X boundary)
       const gapX = nextP.x - (p.x + p.width);
       if (Math.abs(gapX - PANEL_GAP) < 10) {
-        const splineX = p.x + p.width + PANEL_GAP / 2 - SPLINE_WIDTH / 2;
-        // Spline runs along Y within polygon bounds
-        const splineLen = Math.min(p.length, nextP.length);
-        if (splineLen > 0) {
-          // Check if at a bearer line position → reinforced
-          const atBearer = bearerLines.some(bl =>
-            Math.abs(bl.position - (p.x + p.width + PANEL_GAP / 2)) < SPLINE_WIDTH
-          );
-          const spline = {
-            x: splineX,
-            y: p.y,
-            length: splineLen,
-            width: SPLINE_WIDTH,
-            depth: FLOOR_SPLINE_DEPTH,
-          };
-          if (atBearer) {
-            reinforcedSplines.push({ ...spline, hasSteelChannel: true });
-          } else {
-            // Long panel edges → reinforced
-            reinforcedSplines.push({ ...spline, hasSteelChannel: false });
+        const splineCenterX = p.x + p.width + PANEL_GAP / 2;
+        const splineX = splineCenterX - SPLINE_WIDTH / 2;
+
+        // Find vertical line intersections with polygon edges
+        const intersections = [];
+        for (const edge of edges) {
+          if ((edge.x1 <= splineCenterX && edge.x2 >= splineCenterX) ||
+              (edge.x2 <= splineCenterX && edge.x1 >= splineCenterX)) {
+            if (Math.abs(edge.x2 - edge.x1) < 0.001) continue;
+            const t = (splineCenterX - edge.x1) / (edge.x2 - edge.x1);
+            if (t >= 0 && t <= 1) {
+              intersections.push(edge.y1 + t * (edge.y2 - edge.y1));
+            }
+          }
+        }
+        intersections.sort((a, b) => a - b);
+
+        const atBearer = bearerLines.some(bl =>
+          Math.abs(bl.position - splineCenterX) < SPLINE_WIDTH
+        );
+
+        // Create one spline segment per inside-polygon interval
+        for (let j = 0; j < intersections.length - 1; j += 2) {
+          const segY = intersections[j];
+          const segLen = intersections[j + 1] - intersections[j];
+          if (segLen > 0) {
+            const spline = {
+              x: splineX,
+              y: segY,
+              length: segLen,
+              width: SPLINE_WIDTH,
+              depth: FLOOR_SPLINE_DEPTH,
+            };
+            if (atBearer) {
+              reinforcedSplines.push({ ...spline, hasSteelChannel: true });
+            } else {
+              reinforcedSplines.push({ ...spline, hasSteelChannel: false });
+            }
           }
         }
       }
@@ -358,23 +379,43 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines) {
       const nextP = panels[i + 1];
       const gapY = nextP.y - (p.y + p.length);
       if (Math.abs(gapY - PANEL_GAP) < 10) {
-        const splineY = p.y + p.length + PANEL_GAP / 2 - SPLINE_WIDTH / 2;
-        const splineLen = Math.min(p.width, nextP.width);
-        if (splineLen > 0) {
-          const atBearer = bearerLines.some(bl =>
-            Math.abs(bl.position - (p.y + p.length + PANEL_GAP / 2)) < SPLINE_WIDTH
-          );
-          const spline = {
-            x: p.x,
-            y: splineY,
-            length: splineLen,
-            width: SPLINE_WIDTH,
-            depth: FLOOR_SPLINE_DEPTH,
-          };
-          if (atBearer) {
-            reinforcedSplines.push({ ...spline, hasSteelChannel: true });
-          } else {
-            reinforcedSplines.push({ ...spline, hasSteelChannel: false });
+        const splineCenterY = p.y + p.length + PANEL_GAP / 2;
+        const splineY = splineCenterY - SPLINE_WIDTH / 2;
+
+        // Find horizontal line intersections with polygon edges
+        const intersections = [];
+        for (const edge of edges) {
+          if ((edge.y1 <= splineCenterY && edge.y2 >= splineCenterY) ||
+              (edge.y2 <= splineCenterY && edge.y1 >= splineCenterY)) {
+            if (Math.abs(edge.y2 - edge.y1) < 0.001) continue;
+            const t = (splineCenterY - edge.y1) / (edge.y2 - edge.y1);
+            if (t >= 0 && t <= 1) {
+              intersections.push(edge.x1 + t * (edge.x2 - edge.x1));
+            }
+          }
+        }
+        intersections.sort((a, b) => a - b);
+
+        const atBearer = bearerLines.some(bl =>
+          Math.abs(bl.position - splineCenterY) < SPLINE_WIDTH
+        );
+
+        for (let j = 0; j < intersections.length - 1; j += 2) {
+          const segX = intersections[j];
+          const segLen = intersections[j + 1] - intersections[j];
+          if (segLen > 0) {
+            const spline = {
+              x: segX,
+              y: splineY,
+              length: segLen,
+              width: SPLINE_WIDTH,
+              depth: FLOOR_SPLINE_DEPTH,
+            };
+            if (atBearer) {
+              reinforcedSplines.push({ ...spline, hasSteelChannel: true });
+            } else {
+              reinforcedSplines.push({ ...spline, hasSteelChannel: false });
+            }
           }
         }
       }
@@ -382,4 +423,61 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines) {
   }
 
   return { reinforcedSplines, unreinforcedSplines };
+}
+
+/**
+ * Generate short-edge join lines where magboard sheets butt together.
+ * Sheets max out at MAX_SHEET_HEIGHT, so joins appear at that interval along the span axis.
+ */
+function generateShortEdgeJoins(polygon, bb, panelDirection) {
+  const edges = polygonEdges(polygon);
+  const joins = [];
+
+  if (panelDirection === 0) {
+    // Panels span along Y → joins are horizontal lines at Y intervals
+    let y = bb.minY + MAX_SHEET_HEIGHT;
+    while (y < bb.maxY) {
+      const intersections = [];
+      for (const edge of edges) {
+        if ((edge.y1 <= y && edge.y2 >= y) || (edge.y2 <= y && edge.y1 >= y)) {
+          if (Math.abs(edge.y2 - edge.y1) < 0.001) continue;
+          const t = (y - edge.y1) / (edge.y2 - edge.y1);
+          if (t >= 0 && t <= 1) intersections.push(edge.x1 + t * (edge.x2 - edge.x1));
+        }
+      }
+      intersections.sort((a, b) => a - b);
+      const segments = [];
+      for (let i = 0; i < intersections.length - 1; i += 2) {
+        segments.push({ x1: intersections[i], y1: y, x2: intersections[i + 1], y2: y });
+      }
+      if (segments.length > 0) {
+        joins.push({ position: y, segments });
+      }
+      y += MAX_SHEET_HEIGHT;
+    }
+  } else {
+    // Panels span along X → joins are vertical lines at X intervals
+    let x = bb.minX + MAX_SHEET_HEIGHT;
+    while (x < bb.maxX) {
+      const intersections = [];
+      for (const edge of edges) {
+        if ((edge.x1 <= x && edge.x2 >= x) || (edge.x2 <= x && edge.x1 >= x)) {
+          if (Math.abs(edge.x2 - edge.x1) < 0.001) continue;
+          const t = (x - edge.x1) / (edge.x2 - edge.x1);
+          if (t >= 0 && t <= 1) intersections.push(edge.y1 + t * (edge.y2 - edge.y1));
+        }
+      }
+      intersections.sort((a, b) => a - b);
+      const segments = [];
+      for (let i = 0; i < intersections.length - 1; i += 2) {
+        segments.push({ x1: x, y1: intersections[i], x2: x, y2: intersections[i + 1] });
+      }
+      if (segments.length > 0) {
+        joins.push({ position: x, segments });
+      }
+      x += MAX_SHEET_HEIGHT;
+    }
+  }
+
+  return joins;
 }
