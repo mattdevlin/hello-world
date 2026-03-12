@@ -420,58 +420,135 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines) {
     }
   }
 
-  // ── Unreinforced splines at short-edge joins ──
+  // ── Unreinforced splines at short-edge joins (between reinforced splines) ──
+  // Mirrors wall horizontal splines: one segment per panel column, bounded by
+  // adjacent reinforced splines on each side.
+  const reinforcedCenters = [...new Set(
+    reinforcedSplines.map(s => s.x + s.width / 2)
+  )].sort((a, b) => a - b);
+
   if (panelDirection === 0) {
-    // Joins are horizontal at Y intervals
-    let joinY = bb.minY + MAX_SHEET_HEIGHT;
-    while (joinY < bb.maxY) {
-      const intersections = [];
+    // Unique column X positions and widths
+    const colMap = new Map();
+    for (const p of panels) {
+      if (!colMap.has(p.x)) colMap.set(p.x, p.width);
+    }
+    const columnXs = [...colMap.keys()].sort((a, b) => a - b);
+
+    // Join Y positions
+    const joinYs = [];
+    let jy = bb.minY + MAX_SHEET_HEIGHT;
+    while (jy < bb.maxY) { joinYs.push(jy); jy += MAX_SHEET_HEIGHT; }
+
+    for (const joinY of joinYs) {
+      // Get polygon X intersections at this Y (inside segments)
+      const polyIntersections = [];
       for (const edge of edges) {
         if ((edge.y1 <= joinY && edge.y2 >= joinY) || (edge.y2 <= joinY && edge.y1 >= joinY)) {
           if (Math.abs(edge.y2 - edge.y1) < 0.001) continue;
           const t = (joinY - edge.y1) / (edge.y2 - edge.y1);
-          if (t >= 0 && t <= 1) intersections.push(edge.x1 + t * (edge.x2 - edge.x1));
+          if (t >= 0 && t <= 1) polyIntersections.push(edge.x1 + t * (edge.x2 - edge.x1));
         }
       }
-      intersections.sort((a, b) => a - b);
-      for (let j = 0; j < intersections.length - 1; j += 2) {
-        const segX = intersections[j];
-        const segLen = intersections[j + 1] - intersections[j];
-        if (segLen > 0) {
-          unreinforcedSplines.push({
-            x: segX, y: joinY - SPLINE_WIDTH / 2,
-            width: segLen, length: SPLINE_WIDTH,
-            depth: FLOOR_SPLINE_DEPTH,
-          });
+      polyIntersections.sort((a, b) => a - b);
+
+      for (let ci = 0; ci < columnXs.length; ci++) {
+        const colX = columnXs[ci];
+        const colW = colMap.get(colX);
+
+        // Check this column has panels at the join
+        const hasPanel = panels.some(p =>
+          p.x === colX && (Math.abs(p.y + p.length - joinY) < 1 || Math.abs(p.y - joinY) < 1)
+        );
+        if (!hasPanel) continue;
+
+        // Left edge: right side of left reinforced spline, or polygon edge
+        let leftEdge = colX;
+        const leftSpline = reinforcedCenters.find(sx => sx < colX && colX - sx < PANEL_PITCH);
+        if (leftSpline != null) leftEdge = leftSpline + SPLINE_WIDTH / 2;
+
+        // Right edge: left side of right reinforced spline, or polygon edge
+        let rightEdge = colX + colW;
+        const rightSpline = reinforcedCenters.find(sx => sx > colX && sx - colX < PANEL_PITCH);
+        if (rightSpline != null) rightEdge = rightSpline - SPLINE_WIDTH / 2;
+
+        // Clip to polygon interior at joinY
+        for (let k = 0; k < polyIntersections.length - 1; k += 2) {
+          const polyL = polyIntersections[k];
+          const polyR = polyIntersections[k + 1];
+          const clippedL = Math.max(leftEdge, polyL);
+          const clippedR = Math.min(rightEdge, polyR);
+          if (clippedR - clippedL > 1) {
+            unreinforcedSplines.push({
+              x: clippedL, y: joinY - SPLINE_WIDTH / 2,
+              width: clippedR - clippedL, length: SPLINE_WIDTH,
+              depth: FLOOR_SPLINE_DEPTH,
+            });
+          }
         }
       }
-      joinY += MAX_SHEET_HEIGHT;
     }
   } else {
-    // Joins are vertical at X intervals
-    let joinX = bb.minX + MAX_SHEET_HEIGHT;
-    while (joinX < bb.maxX) {
-      const intersections = [];
+    // dir=90: Unique row Y positions and heights
+    const rowMap = new Map();
+    for (const p of panels) {
+      if (!rowMap.has(p.y)) rowMap.set(p.y, p.length);
+    }
+    const rowYs = [...rowMap.keys()].sort((a, b) => a - b);
+
+    // Reinforced spline centers are along Y for dir=90
+    const reinforcedYCenters = [...new Set(
+      reinforcedSplines.map(s => s.y + s.length / 2)
+    )].sort((a, b) => a - b);
+
+    // Join X positions
+    const joinXs = [];
+    let jx = bb.minX + MAX_SHEET_HEIGHT;
+    while (jx < bb.maxX) { joinXs.push(jx); jx += MAX_SHEET_HEIGHT; }
+
+    for (const joinX of joinXs) {
+      // Get polygon Y intersections at this X
+      const polyIntersections = [];
       for (const edge of edges) {
         if ((edge.x1 <= joinX && edge.x2 >= joinX) || (edge.x2 <= joinX && edge.x1 >= joinX)) {
           if (Math.abs(edge.x2 - edge.x1) < 0.001) continue;
           const t = (joinX - edge.x1) / (edge.x2 - edge.x1);
-          if (t >= 0 && t <= 1) intersections.push(edge.y1 + t * (edge.y2 - edge.y1));
+          if (t >= 0 && t <= 1) polyIntersections.push(edge.y1 + t * (edge.y2 - edge.y1));
         }
       }
-      intersections.sort((a, b) => a - b);
-      for (let j = 0; j < intersections.length - 1; j += 2) {
-        const segY = intersections[j];
-        const segLen = intersections[j + 1] - intersections[j];
-        if (segLen > 0) {
-          unreinforcedSplines.push({
-            x: joinX - SPLINE_WIDTH / 2, y: segY,
-            width: SPLINE_WIDTH, length: segLen,
-            depth: FLOOR_SPLINE_DEPTH,
-          });
+      polyIntersections.sort((a, b) => a - b);
+
+      for (let ri = 0; ri < rowYs.length; ri++) {
+        const rowY = rowYs[ri];
+        const rowH = rowMap.get(rowY);
+
+        const hasPanel = panels.some(p =>
+          p.y === rowY && (Math.abs(p.x + p.width - joinX) < 1 || Math.abs(p.x - joinX) < 1)
+        );
+        if (!hasPanel) continue;
+
+        let topEdge = rowY;
+        const topSpline = reinforcedYCenters.find(sy => sy < rowY && rowY - sy < PANEL_PITCH);
+        if (topSpline != null) topEdge = topSpline + SPLINE_WIDTH / 2;
+
+        let bottomEdge = rowY + rowH;
+        const bottomSpline = reinforcedYCenters.find(sy => sy > rowY && sy - rowY < PANEL_PITCH);
+        if (bottomSpline != null) bottomEdge = bottomSpline - SPLINE_WIDTH / 2;
+
+        for (let k = 0; k < polyIntersections.length - 1; k += 2) {
+          const polyT = polyIntersections[k];
+          const polyB = polyIntersections[k + 1];
+          const clippedT = Math.max(topEdge, polyT);
+          const clippedB = Math.min(bottomEdge, polyB);
+          if (clippedB - clippedT > 1) {
+            unreinforcedSplines.push({
+              x: joinX - SPLINE_WIDTH / 2, y: clippedT,
+              width: SPLINE_WIDTH, length: clippedB - clippedT,
+              depth: FLOOR_SPLINE_DEPTH,
+            });
+          }
         }
       }
-      joinX += MAX_SHEET_HEIGHT;
     }
   }
 

@@ -80,12 +80,22 @@ export default function FloorPlanView({ layout, floorName, projectName }) {
           );
         })}
 
-        {/* Splines */}
-        {[...reinforcedSplines, ...unreinforcedSplines].map((s, i) => (
-          <rect key={`s${i}`}
-            x={tx(s.x)} y={ty(s.y + (s.length || s.width))}
-            width={s.width * scale} height={(s.length || s.width) * scale}
+        {/* Reinforced splines */}
+        {reinforcedSplines.map((s, i) => (
+          <rect key={`rs${i}`}
+            x={tx(s.x)} y={ty(s.y + s.length)}
+            width={s.width * scale} height={s.length * scale}
             fill={COLORS.SPLINE} fillOpacity={0.3} stroke={COLORS.SPLINE} strokeWidth={1}
+          />
+        ))}
+
+        {/* Unreinforced splines (between reinforced, at sheet joins) */}
+        {unreinforcedSplines.map((s, i) => (
+          <rect key={`us${i}`}
+            x={tx(s.x)} y={ty(s.y + s.length)}
+            width={s.width * scale} height={s.length * scale}
+            fill={COLORS.SPLINE} fillOpacity={0.2} stroke={COLORS.SPLINE} strokeWidth={0.5}
+            strokeDasharray="4,2"
           />
         ))}
 

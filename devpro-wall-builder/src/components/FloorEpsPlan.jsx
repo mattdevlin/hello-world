@@ -63,11 +63,19 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
           );
         })}
 
-        {/* Spline EPS */}
-        {[...reinforcedSplines, ...unreinforcedSplines].map((s, i) => (
-          <rect key={`se${i}`}
+        {/* Reinforced spline EPS */}
+        {reinforcedSplines.map((s, i) => (
+          <rect key={`rse${i}`}
             x={tx(s.x)} y={ty(s.y + s.length)} width={s.width * scale} height={s.length * scale}
             fill="#90EE90" fillOpacity={0.4} stroke="#27ae60" strokeWidth={1} />
+        ))}
+
+        {/* Unreinforced spline EPS (between reinforced, at sheet joins) */}
+        {unreinforcedSplines.map((s, i) => (
+          <rect key={`use${i}`}
+            x={tx(s.x)} y={ty(s.y + s.length)} width={s.width * scale} height={s.length * scale}
+            fill="#90EE90" fillOpacity={0.2} stroke="#27ae60" strokeWidth={0.5}
+            strokeDasharray="4,2" />
         ))}
 
         {/* Short-edge joins */}

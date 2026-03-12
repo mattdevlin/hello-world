@@ -148,14 +148,24 @@ describe('calculateFloorLayout', () => {
     expect(result.panels.length).toBe(2);
   });
 
-  it('generates unreinforced splines at join positions', () => {
+  it('generates unreinforced splines between reinforced splines at join positions', () => {
+    // 6000x4000, dir=0 → 5 columns, 4 reinforced splines between them
+    // At Y=3050 join, each column gets one unreinforced spline segment
     const result = calculateFloorLayout(simpleRect);
-    expect(result.unreinforcedSplines.length).toBe(1);
-    // Should be a horizontal spline at Y≈3050 spanning full X width
-    const us = result.unreinforcedSplines[0];
-    expect(us.x).toBeCloseTo(0, 0);
-    expect(us.width).toBeCloseTo(6000, 0); // spans full width
-    expect(us.length).toBe(146); // SPLINE_WIDTH
+    expect(result.unreinforcedSplines.length).toBe(5); // one per column
+    // Each unreinforced spline should be horizontal (width > length)
+    for (const us of result.unreinforcedSplines) {
+      expect(us.length).toBe(146); // SPLINE_WIDTH
+      expect(us.width).toBeLessThanOrEqual(1200); // bounded by panel width
+      expect(us.width).toBeGreaterThan(0);
+      // Y centered on join position 3050
+      expect(us.y + us.length / 2).toBeCloseTo(3050, 0);
+    }
+    // First column has no left spline → starts at polygon edge (x=0)
+    const sorted = [...result.unreinforcedSplines].sort((a, b) => a.x - b.x);
+    expect(sorted[0].x).toBeCloseTo(0, 0);
+    // Middle columns start at right edge of reinforced spline
+    expect(sorted[1].x).toBeGreaterThan(1200);
   });
 
   it('generates short-edge joins for rectangle exceeding MAX_SHEET_HEIGHT', () => {
