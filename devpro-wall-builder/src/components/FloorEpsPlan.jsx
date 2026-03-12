@@ -50,7 +50,7 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
               <g key={i}>
                 <polygon points={pts} fill="#B3D9FF" fillOpacity={0.4} stroke="#4A90D9" strokeWidth={0.5} />
                 <text x={tx(p.clippedPolygon.reduce((s, pt) => s + pt.x, 0) / p.clippedPolygon.length)} y={ty(p.clippedPolygon.reduce((s, pt) => s + pt.y, 0) / p.clippedPolygon.length)} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#2C5F8A">
-                  {FLOOR_EPS_DEPTH}mm
+                  P{p.index + 1}
                 </text>
               </g>
             );

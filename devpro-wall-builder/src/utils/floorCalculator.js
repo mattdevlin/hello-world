@@ -226,69 +226,67 @@ function generatePanelGrid(polygon, bb, panelDirection) {
   let index = 0;
 
   if (panelDirection === 0) {
-    // Panels run along X-axis
-    const startY = bb.minY;
-    const endY = bb.maxY;
-    let x = bb.minX;
+    // Panels run along X-axis, span along Y — split at MAX_SHEET_HEIGHT intervals along Y
+    const yBreaks = [bb.minY];
+    let yb = bb.minY + MAX_SHEET_HEIGHT;
+    while (yb < bb.maxY) { yBreaks.push(yb); yb += MAX_SHEET_HEIGHT; }
+    yBreaks.push(bb.maxY);
 
+    let x = bb.minX;
     while (x < bb.maxX) {
       const panelW = Math.min(PANEL_WIDTH, bb.maxX - x);
       if (panelW < 1) break;
 
-      const rect = { x, y: startY, width: panelW, height: endY - startY };
-      const clipped = clipRectToPolygon(rect, polygon);
-      const clippedArea = clipped.length >= 3 ? Math.abs(polygonArea(clipped)) : 0;
-      const fullArea = panelW * (endY - startY);
+      for (let s = 0; s < yBreaks.length - 1; s++) {
+        const segY = yBreaks[s];
+        const segH = yBreaks[s + 1] - segY;
+        const rect = { x, y: segY, width: panelW, height: segH };
+        const clipped = clipRectToPolygon(rect, polygon);
+        const clippedArea = clipped.length >= 3 ? Math.abs(polygonArea(clipped)) : 0;
+        const fullArea = panelW * segH;
 
-      if (clippedArea > 100) { // minimum viable area
-        const type = Math.abs(clippedArea - fullArea) / fullArea < 0.01 ? 'full' : 'edge';
-        panels.push({
-          index,
-          x,
-          y: startY,
-          width: panelW,
-          length: endY - startY,
-          type,
-          clippedPolygon: clipped,
-          area: Math.round(clippedArea),
-          openingCuts: [],
-          recessCuts: [],
-        });
-        index++;
+        if (clippedArea > 100) {
+          const type = Math.abs(clippedArea - fullArea) / fullArea < 0.01 ? 'full' : 'edge';
+          panels.push({
+            index, x, y: segY, width: panelW, length: segH,
+            type, clippedPolygon: clipped, area: Math.round(clippedArea),
+            openingCuts: [], recessCuts: [],
+          });
+          index++;
+        }
       }
 
       x += PANEL_PITCH;
     }
   } else {
-    // Panels run along Y-axis (direction = 90)
-    const startX = bb.minX;
-    const endX = bb.maxX;
-    let y = bb.minY;
+    // Panels run along Y-axis, span along X — split at MAX_SHEET_HEIGHT intervals along X
+    const xBreaks = [bb.minX];
+    let xb = bb.minX + MAX_SHEET_HEIGHT;
+    while (xb < bb.maxX) { xBreaks.push(xb); xb += MAX_SHEET_HEIGHT; }
+    xBreaks.push(bb.maxX);
 
+    let y = bb.minY;
     while (y < bb.maxY) {
       const panelL = Math.min(PANEL_WIDTH, bb.maxY - y);
       if (panelL < 1) break;
 
-      const rect = { x: startX, y, width: endX - startX, height: panelL };
-      const clipped = clipRectToPolygon(rect, polygon);
-      const clippedArea = clipped.length >= 3 ? Math.abs(polygonArea(clipped)) : 0;
-      const fullArea = (endX - startX) * panelL;
+      for (let s = 0; s < xBreaks.length - 1; s++) {
+        const segX = xBreaks[s];
+        const segW = xBreaks[s + 1] - segX;
+        const rect = { x: segX, y, width: segW, height: panelL };
+        const clipped = clipRectToPolygon(rect, polygon);
+        const clippedArea = clipped.length >= 3 ? Math.abs(polygonArea(clipped)) : 0;
+        const fullArea = segW * panelL;
 
-      if (clippedArea > 100) {
-        const type = Math.abs(clippedArea - fullArea) / fullArea < 0.01 ? 'full' : 'edge';
-        panels.push({
-          index,
-          x: startX,
-          y,
-          width: endX - startX,
-          length: panelL,
-          type,
-          clippedPolygon: clipped,
-          area: Math.round(clippedArea),
-          openingCuts: [],
-          recessCuts: [],
-        });
-        index++;
+        if (clippedArea > 100) {
+          const type = Math.abs(clippedArea - fullArea) / fullArea < 0.01 ? 'full' : 'edge';
+          panels.push({
+            index, x: segX, y, width: segW, length: panelL,
+            type, clippedPolygon: clipped, area: Math.round(clippedArea),
+            openingCuts: [], recessCuts: [],
+          });
+          index++;
+        }
       }
 
       y += PANEL_PITCH;
@@ -419,6 +417,61 @@ function generateSplines(panels, polygon, bb, panelDirection, bearerLines) {
           }
         }
       }
+    }
+  }
+
+  // ── Unreinforced splines at short-edge joins ──
+  if (panelDirection === 0) {
+    // Joins are horizontal at Y intervals
+    let joinY = bb.minY + MAX_SHEET_HEIGHT;
+    while (joinY < bb.maxY) {
+      const intersections = [];
+      for (const edge of edges) {
+        if ((edge.y1 <= joinY && edge.y2 >= joinY) || (edge.y2 <= joinY && edge.y1 >= joinY)) {
+          if (Math.abs(edge.y2 - edge.y1) < 0.001) continue;
+          const t = (joinY - edge.y1) / (edge.y2 - edge.y1);
+          if (t >= 0 && t <= 1) intersections.push(edge.x1 + t * (edge.x2 - edge.x1));
+        }
+      }
+      intersections.sort((a, b) => a - b);
+      for (let j = 0; j < intersections.length - 1; j += 2) {
+        const segX = intersections[j];
+        const segLen = intersections[j + 1] - intersections[j];
+        if (segLen > 0) {
+          unreinforcedSplines.push({
+            x: segX, y: joinY - SPLINE_WIDTH / 2,
+            width: segLen, length: SPLINE_WIDTH,
+            depth: FLOOR_SPLINE_DEPTH,
+          });
+        }
+      }
+      joinY += MAX_SHEET_HEIGHT;
+    }
+  } else {
+    // Joins are vertical at X intervals
+    let joinX = bb.minX + MAX_SHEET_HEIGHT;
+    while (joinX < bb.maxX) {
+      const intersections = [];
+      for (const edge of edges) {
+        if ((edge.x1 <= joinX && edge.x2 >= joinX) || (edge.x2 <= joinX && edge.x1 >= joinX)) {
+          if (Math.abs(edge.x2 - edge.x1) < 0.001) continue;
+          const t = (joinX - edge.x1) / (edge.x2 - edge.x1);
+          if (t >= 0 && t <= 1) intersections.push(edge.y1 + t * (edge.y2 - edge.y1));
+        }
+      }
+      intersections.sort((a, b) => a - b);
+      for (let j = 0; j < intersections.length - 1; j += 2) {
+        const segY = intersections[j];
+        const segLen = intersections[j + 1] - intersections[j];
+        if (segLen > 0) {
+          unreinforcedSplines.push({
+            x: joinX - SPLINE_WIDTH / 2, y: segY,
+            width: SPLINE_WIDTH, length: segLen,
+            depth: FLOOR_SPLINE_DEPTH,
+          });
+        }
+      }
+      joinX += MAX_SHEET_HEIGHT;
     }
   }
 

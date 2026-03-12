@@ -117,6 +117,47 @@ describe('calculateFloorLayout', () => {
     expect(result.bearerLines[0].segments.length).toBeGreaterThan(0);
   });
 
+  it('splits panels at MAX_SHEET_HEIGHT intervals', () => {
+    // 6000x4000, dir=0 → 5 columns, each split at Y=3050 → 10 panels
+    const result = calculateFloorLayout(simpleRect);
+    expect(result.panels.length).toBe(10);
+    // Each column has 2 rows
+    const colXs = [...new Set(result.panels.map(p => p.x))];
+    expect(colXs.length).toBe(5);
+    for (const cx of colXs) {
+      const colPanels = result.panels.filter(p => p.x === cx);
+      expect(colPanels.length).toBe(2);
+      // First segment: Y=0 to Y=3050, second: Y=3050 to Y=4000
+      expect(colPanels[0].y).toBe(0);
+      expect(colPanels[0].length).toBe(3050);
+      expect(colPanels[1].y).toBe(3050);
+      expect(colPanels[1].length).toBe(950);
+    }
+  });
+
+  it('does not split panels when span < MAX_SHEET_HEIGHT', () => {
+    const smallRect = {
+      ...simpleRect,
+      polygon: [
+        { x: 0, y: 0 }, { x: 2000, y: 0 },
+        { x: 2000, y: 2000 }, { x: 0, y: 2000 },
+      ],
+    };
+    const result = calculateFloorLayout(smallRect);
+    // 2000/1205 → 2 columns, each 1 row (2000 < 3050) → 2 panels
+    expect(result.panels.length).toBe(2);
+  });
+
+  it('generates unreinforced splines at join positions', () => {
+    const result = calculateFloorLayout(simpleRect);
+    expect(result.unreinforcedSplines.length).toBe(1);
+    // Should be a horizontal spline at Y≈3050 spanning full X width
+    const us = result.unreinforcedSplines[0];
+    expect(us.x).toBeCloseTo(0, 0);
+    expect(us.width).toBeCloseTo(6000, 0); // spans full width
+    expect(us.length).toBe(146); // SPLINE_WIDTH
+  });
+
   it('generates short-edge joins for rectangle exceeding MAX_SHEET_HEIGHT', () => {
     // 6000x4000, dir=0 → panels span Y=4000 > 3050 → 1 join at Y=3050
     const result = calculateFloorLayout(simpleRect);
