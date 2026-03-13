@@ -1,21 +1,12 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
+import StatCard from './StatCard.jsx';
 import { PANEL_GAP, BOTTOM_PLATE, TOP_PLATE, EPS_GAP } from '../utils/constants.js';
 
 const SPLINE_WIDTH = 146;
 const HALF_SPLINE = SPLINE_WIDTH / 2;
 const PANEL_EPS_DEPTH = 142;   // 162mm panel minus 2×10mm magboard
 const SPLINE_EPS_DEPTH = 120;  // 146mm spline minus 2×13mm mag (user: 140mm deep, 2×10mm mag = 120mm)
-
-function StatCard({ label, value, unit, color }) {
-  return (
-    <div style={styles.statCard}>
-      <div style={{ ...styles.statValue, color: color || '#2C5F8A' }}>{value}</div>
-      <div style={styles.statUnit}>{unit}</div>
-      <div style={styles.statLabel}>{label}</div>
-    </div>
-  );
-}
 
 function SectionLabel({ children }) {
   return <div style={styles.sectionLabel}>{children}</div>;

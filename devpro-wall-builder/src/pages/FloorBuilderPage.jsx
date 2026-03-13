@@ -22,6 +22,7 @@ export default function FloorBuilderPage() {
   const [floorInput, setFloorInput] = useState(null);
   const [loadKey, setLoadKey] = useState(0);
   const [generateKey, setGenerateKey] = useState(0);
+  const [calcError, setCalcError] = useState(null);
 
   useEffect(() => {
     const p = getProjects().find(p => p.id === projectId);
@@ -49,9 +50,10 @@ export default function FloorBuilderPage() {
   const handleCalculate = (floor) => {
     const result = calculateFloorLayout(floor);
     if (result.error) {
-      alert(result.error);
+      setCalcError(result.error);
       return;
     }
+    setCalcError(null);
     setLayout(result);
     setFloorName(floor.name);
     setFloorInput(floor);
@@ -102,6 +104,12 @@ export default function FloorBuilderPage() {
           onChange={setFloorInput}
           initialFloor={floorInput}
         />
+
+        {calcError && (
+          <div role="alert" style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '12px 16px', marginTop: 16, color: '#991b1b', fontSize: 14 }}>
+            {calcError}
+          </div>
+        )}
 
         {layout && (
           <>

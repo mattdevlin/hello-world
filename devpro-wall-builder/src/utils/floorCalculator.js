@@ -41,8 +41,11 @@ export function calculateFloorLayout(floor) {
     recesses = [],
   } = floor;
 
-  if (polygon.length < 3) {
+  if (!Array.isArray(polygon) || polygon.length < 3) {
     return { error: 'Floor polygon must have at least 3 points', panels: [] };
+  }
+  if (polygon.some(p => typeof p.x !== 'number' || typeof p.y !== 'number')) {
+    return { error: 'All polygon points must have numeric x and y', panels: [] };
   }
 
   // Ensure polygon is CCW (positive area)

@@ -285,6 +285,13 @@ export async function importProject(file) {
   const projectData = JSON.parse(projectJson);
   const wallsData = JSON.parse(wallsJson);
 
+  if (!projectData || typeof projectData.name !== 'string') {
+    throw new Error('Invalid .devpro file: missing project name');
+  }
+  if (!Array.isArray(wallsData)) {
+    throw new Error('Invalid .devpro file: walls data must be an array');
+  }
+
   // Create as a new project with a fresh ID to avoid collisions
   const newId = crypto.randomUUID();
   const project = {
