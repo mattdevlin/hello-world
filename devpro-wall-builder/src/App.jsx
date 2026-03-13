@@ -1,23 +1,30 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import ProjectsPage from './pages/ProjectsPage.jsx';
-import ProjectPage from './pages/ProjectPage.jsx';
-import WallBuilderPage from './pages/WallBuilderPage.jsx';
-import FloorBuilderPage from './pages/FloorBuilderPage.jsx';
-import H1Page from './pages/H1Page.jsx';
 import PrintWatermark from './components/PrintWatermark.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+
+const ProjectsPage = lazy(() => import('./pages/ProjectsPage.jsx'));
+const ProjectPage = lazy(() => import('./pages/ProjectPage.jsx'));
+const WallBuilderPage = lazy(() => import('./pages/WallBuilderPage.jsx'));
+const FloorBuilderPage = lazy(() => import('./pages/FloorBuilderPage.jsx'));
+const H1Page = lazy(() => import('./pages/H1Page.jsx'));
+const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 
 function App() {
   return (
-    <>
+    <ErrorBoundary>
       <PrintWatermark />
-      <Routes>
-        <Route path="/" element={<ProjectsPage />} />
-        <Route path="/project/:projectId" element={<ProjectPage />} />
-        <Route path="/project/:projectId/wall/:wallId" element={<WallBuilderPage />} />
-        <Route path="/project/:projectId/floor/:floorId" element={<FloorBuilderPage />} />
-        <Route path="/project/:projectId/h1" element={<H1Page />} />
-      </Routes>
-    </>
+      <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#999' }}>Loading...</div>}>
+        <Routes>
+          <Route path="/" element={<ProjectsPage />} />
+          <Route path="/project/:projectId" element={<ProjectPage />} />
+          <Route path="/project/:projectId/wall/:wallId" element={<WallBuilderPage />} />
+          <Route path="/project/:projectId/floor/:floorId" element={<FloorBuilderPage />} />
+          <Route path="/project/:projectId/h1" element={<H1Page />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 

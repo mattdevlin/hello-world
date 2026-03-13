@@ -84,14 +84,15 @@ export default function GlueSummary({ walls, floors }) {
           <div style={styles.section}>
             <div style={styles.sectionLabel}>Drum Capacity</div>
             <div style={styles.gaugeRow}>
-              <div style={styles.gaugeBarOuter}>
+              <div style={styles.gaugeBarOuter} role="progressbar" aria-valuenow={usedPct} aria-valuemin={0} aria-valuemax={100}
+                aria-label={`Drum capacity ${usedPct}% — ${usedPct > 90 ? 'efficient' : usedPct > 60 ? 'moderate' : 'low'} utilisation`}>
                 <div style={{
                   ...styles.gaugeBarInner,
                   width: `${usedPct}%`,
                   background: usedPct > 90 ? '#27ae60' : usedPct > 60 ? '#e67e22' : '#e74c3c',
                 }} />
               </div>
-              <span style={styles.gaugePct}>{usedPct}%</span>
+              <span style={styles.gaugePct}>{usedPct}% ({usedPct > 90 ? 'efficient' : usedPct > 60 ? 'moderate' : 'low'})</span>
             </div>
             <div style={styles.gaugeCaption}>
               {totalLitres.toFixed(1)}L required of {drumsNeeded * drumLitres}L ordered
