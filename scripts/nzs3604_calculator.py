@@ -1123,16 +1123,423 @@ def size_walls(storey: dict, wind_zone: str, site: dict) -> list:
 
 
 # ---------------------------------------------------------------------------
-# 6. FLOOR SIZING (STUBS — Chunk 5)
+# 6. FLOOR SIZING (Chunk 5)
 # ---------------------------------------------------------------------------
 
 
-def size_floor(storey: dict) -> dict:
-    """Size floor framing for a storey. STUB — implemented in Chunk 5."""
+def lookup_joist(span_m: float, spacing: int = 450, load_kpa: str = "1.5_kpa") -> dict:
+    """Look up floor joist size from Table 7.1.
+
+    Finds the smallest joist where max_span >= required span at the given
+    spacing and floor load.
+
+    Args:
+        span_m: Required joist span in metres.
+        spacing: Joist spacing in mm (400, 450, or 600).
+        load_kpa: Floor load key — "1.5_kpa" (standard) or "2.0_kpa" (heavy).
+
+    Returns:
+        dict with keys: size, spacing, max_span_m, ref
+    """
+    tables = load_tables()
+    joists = tables["floor_joists"]
+    load_data = joists.get(load_kpa, joists["1.5_kpa"])
+
+    spacing_key = str(spacing)
+    # Standard NZ joist sizes in ascending order
+    sizes_ordered = ["90x45", "140x35", "140x45", "190x45", "240x45", "290x45"]
+
+    for size in sizes_ordered:
+        if size not in load_data:
+            continue
+        max_span = load_data[size].get(spacing_key)
+        if max_span is not None and max_span >= span_m - 1e-9:
+            return {
+                "size": size,
+                "spacing": spacing,
+                "max_span_m": max_span,
+                "ref": "NZS 3604 Table 7.1",
+            }
+
+    # No standard joist adequate — SED required
     return {
-        "floor_type": storey.get("floor_type", "timber"),
-        "_stub": True,
-        "_note": "Floor sizing not yet implemented (Chunk 5)",
+        "size": "SED",
+        "spacing": spacing,
+        "max_span_m": None,
+        "ref": "NZS 3604 Table 7.1",
+        "_note": f"No SG8 joist spans {span_m}m at {spacing}mm crs — specific engineering design required",
+    }
+
+
+def lookup_cantilever_joist(
+    joist_size: str,
+    spacing: int,
+    load_case: str = "light_4m",
+) -> dict:
+    """Look up maximum cantilever from Table 7.2.
+
+    Args:
+        joist_size: e.g. "190x45"
+        spacing: Joist spacing in mm (400, 450, or 600).
+        load_case: One of "light_4m", "light_8m", "light_12m", "heavy_4m",
+            "heavy_8m", "heavy_12m", "2kPa", "balcony".
+
+    Returns:
+        dict with keys: joist_size, spacing, load_case, max_cantilever_mm, ref
+    """
+    tables = load_tables()
+    cant = tables.get("cantilever_joists", {})
+
+    size_data = cant.get(joist_size, {})
+    spacing_key = str(spacing)
+    spacing_data = size_data.get(spacing_key, {})
+    max_cant = spacing_data.get(load_case)
+
+    return {
+        "joist_size": joist_size,
+        "spacing": spacing,
+        "load_case": load_case,
+        "max_cantilever_mm": max_cant,
+        "ref": "NZS 3604 Table 7.2",
+    }
+
+
+def lookup_bearer(
+    bearer_span_m: float,
+    loaded_dim_m: float,
+    load_kpa: str = "1.5_kpa",
+) -> dict:
+    """Look up bearer size from Table 6.4.
+
+    Finds the smallest bearer where max loaded dimension >= required at the
+    given bearer span and floor load.
+
+    Args:
+        bearer_span_m: Bearer span (pile spacing) in metres.
+        loaded_dim_m: Loaded dimension (half joist span each side) in metres.
+        load_kpa: Floor load key — "1.5_kpa" or "2.0_kpa".
+
+    Returns:
+        dict with keys: size, bearer_span_m, max_loaded_dim_m, ref
+    """
+    tables = load_tables()
+    bearers = tables["bearers"]
+    load_data = bearers.get(load_kpa, bearers["1.5_kpa"])
+
+    # Round UP bearer span to next table row
+    bearer_key = table_lookup(load_data, bearer_span_m)
+    if bearer_key is None:
+        return {
+            "size": "SED",
+            "bearer_span_m": bearer_span_m,
+            "max_loaded_dim_m": None,
+            "ref": "NZS 3604 Table 6.4",
+            "_note": f"Bearer span {bearer_span_m}m exceeds table range — SED required",
+        }
+
+    span_data = load_data[bearer_key]
+
+    # Standard bearer sizes in ascending order of cross-section area
+    sizes_ordered = ["90x70", "90x90", "140x70", "140x90", "190x70"]
+
+    for size in sizes_ordered:
+        if size not in span_data:
+            continue
+        max_ld = span_data[size]
+        if isinstance(max_ld, (int, float)) and max_ld >= loaded_dim_m - 1e-9:
+            return {
+                "size": size,
+                "bearer_span_m": float(bearer_key),
+                "max_loaded_dim_m": max_ld,
+                "ref": "NZS 3604 Table 6.4",
+            }
+
+    return {
+        "size": "SED",
+        "bearer_span_m": float(bearer_key),
+        "max_loaded_dim_m": None,
+        "ref": "NZS 3604 Table 6.4",
+        "_note": f"No SG8 bearer for {bearer_span_m}m span, {loaded_dim_m}m loaded dim — SED required",
+    }
+
+
+def lookup_flooring(joist_spacing: int) -> dict:
+    """Look up flooring specification from Tables 7.3 and 7.4.
+
+    Args:
+        joist_spacing: Joist spacing in mm (400, 450, or 600).
+
+    Returns:
+        dict with keys: strip (Table 7.3), plywood (Table 7.4), ref
+    """
+    tables = load_tables()
+    spacing_key = str(joist_spacing)
+
+    # Table 7.3 — strip flooring
+    strip = tables.get("flooring_strip", {})
+    strip_data = strip.get(spacing_key, {})
+    strip_result = {}
+    if isinstance(strip_data, dict):
+        for k, v in strip_data.items():
+            if not k.startswith("_"):
+                strip_result[k] = v
+
+    # Table 7.4 — plywood flooring
+    plywood = tables.get("plywood_flooring", {})
+    plywood_thickness = plywood.get(spacing_key)
+
+    return {
+        "strip": {
+            "min_thickness_mm": strip_result,
+            "ref": "NZS 3604 Table 7.3",
+        },
+        "plywood": {
+            "min_thickness_mm": plywood_thickness,
+            "ref": "NZS 3604 Table 7.4",
+        },
+    }
+
+
+def lookup_pile_footing(
+    bearer_span_m: float,
+    joist_span_m: float,
+    load_type: str = "1_storey",
+) -> dict:
+    """Look up pile footing size from Table 6.1.
+
+    Args:
+        bearer_span_m: Bearer span in metres.
+        joist_span_m: Joist span in metres.
+        load_type: "floor_only", "1_storey", "2_storey", or "3_storey".
+
+    Returns:
+        dict with keys: square_mm, circular_mm, ref
+    """
+    tables = load_tables()
+    piles = tables["pile_footings"]
+
+    # Round UP bearer span and joist span to next table rows
+    bearer_key = table_lookup(piles, bearer_span_m)
+    if bearer_key is None:
+        return {
+            "square_mm": None,
+            "circular_mm": None,
+            "ref": "NZS 3604 Table 6.1",
+            "_note": f"Bearer span {bearer_span_m}m exceeds table range",
+        }
+
+    joist_key = table_lookup(piles[bearer_key], joist_span_m)
+    if joist_key is None:
+        return {
+            "square_mm": None,
+            "circular_mm": None,
+            "ref": "NZS 3604 Table 6.1",
+            "_note": f"Joist span {joist_span_m}m exceeds table range for bearer span {bearer_key}m",
+        }
+
+    load_data = piles[bearer_key][joist_key].get(load_type, {})
+    return {
+        "square_mm": load_data.get("sq"),
+        "circular_mm": load_data.get("circ"),
+        "ref": "NZS 3604 Table 6.1",
+    }
+
+
+def lookup_jack_stud(
+    storeys: str,
+    bearer_span_m: float,
+    stud_size: str = "90x90",
+) -> dict:
+    """Look up jack stud maximum height from Table 6.3.
+
+    Args:
+        storeys: "1_storey", "2_storey", or "3_storey".
+        bearer_span_m: Bearer span in metres.
+        stud_size: Jack stud size — "90x70" or "90x90".
+
+    Returns:
+        dict with keys: stud_size, max_heights (dict of loaded_dim → max_height_m), ref
+    """
+    tables = load_tables()
+    jacks = tables.get("jack_studs", {})
+    storey_data = jacks.get(storeys, {})
+
+    # Round UP bearer span
+    bearer_key = table_lookup(storey_data, bearer_span_m)
+    if bearer_key is None:
+        return {
+            "stud_size": stud_size,
+            "max_heights": {},
+            "ref": "NZS 3604 Table 6.3",
+            "_note": f"Bearer span {bearer_span_m}m exceeds table range",
+        }
+
+    span_data = storey_data[bearer_key]
+    size_data = span_data.get(stud_size, {})
+
+    return {
+        "stud_size": stud_size,
+        "max_heights": {k: v for k, v in size_data.items() if not k.startswith("_") and v is not None},
+        "ref": "NZS 3604 Table 6.3",
+    }
+
+
+def size_slab(storey: dict) -> dict:
+    """Slab-on-ground specification per NZS 3604 S7.5.
+
+    Returns prescriptive slab spec — no table lookups required, these are
+    fixed requirements from the standard.
+    """
+    return {
+        "type": "slab_on_ground",
+        "thickness_mm": 100,
+        "dpm": "0.25mm polyethylene",
+        "base_course": "75mm compacted gravel (AP40)",
+        "reinforcing": "665 mesh or equivalent fibre",
+        "edge_thickening": "per Figs 7.13/7.14",
+        "anchor_bolts": "M12 at 1200 crs, 150mm from plate ends",
+        "shrinkage_joints": "max 6.0m spacing per Fig 7.19",
+        "internal_lb_wall": "thickened slab 300mm wide x 200mm deep per S7.5.11",
+        "ref": "NZS 3604 S7.5",
+    }
+
+
+def size_floor(storey: dict) -> dict:
+    """Size floor framing for a storey.
+
+    For slab floors, returns prescriptive slab spec.
+    For suspended timber floors, sizes joists, bearers, flooring, and piles
+    for each floor zone.
+
+    Args:
+        storey: dict with keys:
+            - floor_type: "timber" or "slab"
+            - floor_zones: list of zone dicts, each with:
+                - name: zone label
+                - width_mm: joist span direction in mm
+                - bearer_span_mm: pile spacing in mm (default 1800)
+                - spacing: joist spacing in mm (default 450)
+                - load_kpa: "1.5_kpa" or "2.0_kpa" (default "1.5_kpa")
+            - num_storeys_above: 0, 1, or 2 (for pile sizing)
+            - cantilevers: list of cantilever dicts (optional), each with:
+                - cantilever_mm: required cantilever length
+                - load_case: cantilever load case string
+
+    Returns:
+        Complete floor design dict.
+    """
+    if storey.get("floor_type") == "slab":
+        return size_slab(storey)
+
+    result = {
+        "type": "suspended_timber",
+        "zones": [],
+        "ref": "NZS 3604 Sections 6 & 7",
+    }
+
+    for zone in storey.get("floor_zones", []):
+        joist_span_m = zone.get("width_mm", 4000) / 1000
+        bearer_span_m = zone.get("bearer_span_mm", 1800) / 1000
+        spacing = zone.get("spacing", 450)
+        load_kpa = zone.get("load_kpa", "1.5_kpa")
+
+        # Joist — Table 7.1
+        joist = lookup_joist(joist_span_m, spacing, load_kpa)
+
+        # Bearer — Table 6.4
+        # Loaded dimension = half the joist span on each side of the bearer
+        loaded_dim_m = joist_span_m / 2
+        bearer = lookup_bearer(bearer_span_m, loaded_dim_m, load_kpa)
+
+        # Flooring — Tables 7.3/7.4
+        flooring = lookup_flooring(spacing)
+
+        # Pile footing — Table 6.1
+        storeys_above = storey.get("num_storeys_above", 0)
+        if storeys_above == 0:
+            pile_load_type = "floor_only"
+        elif storeys_above == 1:
+            pile_load_type = "1_storey"
+        elif storeys_above == 2:
+            pile_load_type = "2_storey"
+        else:
+            pile_load_type = "3_storey"
+        pile = lookup_pile_footing(bearer_span_m, joist_span_m, pile_load_type)
+
+        zone_result = {
+            "zone": zone.get("name", "Floor"),
+            "joist": joist,
+            "bearer": bearer,
+            "flooring": flooring,
+            "pile_footing": pile,
+        }
+
+        result["zones"].append(zone_result)
+
+    # Cantilevers (optional)
+    cantilevers = storey.get("cantilevers", [])
+    if cantilevers:
+        result["cantilevers"] = []
+        for cant in cantilevers:
+            cant_mm = cant.get("cantilever_mm", 300)
+            load_case = cant.get("load_case", "light_4m")
+            # Use the joist size from the first zone as the base joist
+            base_joist_size = "190x45"
+            if result["zones"]:
+                base_joist_size = result["zones"][0]["joist"]["size"]
+
+            # Find smallest joist that allows the required cantilever
+            cant_result = _find_cantilever_joist(
+                cant_mm, spacing=450, load_case=load_case, min_size=base_joist_size,
+            )
+            result["cantilevers"].append(cant_result)
+
+    return result
+
+
+def _find_cantilever_joist(
+    required_mm: int,
+    spacing: int = 450,
+    load_case: str = "light_4m",
+    min_size: str = "90x45",
+) -> dict:
+    """Find the smallest joist that allows the required cantilever.
+
+    Searches joist sizes from min_size upward to find one where
+    max_cantilever >= required_mm.
+
+    Args:
+        required_mm: Required cantilever length in mm.
+        spacing: Joist spacing in mm.
+        load_case: Cantilever load case string.
+        min_size: Minimum joist size (must be at least this big).
+
+    Returns:
+        dict with cantilever lookup result.
+    """
+    sizes_ordered = ["90x45", "140x45", "190x45", "240x45", "290x45"]
+
+    # Find starting index
+    start_idx = 0
+    for i, s in enumerate(sizes_ordered):
+        if s == min_size:
+            start_idx = i
+            break
+
+    for size in sizes_ordered[start_idx:]:
+        result = lookup_cantilever_joist(size, spacing, load_case)
+        max_cant = result.get("max_cantilever_mm")
+        if max_cant is not None and max_cant >= required_mm:
+            return result
+
+    # No standard size works
+    return {
+        "joist_size": "SED",
+        "spacing": spacing,
+        "load_case": load_case,
+        "max_cantilever_mm": None,
+        "ref": "NZS 3604 Table 7.2",
+        "_note": f"No SG8 joist allows {required_mm}mm cantilever at {spacing}mm crs — SED required",
     }
 
 
