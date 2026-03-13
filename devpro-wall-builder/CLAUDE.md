@@ -62,3 +62,8 @@ Each elevation type has a corresponding DXF generator in `src/utils/`:
 - ESLint rule: unused vars are errors, except those starting with uppercase or underscore (`varsIgnorePattern: '^[A-Z_]'`).
 - Root-level `test-*.mjs` files are standalone integration/smoke tests that import calculator functions directly and run with `node`.
 - Unit tests use Vitest and live alongside source files as `*.test.js`.
+
+## Lessons Learned & Anti-Patterns
+- **Stock Constraints:** Claude previously suggested 2440mm sheets. **Correction:** We ONLY stock 2745mm and 3050mm. Reject any logic using 2440mm.
+- **Y-Axis Flip:** When writing DXF export logic, remember: DXF 0 is bottom, SVG 0 is top. Claude often forgets to flip the Y-coordinates.
+- **Spline Tolerance:** Always maintain the 5mm gap in panel pitch (1205mm). Do not calculate panels as flush 1200mm units.
