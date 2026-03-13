@@ -12,6 +12,7 @@ import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import { calculateWallLayout } from '../utils/calculator.js';
 import { computeWallTimberRatio } from '../utils/timberCalculator.js';
 import { getProjects, getProjectWalls, saveWall } from '../utils/storage.js';
+import { FONT_STACK, BRAND, NEUTRAL, RADIUS } from '../utils/designTokens.js';
 
 export default function WallBuilderPage() {
   const { projectId, wallId } = useParams();
@@ -138,11 +139,11 @@ export default function WallBuilderPage() {
 const styles = {
   page: {
     minHeight: '100vh',
-    background: '#f0f2f5',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    background: NEUTRAL.background,
+    fontFamily: FONT_STACK,
   },
   header: {
-    background: '#2C5F8A',
+    background: BRAND.primary,
     padding: '12px 32px',
     color: '#fff',
   },
@@ -163,7 +164,7 @@ const styles = {
     background: 'rgba(255,255,255,0.12)',
     color: '#fff',
     border: '1px solid rgba(255,255,255,0.2)',
-    borderRadius: 4,
+    borderRadius: RADIUS.sm,
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 500,
@@ -179,20 +180,20 @@ const styles = {
   },
   newBtn: {
     padding: '8px 20px',
-    background: '#e67e22',
+    background: BRAND.warning,
     color: '#fff',
     border: 'none',
-    borderRadius: 4,
+    borderRadius: RADIUS.sm,
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 600,
   },
   saveBtn: {
     padding: '8px 20px',
-    background: '#27ae60',
+    background: BRAND.success,
     color: '#fff',
     border: 'none',
-    borderRadius: 4,
+    borderRadius: RADIUS.sm,
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 600,

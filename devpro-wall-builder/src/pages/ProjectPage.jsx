@@ -16,6 +16,8 @@ import ModelViewer3D from '../components/ModelViewer3D.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import ProjectWallSummary from '../components/ProjectWallSummary.jsx';
 import ExportProjectButton from '../components/ExportProjectButton.jsx';
+import ErrorBoundary from '../components/ErrorBoundary.jsx';
+import { FONT_STACK, BRAND, NEUTRAL, RADIUS } from '../utils/designTokens.js';
 
 export default function ProjectPage() {
   const { projectId } = useParams();
@@ -74,14 +76,16 @@ export default function ProjectPage() {
     setWallPositions(newPositions);
   };
 
-  const handleDeleteWall = (wallId, e) => {
+  const handleDeleteWall = (wallId, wallName, e) => {
     e.stopPropagation();
+    if (!window.confirm(`Delete wall "${wallName}"? This cannot be undone.`)) return;
     deleteWall(projectId, wallId);
     refresh();
   };
 
-  const handleDeleteFloor = (floorId, e) => {
+  const handleDeleteFloor = (floorId, floorName, e) => {
     e.stopPropagation();
+    if (!window.confirm(`Delete floor "${floorName}"? This cannot be undone.`)) return;
     deleteFloor(projectId, floorId);
     refresh();
   };
@@ -207,15 +211,17 @@ export default function ProjectPage() {
         {/* 3D Model Viewer */}
         {walls.length > 0 && (
           <CollapsibleSection sectionKey="project-3d-viewer" title="3D Model Viewer" defaultCollapsed={true}>
-            <ModelViewer3D
-              walls={walls}
-              connections={connections}
-              onConnectionsChange={handleConnectionsChange}
-              placedWallIds={placedWallIds}
-              onPlacementsChange={handlePlacementsChange}
-              wallPositions={wallPositions}
-              onWallPositionsChange={handleWallPositionsChange}
-            />
+            <ErrorBoundary>
+              <ModelViewer3D
+                walls={walls}
+                connections={connections}
+                onConnectionsChange={handleConnectionsChange}
+                placedWallIds={placedWallIds}
+                onPlacementsChange={handlePlacementsChange}
+                wallPositions={wallPositions}
+                onWallPositionsChange={handleWallPositionsChange}
+              />
+            </ErrorBoundary>
           </CollapsibleSection>
         )}
 
@@ -270,7 +276,7 @@ export default function ProjectPage() {
                       >
                         Copy to...
                       </button>
-                      <button onClick={(e) => handleDeleteWall(w.id, e)} style={styles.deleteBtn}>
+                      <button onClick={(e) => handleDeleteWall(w.id, w.name, e)} style={styles.deleteBtn}>
                         Delete
                       </button>
                     </div>
@@ -326,7 +332,7 @@ export default function ProjectPage() {
                   <div style={styles.wallRight}>
                     <span style={styles.wallDate}>{new Date(f.updatedAt).toLocaleDateString()}</span>
                     <div style={styles.wallActions}>
-                      <button onClick={(e) => handleDeleteFloor(f.id, e)} style={styles.deleteBtn}>
+                      <button onClick={(e) => handleDeleteFloor(f.id, f.name, e)} style={styles.deleteBtn}>
                         Delete
                       </button>
                     </div>
@@ -344,8 +350,8 @@ export default function ProjectPage() {
 const styles = {
   page: {
     minHeight: '100vh',
-    background: '#f0f2f5',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    background: NEUTRAL.background,
+    fontFamily: FONT_STACK,
   },
   container: {
     maxWidth: 800,
@@ -358,7 +364,7 @@ const styles = {
   backBtn: {
     padding: '6px 12px',
     background: 'none',
-    color: '#2C5F8A',
+    color: BRAND.primary,
     border: 'none',
     cursor: 'pointer',
     fontSize: 14,
@@ -381,15 +387,15 @@ const styles = {
     margin: 0,
     fontSize: 24,
     fontWeight: 700,
-    color: '#1a1a1a',
+    color: NEUTRAL.text,
     cursor: 'pointer',
   },
   renameInput: {
     padding: '4px 8px',
     fontSize: 24,
     fontWeight: 700,
-    border: '1px solid #2C5F8A',
-    borderRadius: 4,
+    border: `1px solid ${BRAND.primary}`,
+    borderRadius: RADIUS.sm,
     outline: 'none',
     width: '100%',
     maxWidth: 400,
@@ -397,14 +403,14 @@ const styles = {
   subtitle: {
     margin: '4px 0 0',
     fontSize: 14,
-    color: '#888',
+    color: NEUTRAL.textMuted,
   },
   newWallBtn: {
     padding: '10px 20px',
-    background: '#2C5F8A',
+    background: BRAND.primary,
     color: '#fff',
     border: 'none',
-    borderRadius: 6,
+    borderRadius: RADIUS.md,
     cursor: 'pointer',
     fontSize: 14,
     fontWeight: 600,
@@ -413,10 +419,10 @@ const styles = {
   },
   newFloorBtn: {
     padding: '10px 20px',
-    background: '#5D4037',
+    background: BRAND.floor,
     color: '#fff',
     border: 'none',
-    borderRadius: 6,
+    borderRadius: RADIUS.md,
     cursor: 'pointer',
     fontSize: 14,
     fontWeight: 600,
@@ -425,10 +431,10 @@ const styles = {
   },
   h1Btn: {
     padding: '10px 20px',
-    background: '#2E7D32',
+    background: BRAND.h1,
     color: '#fff',
     border: 'none',
-    borderRadius: 6,
+    borderRadius: RADIUS.md,
     cursor: 'pointer',
     fontSize: 14,
     fontWeight: 600,

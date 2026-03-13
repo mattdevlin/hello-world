@@ -48,7 +48,7 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
   const addOpening = () => {
     updateWall(prev => ({
       ...prev,
-      openings: [...prev.openings, { ...defaultOpening, ref: `W${String(prev.openings.length + 1).padStart(2, '0')}` }],
+      openings: [...prev.openings, { ...defaultOpening, id: crypto.randomUUID(), ref: `W${String(prev.openings.length + 1).padStart(2, '0')}` }],
     }));
   };
 
@@ -87,8 +87,41 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
     }));
   };
 
+  const [validationError, setValidationError] = useState(null);
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    // Validate wall dimensions
+    if (wall.length_mm <= 0 || wall.height_mm <= 0) {
+      setValidationError('Wall length and height must be positive values.');
+      return;
+    }
+    const dedTotal = (wall.deduction_left_mm || 0) + (wall.deduction_right_mm || 0);
+    if (dedTotal >= wall.length_mm) {
+      setValidationError('Corner deductions exceed wall length.');
+      return;
+    }
+    // Validate openings
+    for (const op of wall.openings) {
+      if (op.width_mm <= 0 || op.height_mm <= 0) {
+        setValidationError(`Opening "${op.ref}" has invalid dimensions.`);
+        return;
+      }
+      if (op.position_from_left_mm < 0) {
+        setValidationError(`Opening "${op.ref}" has a negative position.`);
+        return;
+      }
+      if (op.position_from_left_mm + op.width_mm > wall.length_mm) {
+        setValidationError(`Opening "${op.ref}" extends beyond wall length.`);
+        return;
+      }
+      const openingTop = (op.sill_mm || 0) + op.height_mm;
+      if (openingTop > wall.height_mm) {
+        setValidationError(`Opening "${op.ref}" exceeds wall height (sill + height = ${openingTop}mm > ${wall.height_mm}mm).`);
+        return;
+      }
+    }
+    setValidationError(null);
     onCalculate(wall);
   };
 
@@ -232,7 +265,7 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
       )}
 
       {wall.openings.map((op, i) => (
-        <div key={i} style={styles.openingCard}>
+        <div key={op.id || i} style={styles.openingCard}>
           <div style={styles.openingCardHeader}>
             <strong>Opening {i + 1}</strong>
             <button type="button" onClick={() => removeOpening(i)} style={styles.removeBtn}>
@@ -319,6 +352,10 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
           </div>
         </div>
       ))}
+
+      {validationError && (
+        <p style={styles.validationError}>{validationError}</p>
+      )}
 
       <button type="submit" style={styles.submitBtn}>
         Generate Wall Drawing
@@ -416,6 +453,16 @@ const styles = {
     color: '#999',
     fontStyle: 'italic',
     fontSize: 14,
+  },
+  validationError: {
+    color: '#e74c3c',
+    background: '#fff5f5',
+    border: '1px solid #fdd',
+    borderRadius: 4,
+    padding: '8px 12px',
+    fontSize: 13,
+    fontWeight: 500,
+    marginTop: 12,
   },
   submitBtn: {
     marginTop: 16,
