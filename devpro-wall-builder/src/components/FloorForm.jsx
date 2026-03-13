@@ -159,8 +159,6 @@ export default function FloorForm({ onCalculate, onChange, initialFloor }) {
 
   return (
     <form onSubmit={handleSubmit} style={styles.form}>
-      <h2 style={styles.heading}>Floor Dimensions</h2>
-
       <div style={styles.row}>
         <div style={styles.field}>
           <label style={styles.label}>Floor Name</label>

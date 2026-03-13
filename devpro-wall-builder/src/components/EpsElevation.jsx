@@ -10,6 +10,7 @@ const HALF_SPLINE = SPLINE_WIDTH / 2;
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 const MAX_SVG_HEIGHT = 500;
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
 const STROKE_COLOR = '#333';
 const LABEL_COLOR = '#555';
 const EPS_FILL = '#B3D9FF';
@@ -20,16 +21,17 @@ const SPLINE_EPS_STROKE = '#6AACE6';
 export default function EpsElevation({ layout, wallName, projectName, timberRatio }) {
   const sectionRef = useRef(null);
   const clipId = useRef(`eps-clip-${Math.random().toString(36).slice(2, 8)}`).current;
+  const [zoomIdx, setZoomIdx] = useState(2);
+  const zoom = ZOOM_STEPS[zoomIdx];
   if (!layout) return null;
 
   const { grossLength, height, maxHeight, panels, openings, footerPanels, lintelPanels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
 
   const useHeight = maxHeight || height;
   const drawWidth = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
-  const scale = drawWidth / grossLength;
-  const svgWidth = MAX_SVG_WIDTH;
+  const scale = (drawWidth / grossLength) * zoom;
+  const svgWidth = drawWidth * zoom + MARGIN.left + MARGIN.right;
   const svgHeight = useHeight * scale + MARGIN.top + MARGIN.bottom;
-  const displayHeight = Math.min(svgHeight, MAX_SVG_HEIGHT);
 
   const s = (mm) => mm * scale;
   const yTopAt = (x) => useHeight - (heightAt ? heightAt(x) : height);
@@ -202,22 +204,30 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
   });
 
   return (
-    <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
+    <div ref={sectionRef} data-print-section style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 12px 0', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 'auto' }}>
+          <button onClick={() => setZoomIdx(i => Math.max(0, i - 1))} disabled={zoomIdx === 0}
+            style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>-</button>
+          <span style={{ fontSize: 12, minWidth: 40, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1))} disabled={zoomIdx === ZOOM_STEPS.length - 1}
+            style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>+</button>
+        </div>
         <PrintButton sectionRef={sectionRef} label="EPS" projectName={projectName} wallName={wallName} />
         <ExportDxfButton layout={layout} wallName={wallName} projectName={projectName} planType="eps-elevation" />
         <button
           onClick={() => exportWallEpsCsvFromLayout(layout, wallName, projectName)}
-          style={{ padding: '4px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
+          className="no-print"
+          style={{ padding: '6px 16px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600, flexShrink: 0 }}
         >
           Export CSV
         </button>
       </div>
+      <div style={{ overflow: 'auto', maxHeight: 700 }}>
       <svg
         width={svgWidth}
-        height={displayHeight}
+        height={svgHeight}
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-        preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block', margin: '0 auto' }}
       >
         {/* Title */}
@@ -276,6 +286,7 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
           {/* Use course 0 panels — internal multi-course rendering handles all courses */}
           {panels.filter(p => (p.course ?? 0) === 0).map((panel, i) => {
             const segments = getEpsSegments(panel.x, panel.x + panel.width);
+            const widestSeg = segments.reduce((best, seg) => (!best || (seg[1] - seg[0]) > (best[1] - best[0])) ? seg : best, null);
 
             const getVertExclusions = (xEdge) => {
               const zones = [];
@@ -506,11 +517,77 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
                     />
                   ) : null;
                 })}
+                {/* EPS dimensions — width × height on each segment */}
+                {segments.map(([segL, segR], j) => {
+                  const w = segR - segL;
+                  if (w <= 0) return null;
+
+                  const isWidest = widestSeg && segL === widestSeg[0] && segR === widestSeg[1];
+
+                  if (isMultiCourse && courses.length > 1) {
+                    return courses.map((course, ci) => {
+                      const isBottomCourse = ci === 0;
+                      const isTopCourse = ci === courses.length - 1;
+                      const plateBelow = isBottomCourse ? BOTTOM_PLATE : (HALF_SPLINE - EPS_GAP);
+                      const plateAbove = isTopCourse ? TOP_PLATE * 2 : (HALF_SPLINE - EPS_GAP);
+                      const cEpsBot = yBottom - course.y - plateBelow - EPS_GAP;
+                      const cEpsTop = isTopCourse
+                        ? (isRaked ? Math.max(yTopAt(segL), yTopAt(segR)) : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_GAP
+                        : Math.max(
+                            yBottom - course.y - course.height + plateAbove + EPS_GAP,
+                            (isRaked ? Math.max(yTopAt(segL), yTopAt(segR)) : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_GAP
+                          );
+                      const cH = cEpsBot - cEpsTop;
+                      if (cH <= 0) return null;
+                      const dimY = isWidest && courseLabelY[ci] != null
+                        ? courseLabelY[ci] + 12
+                        : (cEpsTop + cEpsBot) / 2;
+                      return (
+                        <text key={`dim-${j}-c${ci}`}
+                          x={s((segL + segR) / 2)} y={s(dimY) + 3}
+                          textAnchor="middle" fontSize={7} fill="#336" opacity={0.7}
+                        >
+                          {Math.round(w)}×{Math.round(cH)}
+                        </text>
+                      );
+                    });
+                  }
+
+                  if (isRaked) {
+                    const epsBot = yBottom - BOTTOM_PLATE - EPS_GAP;
+                    const shortTopY = Math.max(yTopAt(segL), yTopAt(segR)) + TOP_PLATE * 2 + EPS_GAP;
+                    const h = epsBot - shortTopY;
+                    if (h <= 0) return null;
+                    const dimY = isWidest && courseLabelY[0] != null
+                      ? courseLabelY[0] + 12
+                      : (shortTopY + epsBot) / 2;
+                    return (
+                      <text key={`dim-${j}`}
+                        x={s((segL + segR) / 2)} y={s(dimY) + 3}
+                        textAnchor="middle" fontSize={7} fill="#336" opacity={0.7}
+                      >
+                        {Math.round(w)}×{Math.round(h)}
+                      </text>
+                    );
+                  }
+
+                  if (pEpsH <= 0) return null;
+                  const dimY = isWidest && courseLabelY[0] != null
+                    ? courseLabelY[0] + 12
+                    : (pEpsTop + pEpsBot) / 2;
+                  return (
+                    <text key={`dim-${j}`}
+                      x={s((segL + segR) / 2)} y={s(dimY) + 3}
+                      textAnchor="middle" fontSize={7} fill="#336" opacity={0.7}
+                    >
+                      {Math.round(w)}×{Math.round(pEpsH)}
+                    </text>
+                  );
+                })}
                 {/* Panel labels — one per course, aligned to common Y across all panels */}
                 {courseList.map((course, ci) => {
                   const cY = course.y;
                   // Centre label on EPS midpoint (midpoint of widest segment)
-                  const widestSeg = segments.reduce((best, seg) => (!best || (seg[1] - seg[0]) > (best[1] - best[0])) ? seg : best, null);
                   const panelCenterX = widestSeg ? (widestSeg[0] + widestSeg[1]) / 2 : panel.x + panel.width / 2;
                   // Skip label if wall height across this panel doesn't reach this course
                   const wallHMax = heightAt ? Math.max(heightAt(panel.x), heightAt(panel.x + panel.width)) : height;
@@ -922,6 +999,10 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
                 }
               });
               footerPanels.forEach(f => points.add(Math.round(f.x + f.width)));
+              openings.forEach(op => {
+                points.add(Math.round(op.x));
+                points.add(Math.round(op.x + op.drawWidth));
+              });
               const sorted = [...points].sort((a, b) => a - b);
               const tickY = s(yBottom) + 22;
               return sorted.map((pt, j) => (
@@ -986,6 +1067,7 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
 
         </g>
       </svg>
+      </div>
       {timberRatio && (
         <div style={timberInfoStyles.panel}>
           <div style={timberInfoStyles.header}>
