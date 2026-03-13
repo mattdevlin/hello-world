@@ -1,17 +1,17 @@
 import { useRef, useState } from 'react';
 import PrintButton from './PrintButton.jsx';
+import ZoomControls, { ZOOM_STEPS, DEFAULT_IDX } from './ZoomControls.jsx';
 import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, EPS_GAP } from '../utils/constants.js';
 import { computeFloorEpsDeductions } from '../utils/floorEpsDeductions.js';
 
 const MARGIN = { top: 60, right: 40, bottom: 80, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 const MAX_SVG_HEIGHT = 600;
-const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
 
 
 export default function FloorEpsPlan({ layout, floorName, projectName }) {
   const sectionRef = useRef(null);
-  const [zoomIdx, setZoomIdx] = useState(2);
+  const [zoomIdx, setZoomIdx] = useState(DEFAULT_IDX);
   const zoom = ZOOM_STEPS[zoomIdx];
   if (!layout || !layout.panels || layout.panels.length === 0) return null;
 
@@ -84,13 +84,7 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
           {boundaryJoistCount > 1 && ` · ${boundaryJoistCount}× boundary joists`}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button onClick={() => setZoomIdx(i => Math.max(0, i - 1))} disabled={zoomIdx === 0}
-              style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>-</button>
-            <span style={{ fontSize: 12, minWidth: 40, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1))} disabled={zoomIdx === ZOOM_STEPS.length - 1}
-              style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>+</button>
-          </div>
+          <ZoomControls zoomIdx={zoomIdx} setZoomIdx={setZoomIdx} zoom={zoom} />
           <PrintButton sectionRef={sectionRef} label="EPS Floor Plan" projectName={projectName} wallName={floorName} />
         </div>
       </div>

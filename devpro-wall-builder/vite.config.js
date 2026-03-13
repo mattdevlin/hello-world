@@ -7,4 +7,12 @@ export default defineConfig({
   server: {
     port: 5174,
   },
+  test: {
+    environment: 'node',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: ['node_modules/', '**/*.test.js', 'test-*.mjs'],
+    },
+  },
 })

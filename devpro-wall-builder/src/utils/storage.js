@@ -34,6 +34,18 @@ function readJson(key) {
   }
 }
 
+function writeJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    if (e?.name === 'QuotaExceededError' || e?.code === 22) {
+      console.error('localStorage quota exceeded while writing key:', key);
+      throw new Error('Storage is full. Export your projects and clear old data to free space.');
+    }
+    throw e;
+  }
+}
+
 // ── Projects ──
 
 export function getProjects() {
@@ -43,7 +55,7 @@ export function getProjects() {
 }
 
 export function saveProjects(projects) {
-  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+  writeJson(PROJECTS_KEY, projects);
 }
 
 export function createProject(name) {
@@ -57,7 +69,7 @@ export function createProject(name) {
   };
   projects.push(project);
   saveProjects(projects);
-  localStorage.setItem(projectWallsKey(project.id), JSON.stringify([]));
+  writeJson(projectWallsKey(project.id), []);
   return project;
 }
 
@@ -87,6 +99,9 @@ export function deleteProject(id) {
   localStorage.removeItem(projectWallsKey(id));
   localStorage.removeItem(projectFloorsKey(id));
   localStorage.removeItem(projectH1Key(id));
+  localStorage.removeItem(projectConnectionsKey(id));
+  localStorage.removeItem(projectPlacementsKey(id));
+  localStorage.removeItem(projectWallPositionsKey(id));
 }
 
 // ── Walls within a project ──
@@ -123,14 +138,14 @@ export function saveWall(projectId, wallInput) {
   } else {
     walls.push(entry);
   }
-  localStorage.setItem(projectWallsKey(projectId), JSON.stringify(walls));
+  writeJson(projectWallsKey(projectId), walls);
   syncWallCount(projectId);
   return entry;
 }
 
 export function deleteWall(projectId, wallId) {
   const walls = getProjectWalls(projectId).filter(w => w.id !== wallId);
-  localStorage.setItem(projectWallsKey(projectId), JSON.stringify(walls));
+  writeJson(projectWallsKey(projectId), walls);
   // Remove any connections referencing the deleted wall
   const connections = getProjectConnections(projectId)
     .filter(c => c.wallId !== wallId && c.attachedWallId !== wallId);
@@ -154,7 +169,7 @@ export function copyWallToProject(wall, targetProjectId) {
   };
   const walls = getProjectWalls(targetProjectId);
   walls.push(copy);
-  localStorage.setItem(projectWallsKey(targetProjectId), JSON.stringify(walls));
+  writeJson(projectWallsKey(targetProjectId), walls);
   syncWallCount(targetProjectId);
   return copy;
 }
@@ -193,14 +208,14 @@ export function saveFloor(projectId, floorInput) {
   } else {
     floors.push(entry);
   }
-  localStorage.setItem(projectFloorsKey(projectId), JSON.stringify(floors));
+  writeJson(projectFloorsKey(projectId), floors);
   syncFloorCount(projectId);
   return entry;
 }
 
 export function deleteFloor(projectId, floorId) {
   const floors = getProjectFloors(projectId).filter(f => f.id !== floorId);
-  localStorage.setItem(projectFloorsKey(projectId), JSON.stringify(floors));
+  writeJson(projectFloorsKey(projectId), floors);
   syncFloorCount(projectId);
 }
 
@@ -211,7 +226,7 @@ export function getProjectConnections(projectId) {
 }
 
 export function saveProjectConnections(projectId, connections) {
-  localStorage.setItem(projectConnectionsKey(projectId), JSON.stringify(connections));
+  writeJson(projectConnectionsKey(projectId), connections);
 }
 
 // ── Placements (which walls are placed in the 3D scene) ──
@@ -221,7 +236,7 @@ export function getProjectPlacements(projectId) {
 }
 
 export function saveProjectPlacements(projectId, placedWallIds) {
-  localStorage.setItem(projectPlacementsKey(projectId), JSON.stringify(placedWallIds));
+  writeJson(projectPlacementsKey(projectId), placedWallIds);
 }
 
 // ── Wall Positions (manual positions for standalone walls in 3D) ──
@@ -231,7 +246,7 @@ export function getProjectWallPositions(projectId) {
 }
 
 export function saveProjectWallPositions(projectId, positions) {
-  localStorage.setItem(projectWallPositionsKey(projectId), JSON.stringify(positions));
+  writeJson(projectWallPositionsKey(projectId), positions);
 }
 
 // ── H1 Compliance Data ──
@@ -241,7 +256,7 @@ export function getProjectH1(projectId) {
 }
 
 export function saveProjectH1(projectId, h1Data) {
-  localStorage.setItem(projectH1Key(projectId), JSON.stringify(h1Data));
+  writeJson(projectH1Key(projectId), h1Data);
 }
 
 // ── Archive (export/import as JSON zip) ──
@@ -274,6 +289,27 @@ export async function exportProject(projectId) {
   URL.revokeObjectURL(url);
 }
 
+function isPositiveNumber(v) {
+  return typeof v === 'number' && isFinite(v) && v > 0;
+}
+
+function validateWallData(wall) {
+  if (!wall || typeof wall !== 'object') return false;
+  if (!isPositiveNumber(wall.length_mm)) return false;
+  if (!isPositiveNumber(wall.height_mm)) return false;
+  if (wall.openings != null && !Array.isArray(wall.openings)) return false;
+  return true;
+}
+
+function validateConnectionData(conn) {
+  if (!conn || typeof conn !== 'object') return false;
+  if (typeof conn.wallId !== 'string' || typeof conn.attachedWallId !== 'string') return false;
+  if (!['left', 'right'].includes(conn.anchorEnd)) return false;
+  if (!['left', 'right'].includes(conn.attachedEnd)) return false;
+  if (![0, 90, 180, 270].includes(conn.angleDeg)) return false;
+  return true;
+}
+
 export async function importProject(file) {
   const JSZip = (await import('jszip')).default;
   const zip = await JSZip.loadAsync(file);
@@ -285,6 +321,19 @@ export async function importProject(file) {
   const projectData = JSON.parse(projectJson);
   const wallsData = JSON.parse(wallsJson);
 
+  if (!projectData || typeof projectData.name !== 'string') {
+    throw new Error('Invalid .devpro file: missing project name');
+  }
+  if (!Array.isArray(wallsData)) {
+    throw new Error('Invalid .devpro file: walls data must be an array');
+  }
+
+  // Validate wall entries
+  const validWalls = wallsData.filter(w => validateWallData(w));
+  if (validWalls.length === 0 && wallsData.length > 0) {
+    throw new Error('Invalid .devpro file: no valid wall entries found');
+  }
+
   // Create as a new project with a fresh ID to avoid collisions
   const newId = crypto.randomUUID();
   const project = {
@@ -294,12 +343,15 @@ export async function importProject(file) {
     territorialAuthority: projectData.territorialAuthority || '',
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    wallCount: wallsData.length,
+    wallCount: validWalls.length,
   };
 
   // Import connections if present (backward compatible with older exports)
   const connectionsJson = await zip.file('connections.json')?.async('string');
   const connectionsData = connectionsJson ? JSON.parse(connectionsJson) : [];
+  const validConnections = Array.isArray(connectionsData)
+    ? connectionsData.filter(c => validateConnectionData(c))
+    : [];
 
   // Import floors if present (backward compatible with older exports)
   const floorsJson = await zip.file('floors.json')?.async('string');
@@ -307,12 +359,12 @@ export async function importProject(file) {
 
   // Remap wall IDs in connections
   const wallIdMap = new Map();
-  const walls = wallsData.map(w => {
+  const walls = validWalls.map(w => {
     const newWallId = crypto.randomUUID();
     wallIdMap.set(w.id, newWallId);
     return { ...w, id: newWallId };
   });
-  const connections = connectionsData.map(c => ({
+  const connections = validConnections.map(c => ({
     ...c,
     id: crypto.randomUUID(),
     wallId: wallIdMap.get(c.wallId) || c.wallId,
@@ -330,9 +382,9 @@ export async function importProject(file) {
   const projects = getProjects();
   projects.push(project);
   saveProjects(projects);
-  localStorage.setItem(projectWallsKey(newId), JSON.stringify(walls));
+  writeJson(projectWallsKey(newId), walls);
   if (floors.length > 0) {
-    localStorage.setItem(projectFloorsKey(newId), JSON.stringify(floors));
+    writeJson(projectFloorsKey(newId), floors);
   }
   if (connections.length > 0) {
     saveProjectConnections(newId, connections);
@@ -354,7 +406,7 @@ export function migrateLegacyWalls() {
   if (!legacy || legacy.length === 0) return null;
 
   const project = createProject('Imported Walls');
-  localStorage.setItem(projectWallsKey(project.id), JSON.stringify(legacy));
+  writeJson(projectWallsKey(project.id), legacy);
   project.wallCount = legacy.length;
 
   const projects = getProjects();

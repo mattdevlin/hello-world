@@ -29,8 +29,9 @@ export default function ProjectsPage() {
     navigate(`/project/${p.id}`);
   };
 
-  const handleDelete = (id, e) => {
+  const handleDelete = (id, name, e) => {
     e.stopPropagation();
+    if (!window.confirm(`Delete project "${name}" and all its walls/floors? This cannot be undone.`)) return;
     deleteProject(id);
     refresh();
   };
@@ -126,7 +127,7 @@ export default function ProjectsPage() {
                 <div style={styles.cardActions}>
                   <button onClick={(e) => handleExport(p.id, e)} style={styles.actionBtn} title="Export">Export</button>
                   <button onClick={(e) => startRename(p, e)} style={styles.actionBtn} title="Rename">Rename</button>
-                  <button onClick={(e) => handleDelete(p.id, e)} style={styles.deleteBtn} title="Delete">Delete</button>
+                  <button onClick={(e) => handleDelete(p.id, p.name, e)} style={styles.deleteBtn} title="Delete">Delete</button>
                 </div>
               </div>
             ))}

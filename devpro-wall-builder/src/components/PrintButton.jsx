@@ -21,7 +21,8 @@ export default function PrintButton({ sectionRef, label, projectName, wallName }
   }, [sectionRef, projectName, wallName, label]);
 
   return (
-    <button onClick={handlePrint} style={styles.btn} className="no-print">
+    <button onClick={handlePrint} style={styles.btn} className="no-print"
+      aria-label={`Print A3${label ? ` ${label}` : ''}`}>
       Print A3{label ? ` — ${label}` : ''}
     </button>
   );

@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import PrintButton from './PrintButton.jsx';
+import ZoomControls, { ZOOM_STEPS, DEFAULT_IDX } from './ZoomControls.jsx';
 
 const MARGIN = { top: 80, right: 110, bottom: 170, left: 90 };
 const MAX_SVG_WIDTH = 1200;
 const MAX_SVG_HEIGHT = 600;
-const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
 
 const COLORS = {
   PLATE: '#8B4513',
@@ -17,7 +17,7 @@ const COLORS = {
 
 export default function FloorFramingPlan({ layout, floorName, projectName }) {
   const sectionRef = useRef(null);
-  const [zoomIdx, setZoomIdx] = useState(2);
+  const [zoomIdx, setZoomIdx] = useState(DEFAULT_IDX);
   const zoom = ZOOM_STEPS[zoomIdx];
   if (!layout || !layout.panels || layout.panels.length === 0) return null;
 
@@ -44,13 +44,7 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>Framing Plan — {floorName}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button onClick={() => setZoomIdx(i => Math.max(0, i - 1))} disabled={zoomIdx === 0}
-              style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>-</button>
-            <span style={{ fontSize: 12, minWidth: 40, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1))} disabled={zoomIdx === ZOOM_STEPS.length - 1}
-              style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>+</button>
-          </div>
+          <ZoomControls zoomIdx={zoomIdx} setZoomIdx={setZoomIdx} zoom={zoom} />
           <PrintButton sectionRef={sectionRef} label="Framing Plan" projectName={projectName} wallName={floorName} />
         </div>
       </div>

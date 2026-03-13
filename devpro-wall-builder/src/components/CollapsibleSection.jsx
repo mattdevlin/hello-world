@@ -35,8 +35,8 @@ export default function CollapsibleSection({ sectionKey, title, defaultCollapsed
 
   return (
     <div style={{ marginTop: 16 }}>
-      <button onClick={toggle} style={styles.header}>
-        <span style={styles.chevron}>{collapsed ? '▶' : '▼'}</span>
+      <button onClick={toggle} style={styles.header} aria-expanded={!collapsed}>
+        <span style={styles.chevron} aria-hidden="true">{collapsed ? '▶' : '▼'}</span>
         <span style={styles.title}>{title}</span>
       </button>
       <div

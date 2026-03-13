@@ -1,16 +1,7 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
+import StatCard from './StatCard.jsx';
 import { FLOOR_THICKNESS, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, SPLINE_WIDTH, MAGBOARD } from '../utils/constants.js';
-
-function StatCard({ label, value, unit, color }) {
-  return (
-    <div style={styles.statCard}>
-      <div style={{ ...styles.statValue, color: color || '#2C5F8A' }}>{value}</div>
-      <div style={styles.statUnit}>{unit}</div>
-      <div style={styles.statLabel}>{label}</div>
-    </div>
-  );
-}
 
 function Row({ label, value }) {
   return (
