@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, EPS_GAP, MAGBOARD, buildHSplineSegments } from '../utils/constants.js';
 import { REFERENCE_TIMBER_FRACTION } from '../utils/h1Constants.js';
 import PrintButton from './PrintButton.jsx';
@@ -20,7 +20,7 @@ const SPLINE_EPS_STROKE = '#6AACE6';
 
 export default function EpsElevation({ layout, wallName, projectName, timberRatio }) {
   const sectionRef = useRef(null);
-  const clipId = useRef(`eps-clip-${Math.random().toString(36).slice(2, 8)}`).current;
+  const clipId = useId();
   const [zoomIdx, setZoomIdx] = useState(2);
   const zoom = ZOOM_STEPS[zoomIdx];
   if (!layout) return null;
@@ -36,11 +36,6 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
   const s = (mm) => mm * scale;
   const yTopAt = (x) => useHeight - (heightAt ? heightAt(x) : height);
   const yBottom = useHeight;
-
-  // EPS vertical bounds (for standard walls)
-  const epsTop = TOP_PLATE * 2 + EPS_GAP;
-  const epsBottom_std = height - BOTTOM_PLATE - EPS_GAP;
-  const epsHeight = epsBottom_std - epsTop;
 
   // ── Collect all exclusion zones (x-ranges where there's no EPS) ──
   // These are all splines, plates, and openings that occupy space inside panels.
@@ -335,7 +330,6 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
             const rightX = panel.x + panel.width;
             const leftSegs = vertSegments(leftX);
             const rightSegs = vertSegments(rightX);
-            const panelMidH = (yTopAt(leftX) + yTopAt(rightX)) / 2;
             // Shortest side (highest yTopAt) — EPS rectangle must stay below top plates at every point
             const panelShortTopY = Math.max(yTopAt(leftX), yTopAt(rightX));
 
@@ -517,106 +511,77 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
                     />
                   ) : null;
                 })}
-                {/* EPS dimensions — width × height on each segment */}
-                {segments.map(([segL, segR], j) => {
-                  const w = segR - segL;
-                  if (w <= 0) return null;
-
-                  const isWidest = widestSeg && segL === widestSeg[0] && segR === widestSeg[1];
-
-                  if (isMultiCourse && courses.length > 1) {
-                    return courses.map((course, ci) => {
-                      const isBottomCourse = ci === 0;
-                      const isTopCourse = ci === courses.length - 1;
-                      const plateBelow = isBottomCourse ? BOTTOM_PLATE : (HALF_SPLINE - EPS_GAP);
-                      const plateAbove = isTopCourse ? TOP_PLATE * 2 : (HALF_SPLINE - EPS_GAP);
-                      const cEpsBot = yBottom - course.y - plateBelow - EPS_GAP;
-                      const cEpsTop = isTopCourse
-                        ? (isRaked ? Math.max(yTopAt(segL), yTopAt(segR)) : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_GAP
-                        : Math.max(
-                            yBottom - course.y - course.height + plateAbove + EPS_GAP,
-                            (isRaked ? Math.max(yTopAt(segL), yTopAt(segR)) : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_GAP
-                          );
-                      const cH = cEpsBot - cEpsTop;
-                      if (cH <= 0) return null;
-                      const dimY = isWidest && courseLabelY[ci] != null
-                        ? courseLabelY[ci] + 12
-                        : (cEpsTop + cEpsBot) / 2;
-                      return (
-                        <text key={`dim-${j}-c${ci}`}
-                          x={s((segL + segR) / 2)} y={s(dimY) + 3}
-                          textAnchor="middle" fontSize={7} fill="#336" opacity={0.7}
-                        >
-                          {Math.round(w)}×{Math.round(cH)}
-                        </text>
-                      );
-                    });
-                  }
-
-                  if (isRaked) {
-                    const epsBot = yBottom - BOTTOM_PLATE - EPS_GAP;
-                    const shortTopY = Math.max(yTopAt(segL), yTopAt(segR)) + TOP_PLATE * 2 + EPS_GAP;
-                    const h = epsBot - shortTopY;
-                    if (h <= 0) return null;
-                    const dimY = isWidest && courseLabelY[0] != null
-                      ? courseLabelY[0] + 12
-                      : (shortTopY + epsBot) / 2;
-                    return (
-                      <text key={`dim-${j}`}
-                        x={s((segL + segR) / 2)} y={s(dimY) + 3}
-                        textAnchor="middle" fontSize={7} fill="#336" opacity={0.7}
-                      >
-                        {Math.round(w)}×{Math.round(h)}
-                      </text>
-                    );
-                  }
-
-                  if (pEpsH <= 0) return null;
-                  const dimY = isWidest && courseLabelY[0] != null
-                    ? courseLabelY[0] + 12
-                    : (pEpsTop + pEpsBot) / 2;
-                  return (
-                    <text key={`dim-${j}`}
-                      x={s((segL + segR) / 2)} y={s(dimY) + 3}
-                      textAnchor="middle" fontSize={7} fill="#336" opacity={0.7}
-                    >
-                      {Math.round(w)}×{Math.round(pEpsH)}
-                    </text>
-                  );
-                })}
-                {/* Panel labels — one per course, aligned to common Y across all panels */}
+                {/* Panel labels + EPS dimensions below */}
                 {courseList.map((course, ci) => {
                   const cY = course.y;
-                  // Centre label on EPS midpoint (midpoint of widest segment)
                   const panelCenterX = widestSeg ? (widestSeg[0] + widestSeg[1]) / 2 : panel.x + panel.width / 2;
-                  // Skip label if wall height across this panel doesn't reach this course
                   const wallHMax = heightAt ? Math.max(heightAt(panel.x), heightAt(panel.x + panel.width)) : height;
                   if (wallHMax <= cY) return null;
                   const commonY = courseLabelY[ci];
                   if (commonY == null) return null;
-                  // If common Y falls outside this panel's wall area, centre on shortest vertical edge
                   const cTop = cY + course.height;
                   const wallHAtLabel = heightAt ? heightAt(panelCenterX) : height;
                   const clampedTop = Math.max(Math.min(wallHAtLabel, cTop), cY);
                   const epsRegionTop = yBottom - clampedTop;
                   const epsRegionBot = yBottom - cY;
                   const fitsCommon = commonY <= epsRegionBot && commonY >= epsRegionTop;
-                  // Fallback: midpoint of the shorter vertical side of the EPS area
                   const wallHL = heightAt ? Math.min(heightAt(panel.x), cTop) : height;
                   const wallHR = heightAt ? Math.min(heightAt(panel.x + panel.width), cTop) : height;
                   const shortSideH = Math.max(Math.min(wallHL, wallHR) - cY, 0);
                   const fallbackY = yBottom - cY - shortSideH / 2;
                   const labelY = fitsCommon ? commonY : fallbackY;
                   const label = isMultiCourse ? `P${i + 1}·C${ci + 1}` : `P${i + 1}`;
+
+                  // Compute EPS dimension for the widest segment in this course
+                  let dimText = '';
+                  if (widestSeg) {
+                    const [segL, segR] = widestSeg;
+                    const w = segR - segL;
+                    if (w > 0) {
+                      let h;
+                      if (isMultiCourse && courses.length > 1) {
+                        const isBottomCourse = ci === 0;
+                        const isTopCourse = ci === courses.length - 1;
+                        const plateBelow = isBottomCourse ? BOTTOM_PLATE : (HALF_SPLINE - EPS_GAP);
+                        const plateAbove = isTopCourse ? TOP_PLATE * 2 : (HALF_SPLINE - EPS_GAP);
+                        const cEpsBot = yBottom - course.y - plateBelow - EPS_GAP;
+                        const cEpsTop = isTopCourse
+                          ? (isRaked ? Math.max(yTopAt(segL), yTopAt(segR)) : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_GAP
+                          : Math.max(
+                              yBottom - course.y - course.height + plateAbove + EPS_GAP,
+                              (isRaked ? Math.max(yTopAt(segL), yTopAt(segR)) : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_GAP
+                            );
+                        h = cEpsBot - cEpsTop;
+                      } else if (isRaked) {
+                        const epsBot = yBottom - BOTTOM_PLATE - EPS_GAP;
+                        const shortTopY = Math.max(yTopAt(segL), yTopAt(segR)) + TOP_PLATE * 2 + EPS_GAP;
+                        h = epsBot - shortTopY;
+                      } else {
+                        h = pEpsH;
+                      }
+                      if (h > 0) dimText = `${Math.round(w)}×${Math.round(h)}`;
+                    }
+                  }
+
                   return (
-                    <text
-                      key={`label-c${ci}`}
-                      x={s(panelCenterX)}
-                      y={s(labelY) + 4}
-                      textAnchor="middle" fontSize={isMultiCourse ? 8 : 10} fill={LABEL_COLOR}
-                    >
-                      {label}
-                    </text>
+                    <g key={`label-c${ci}`}>
+                      <text
+                        x={s(panelCenterX)}
+                        y={s(labelY)}
+                        textAnchor="middle" fontSize={isMultiCourse ? 10 : 12} fill={LABEL_COLOR} fontWeight="bold"
+                      >
+                        {label}
+                      </text>
+                      {dimText && (
+                        <text
+                          x={s(panelCenterX)}
+                          y={s(labelY) + (isMultiCourse ? 12 : 14)}
+                          textAnchor="middle" fontSize={9} fill="#336" fontWeight="bold"
+                        >
+                          {dimText}
+                        </text>
+                      )}
+                    </g>
                   );
                 })}
               </g>
@@ -976,50 +941,12 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
 
           {/* Course join lines removed — visible on External Elevation instead */}
 
-          {/* ── Running measurement ── */}
-          <g>
-            {(() => {
-              const points = new Set([0, grossLength]);
-              if (deductionLeft > 0) points.add(deductionLeft);
-              if (deductionRight > 0) points.add(grossLength - deductionRight);
-              // Use course 0 panels for measurement ticks (same x-positions across courses)
-              basePanels.forEach(p => {
-                if (p.type === 'lcut') {
-                  if (p.side === 'left') {
-                    const adj = p.openBottom > 0 ? WINDOW_OVERHANG : 0;
-                    points.add(Math.round(p.x + p.width - adj));
-                  } else if (p.side === 'right') {
-                    points.add(Math.round(p.x + p.width));
-                  } else {
-                    const adj = p.rightOpenBottom > 0 ? WINDOW_OVERHANG : 0;
-                    points.add(Math.round(p.x + p.width - adj));
-                  }
-                } else {
-                  points.add(Math.round(p.x + p.width));
-                }
-              });
-              footerPanels.forEach(f => points.add(Math.round(f.x + f.width)));
-              openings.forEach(op => {
-                points.add(Math.round(op.x));
-                points.add(Math.round(op.x + op.drawWidth));
-              });
-              const sorted = [...points].sort((a, b) => a - b);
-              const tickY = s(yBottom) + 22;
-              return sorted.map((pt, j) => (
-                <g key={`rm-${j}`}>
-                  <line x1={s(pt)} y1={tickY - 4} x2={s(pt)} y2={tickY + 4} stroke={COLORS.DIMENSION} strokeWidth={1} />
-                  <text x={s(pt)} y={tickY + 14} textAnchor="middle" fontSize="9" fill={COLORS.DIMENSION}>{pt}</text>
-                </g>
-              ));
-            })()}
-          </g>
-
           {/* ── Total width dimension ── */}
           <g>
-            <line x1={0} y1={s(yBottom) + 44} x2={s(grossLength)} y2={s(yBottom) + 44} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={0} y1={s(yBottom) + 39} x2={0} y2={s(yBottom) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={s(grossLength)} y1={s(yBottom) + 39} x2={s(grossLength)} y2={s(yBottom) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <text x={s(grossLength / 2)} y={s(yBottom) + 60} textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold">
+            <line x1={0} y1={s(yBottom) + 20} x2={s(grossLength)} y2={s(yBottom) + 20} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={0} y1={s(yBottom) + 15} x2={0} y2={s(yBottom) + 25} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={s(grossLength)} y1={s(yBottom) + 15} x2={s(grossLength)} y2={s(yBottom) + 25} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <text x={s(grossLength / 2)} y={s(yBottom) + 36} textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold">
               {grossLength} mm
             </text>
           </g>
