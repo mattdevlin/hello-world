@@ -496,6 +496,38 @@ describe('calculateFloorLayout', () => {
     }
   });
 
+  it('no-zones remainder: no column narrower than MIN_FLOOR_PANEL_WIDTH', () => {
+    // Width that leaves a small remainder (300mm) after 5 full pitches:
+    // 5 * 1205 + 300 = 6325. Old code created a degenerate 300mm column.
+    const awkwardRect = {
+      ...simpleRect,
+      polygon: [
+        { x: 0, y: 0 }, { x: 6325, y: 0 },
+        { x: 6325, y: 2000 }, { x: 0, y: 2000 },
+      ],
+    };
+    const result = calculateFloorLayout(awkwardRect);
+    for (const col of result.columnPositions) {
+      expect(col.width).toBeGreaterThanOrEqual(MIN_FLOOR_PANEL_WIDTH - 1);
+    }
+  });
+
+  it('no-zones remainder: no spline extends beyond bounding box', () => {
+    // Same awkward width — verify all splines stay within floor extents
+    const awkwardRect = {
+      ...simpleRect,
+      polygon: [
+        { x: 0, y: 0 }, { x: 6325, y: 0 },
+        { x: 6325, y: 2000 }, { x: 0, y: 2000 },
+      ],
+    };
+    const result = calculateFloorLayout(awkwardRect);
+    for (const s of result.reinforcedSplines) {
+      expect(s.x).toBeGreaterThanOrEqual(-1);
+      expect(s.x + s.width).toBeLessThanOrEqual(6325 + 1);
+    }
+  });
+
   it('opening conflicts with both column spline and span break — both adjust', () => {
     // Place opening at intersection of first spline (~1202.5) and span break (3050)
     const withBothConflict = {
