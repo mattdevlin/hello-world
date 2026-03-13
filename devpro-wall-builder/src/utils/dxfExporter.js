@@ -177,9 +177,14 @@ export function drawTitle(d, title, subtitle, grossLength) {
  * In Firefox, set Settings > General > Files and Applications >
  * "Always ask you where to save files" to get a folder picker.
  */
+function sanitize(str) {
+  return (str || '').replace(/[<>:"/\\|?*]/g, '_');
+}
+
 export function downloadDxf(drawing, filename) {
   const content = drawing.toDxfString();
-  const safeName = filename.endsWith('.dxf') ? filename : `${filename}.dxf`;
+  const sanitized = sanitize(filename);
+  const safeName = sanitized.endsWith('.dxf') ? sanitized : `${sanitized}.dxf`;
   const blob = new Blob([content], { type: 'application/dxf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

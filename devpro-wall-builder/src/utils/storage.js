@@ -25,6 +25,11 @@ function projectH1Key(projectId) {
   return `devpro-project-${projectId}-h1`;
 }
 
+function sanitizeString(value, maxLength = 200) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/[<>]/g, '').slice(0, maxLength);
+}
+
 function readJson(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -83,11 +88,15 @@ export function renameProject(id, name) {
   }
 }
 
+const ALLOWED_PROJECT_FIELDS = ['name', 'address', 'territorialAuthority'];
+
 export function updateProjectDetails(id, fields) {
   const projects = getProjects();
-  const p = projects.find(p => p.id === id);
+  const p = projects.find(proj => proj.id === id);
   if (p) {
-    Object.assign(p, fields);
+    for (const key of ALLOWED_PROJECT_FIELDS) {
+      if (key in fields) p[key] = fields[key];
+    }
     p.updatedAt = Date.now();
     saveProjects(projects);
   }
@@ -310,7 +319,18 @@ function validateConnectionData(conn) {
   return true;
 }
 
+function validateFloorData(floor) {
+  if (!floor || typeof floor !== 'object') return false;
+  if (!Array.isArray(floor.polygon) || floor.polygon.length < 3) return false;
+  return floor.polygon.every(p => typeof p.x === 'number' && typeof p.y === 'number');
+}
+
+const MAX_IMPORT_SIZE = 50 * 1024 * 1024; // 50MB limit
+
 export async function importProject(file) {
+  if (file.size > MAX_IMPORT_SIZE) {
+    throw new Error(`File too large (${Math.round(file.size / 1024 / 1024)}MB). Maximum is 50MB.`);
+  }
   const JSZip = (await import('jszip')).default;
   const zip = await JSZip.loadAsync(file);
 
@@ -338,9 +358,9 @@ export async function importProject(file) {
   const newId = crypto.randomUUID();
   const project = {
     id: newId,
-    name: projectData.name + ' (imported)',
-    address: projectData.address || '',
-    territorialAuthority: projectData.territorialAuthority || '',
+    name: sanitizeString(projectData.name) + ' (imported)',
+    address: sanitizeString(projectData.address || ''),
+    territorialAuthority: sanitizeString(projectData.territorialAuthority || ''),
     createdAt: Date.now(),
     updatedAt: Date.now(),
     wallCount: validWalls.length,
@@ -355,7 +375,10 @@ export async function importProject(file) {
 
   // Import floors if present (backward compatible with older exports)
   const floorsJson = await zip.file('floors.json')?.async('string');
-  const floorsData = floorsJson ? JSON.parse(floorsJson) : [];
+  const floorsRawData = floorsJson ? JSON.parse(floorsJson) : [];
+  const floorsData = Array.isArray(floorsRawData)
+    ? floorsRawData.filter(f => validateFloorData(f))
+    : [];
 
   // Remap wall IDs in connections
   const wallIdMap = new Map();

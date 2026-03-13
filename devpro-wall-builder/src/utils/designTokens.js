@@ -13,8 +13,8 @@ export const BRAND = {
 export const NEUTRAL = {
   text: '#1a1a1a',
   textSecondary: '#555',
-  textMuted: '#888',
-  textFaint: '#999',
+  textMuted: '#595959',
+  textFaint: '#767676',
   border: '#e0e0e0',
   borderLight: '#eee',
   background: '#f0f2f5',

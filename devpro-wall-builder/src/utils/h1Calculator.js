@@ -26,7 +26,12 @@ export function computeWeightedR(constructions) {
   const totalArea = constructions.reduce((sum, c) => sum + c.area, 0);
   if (totalArea === 0) return 0;
   // Weighted by heat flow: 1/R_weighted = sum(area_i / R_i) / totalArea
-  const totalHeatLoss = constructions.reduce((sum, c) => sum + c.area / c.rValue, 0);
+  // Guard against zero/negative R-values (consistent with sumHeatLoss)
+  const totalHeatLoss = constructions.reduce((sum, c) => {
+    if (c.area <= 0 || c.rValue <= 0) return sum;
+    return sum + c.area / c.rValue;
+  }, 0);
+  if (totalHeatLoss === 0) return 0;
   return totalArea / totalHeatLoss;
 }
 
@@ -91,6 +96,11 @@ function computeReferenceHL(zone, areas) {
  * @param {object} heatedElements - { ceiling, wall, floor, bathroomOnly }
  * @returns {{ met: boolean, checks: object }}
  */
+function safeMinRValue(entries) {
+  const values = entries.filter(c => c.area > 0).map(c => c.rValue);
+  return values.length > 0 ? Math.min(...values) : null;
+}
+
 function checkMinimums(constructions, zone, heatedElements = {}) {
   const checks = {};
   let allMet = true;
@@ -119,7 +129,7 @@ function checkMinimums(constructions, zone, heatedElements = {}) {
     checks[element] = {
       met,
       required: minRequired,
-      actual: entries.length > 0 ? Math.min(...entries.filter(c => c.area > 0).map(c => c.rValue)) : null,
+      actual: safeMinRValue(entries),
       failures,
     };
   }
@@ -129,7 +139,7 @@ function checkMinimums(constructions, zone, heatedElements = {}) {
     if (heatedElements.ceiling) {
       const minR = HEATED_MINIMUM_R_VALUES.ceiling[zone];
       const roofEntries = constructions.roof || [];
-      const minActual = roofEntries.length > 0 ? Math.min(...roofEntries.filter(c => c.area > 0).map(c => c.rValue)) : null;
+      const minActual = safeMinRValue(roofEntries);
       const met = minActual === null || minActual >= minR;
       if (!met) allMet = false;
       checks.heatedCeiling = { met, required: minR, actual: minActual };
@@ -137,7 +147,7 @@ function checkMinimums(constructions, zone, heatedElements = {}) {
     if (heatedElements.wall) {
       const minR = HEATED_MINIMUM_R_VALUES.wall[zone];
       const wallEntries = constructions.wall || [];
-      const minActual = wallEntries.length > 0 ? Math.min(...wallEntries.filter(c => c.area > 0).map(c => c.rValue)) : null;
+      const minActual = safeMinRValue(wallEntries);
       const met = minActual === null || minActual >= minR;
       if (!met) allMet = false;
       checks.heatedWall = { met, required: minR, actual: minActual };
@@ -145,7 +155,7 @@ function checkMinimums(constructions, zone, heatedElements = {}) {
     if (heatedElements.floor) {
       const minR = HEATED_MINIMUM_R_VALUES.floor[zone];
       const floorEntries = [...(constructions.floorSlab || []), ...(constructions.floorOther || [])];
-      const minActual = floorEntries.length > 0 ? Math.min(...floorEntries.filter(c => c.area > 0).map(c => c.rValue)) : null;
+      const minActual = safeMinRValue(floorEntries);
       const met = minActual === null || minActual >= minR;
       if (!met) allMet = false;
       checks.heatedFloor = { met, required: minR, actual: minActual };
@@ -169,6 +179,10 @@ function checkMinimums(constructions, zone, heatedElements = {}) {
  */
 export function checkH1Compliance(input) {
   const { climateZone, grossWallArea, constructions, heatedElements } = input;
+
+  if (!constructions || typeof constructions !== 'object') {
+    return { error: 'Invalid constructions data' };
+  }
 
   // Validate climate zone
   if (!climateZone || climateZone < 1 || climateZone > 6) {

@@ -335,9 +335,13 @@ export function buildPanelPlansDxf(layout, wallName) {
 /**
  * Export CNC panel plans as a DXF file download.
  */
+function sanitize(str) {
+  return (str || '').replace(/[<>:"/\\|?*]/g, '_');
+}
+
 export function exportPanelPlansDxf(layout, wallName, projectName) {
   const d = buildPanelPlansDxf(layout, wallName);
-  const parts = [projectName, wallName, 'Panel Plans'].filter(Boolean);
+  const parts = [sanitize(projectName), sanitize(wallName), 'Panel Plans'].filter(Boolean);
   const filename = parts.join(' ').replace(/\s+/g, ' ').trim() + '.dxf';
   downloadDxf(d, filename);
 }

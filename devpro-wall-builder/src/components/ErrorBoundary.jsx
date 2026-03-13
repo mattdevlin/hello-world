@@ -17,7 +17,7 @@ export default class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={styles.container}>
+        <div style={styles.container} role="alert">
           <h2 style={styles.heading}>Something went wrong</h2>
           <p style={styles.message}>{this.state.error?.message || 'An unexpected error occurred.'}</p>
           <button

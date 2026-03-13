@@ -363,7 +363,10 @@ export function computeSpanBreaks(bb, panelDirection, openings) {
   // break, so penetration shifts cascade naturally and minimize total breaks.
   const breaks = [minSpan];
 
+  const MAX_ITERATIONS = 100;
+  let iterations = 0;
   while (maxSpan - breaks[breaks.length - 1] > MAX_SHEET_HEIGHT) {
+    if (++iterations > MAX_ITERATIONS) break; // safety guard against infinite loop
     const prev = breaks[breaks.length - 1];
     let target = prev + MAX_SHEET_HEIGHT;
 
@@ -536,7 +539,8 @@ function generatePanelGrid(polygon, bb, panelDirection, openings, spanBreaks) {
     // Panels run along X-axis, span along Y — split at span break positions along Y
     const yBreaks = spanBreaks;
 
-    for (const col of columnPositions) {
+    for (let colIdx = 0; colIdx < columnPositions.length; colIdx++) {
+      const col = columnPositions[colIdx];
       const x = col.start;
       const panelW = col.width;
       if (panelW < 1) continue;
@@ -550,13 +554,13 @@ function generatePanelGrid(polygon, bb, panelDirection, openings, spanBreaks) {
         const fullArea = panelW * segH;
 
         if (clippedArea > 100) {
-          const type = Math.abs(clippedArea - fullArea) / fullArea < 0.01 ? 'full' : 'edge';
+          const type = fullArea > 0 && Math.abs(clippedArea - fullArea) / fullArea < 0.01 ? 'full' : 'edge';
           panels.push({
             index, x, y: segY, width: panelW, length: segH,
             type, clippedPolygon: clipped, area: Math.round(clippedArea),
             openingCuts: [], recessCuts: [],
             isPenetrationPanel: col.isPenetration,
-            columnIndex: columnPositions.indexOf(col),
+            columnIndex: colIdx,
           });
           index++;
         }
@@ -566,7 +570,8 @@ function generatePanelGrid(polygon, bb, panelDirection, openings, spanBreaks) {
     // Panels run along Y-axis, span along X — split at span break positions along X
     const xBreaks = spanBreaks;
 
-    for (const col of columnPositions) {
+    for (let colIdx = 0; colIdx < columnPositions.length; colIdx++) {
+      const col = columnPositions[colIdx];
       const y = col.start;
       const panelL = col.width;
       if (panelL < 1) continue;
@@ -580,13 +585,13 @@ function generatePanelGrid(polygon, bb, panelDirection, openings, spanBreaks) {
         const fullArea = segW * panelL;
 
         if (clippedArea > 100) {
-          const type = Math.abs(clippedArea - fullArea) / fullArea < 0.01 ? 'full' : 'edge';
+          const type = fullArea > 0 && Math.abs(clippedArea - fullArea) / fullArea < 0.01 ? 'full' : 'edge';
           panels.push({
             index, x: segX, y, width: segW, length: panelL,
             type, clippedPolygon: clipped, area: Math.round(clippedArea),
             openingCuts: [], recessCuts: [],
             isPenetrationPanel: col.isPenetration,
-            columnIndex: columnPositions.indexOf(col),
+            columnIndex: colIdx,
           });
           index++;
         }

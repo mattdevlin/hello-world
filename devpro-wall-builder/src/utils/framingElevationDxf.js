@@ -407,9 +407,13 @@ export function buildFramingElevationDxf(layout, wallName) {
 /**
  * Export framing elevation plan as a DXF file download.
  */
+function sanitize(str) {
+  return (str || '').replace(/[<>:"/\\|?*]/g, '_');
+}
+
 export function exportFramingElevationDxf(layout, wallName, projectName) {
   const d = buildFramingElevationDxf(layout, wallName);
-  const parts = [projectName, wallName, 'Framing Elevation'].filter(Boolean);
+  const parts = [sanitize(projectName), sanitize(wallName), 'Framing Elevation'].filter(Boolean);
   const filename = parts.join(' ').replace(/\s+/g, ' ').trim() + '.dxf';
   downloadDxf(d, filename);
 }

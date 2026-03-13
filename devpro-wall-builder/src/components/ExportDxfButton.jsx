@@ -23,8 +23,13 @@ const LABELS = {
 
 export default function ExportDxfButton({ layout, wallName, projectName, planType }) {
   const handleExport = useCallback(() => {
-    const exporter = EXPORTERS[planType];
-    if (exporter && layout) exporter(layout, wallName, projectName);
+    try {
+      const exporter = EXPORTERS[planType];
+      if (exporter && layout) exporter(layout, wallName, projectName);
+    } catch (err) {
+      console.error('DXF export failed:', err);
+      alert('DXF export failed: ' + (err.message || err));
+    }
   }, [layout, wallName, projectName, planType]);
 
   if (!layout) return null;

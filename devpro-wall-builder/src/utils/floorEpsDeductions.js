@@ -28,16 +28,32 @@ export function computeFloorEpsDeductions(panel, layout) {
     const left  = colIdx === 0          ? perimDed : splineDed;
     const right = colIdx === lastColIdx ? perimDed : splineDed;
 
-    const spanIdx = spanBreaks.findIndex((b, i) =>
+    let spanIdx = spanBreaks.findIndex((b, i) =>
       i < spanBreaks.length - 1 && Math.abs(b - panel.y) < 1);
+    // Fallback: find closest span break if exact match fails
+    if (spanIdx === -1) {
+      let minDist = Infinity;
+      for (let i = 0; i < spanBreaks.length - 1; i++) {
+        const dist = Math.abs(spanBreaks[i] - panel.y);
+        if (dist < minDist) { minDist = dist; spanIdx = i; }
+      }
+    }
     const bottom = spanIdx === 0                     ? perimDed : splineDed;
     const top    = spanIdx === spanBreaks.length - 2 ? perimDed : splineDed;
 
     return { left, right, bottom, top };
   } else {
     // width = span axis (X), length = column axis (Y)
-    const spanIdx = spanBreaks.findIndex((b, i) =>
+    let spanIdx = spanBreaks.findIndex((b, i) =>
       i < spanBreaks.length - 1 && Math.abs(b - panel.x) < 1);
+    // Fallback: find closest span break if exact match fails
+    if (spanIdx === -1) {
+      let minDist = Infinity;
+      for (let i = 0; i < spanBreaks.length - 1; i++) {
+        const dist = Math.abs(spanBreaks[i] - panel.x);
+        if (dist < minDist) { minDist = dist; spanIdx = i; }
+      }
+    }
     const left  = spanIdx === 0                     ? perimDed : splineDed;
     const right = spanIdx === spanBreaks.length - 2 ? perimDed : splineDed;
 

@@ -28,7 +28,7 @@ function buildHeightFn(wall) {
 
   if (profile === WALL_PROFILES.RAKED) {
     const hRight = wall.height_right_mm || hLeft;
-    return (x) => hLeft + (hRight - hLeft) * (x / grossLen);
+    return (x) => grossLen > 0 ? hLeft + (hRight - hLeft) * (x / grossLen) : hLeft;
   }
 
   if (profile === WALL_PROFILES.GABLE) {
@@ -57,6 +57,9 @@ function buildHeightFn(wall) {
  * @returns {{ courses: Array<{y: number, height: number, sheetHeight: number}>, isMultiCourse: boolean }}
  */
 export function computeCourses(wallHeight, availableSheets = STOCK_SHEET_HEIGHTS, preferredBottom = null) {
+  if (!availableSheets || availableSheets.length === 0) {
+    return { courses: [{ y: 0, height: wallHeight, sheetHeight: wallHeight }], isMultiCourse: false };
+  }
   const maxSheet = Math.max(...availableSheets);
 
   if (wallHeight <= maxSheet) {

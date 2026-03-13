@@ -51,6 +51,7 @@ export function splitPlate(totalLength, maxLength = MAX_PLATE_LENGTH, staggerOff
 
 export function computeWallTimber(wall) {
   const layout = calculateWallLayout(wall);
+  if (layout.error) return [];
   const pieces = [];
   const wallName = wall.name || 'Unnamed';
 
@@ -247,6 +248,14 @@ export function computeFloorTimber(floor) {
  */
 export function computeWallTimberRatio(wall) {
   const layout = calculateWallLayout(wall);
+  if (layout.error) {
+    return {
+      wallName: wall.name || 'Unnamed',
+      grossWallArea: 0, openingArea: 0, effectiveWallArea: 0,
+      timberFaceArea: 0, timberPercentage: 0, insulationPercentage: 100,
+      breakdown: { bottomPlate: 0, topPlates: 0, endPlates: 0, sillPlates: 0, jambPlates: 0, lintels: 0 },
+    };
+  }
   const wallName = wall.name || 'Unnamed';
 
   const {
@@ -276,7 +285,7 @@ export function computeWallTimberRatio(wall) {
     openingArea += op.width_mm * op.height_mm;
   }
 
-  const effectiveWallArea = grossWallArea - openingArea;
+  const effectiveWallArea = Math.max(0, grossWallArea - openingArea);
 
   // ── Timber face areas ──
   // Face dimension = the dimension visible on the wall face

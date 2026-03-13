@@ -6,7 +6,11 @@ import { calculateWallLayout } from './calculator.js';
 import { extractEpsPieces } from './epsOptimizer.js';
 
 function escapeCsv(value) {
-  const str = String(value);
+  let str = String(value);
+  // Prevent CSV injection: prefix formula-triggering characters with a single quote
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
     return `"${str.replace(/"/g, '""')}"`;
   }

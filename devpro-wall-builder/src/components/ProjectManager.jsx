@@ -102,7 +102,13 @@ export default function ProjectManager({
 
           return (
             <div key={p.id} style={{ ...styles.projectCard, ...(isActive ? styles.activeCard : {}) }}>
-              <div style={styles.projectHeader} onClick={() => toggleExpand(p.id)}>
+              <div
+                style={styles.projectHeader}
+                onClick={() => toggleExpand(p.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(p.id); } }}
+              >
                 <div style={styles.projectLeft}>
                   <span style={styles.arrow}>{isExpanded ? '\u25BC' : '\u25B6'}</span>
                   {renamingId === p.id ? (
@@ -149,6 +155,9 @@ export default function ProjectManager({
                         <div
                           style={styles.wallItem}
                           onClick={() => onLoadWall(w)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLoadWall(w); } }}
                         >
                           <div style={styles.wallInfo}>
                             <span style={styles.wallName}>{w.name}</span>

@@ -30,6 +30,7 @@ export default function ExportProjectButton({ projectName, walls, floors }) {
     <button
       onClick={handleExport}
       disabled={exporting}
+      aria-busy={exporting}
       style={{
         ...styles.btn,
         ...(exporting ? styles.btnDisabled : {}),

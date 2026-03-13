@@ -26,6 +26,7 @@ export default function WallBuilderPage() {
   const [loadKey, setLoadKey] = useState(0);
   const [generateKey, setGenerateKey] = useState(0);
   const [timberRatio, setTimberRatio] = useState(null);
+  const [calcError, setCalcError] = useState(null);
 
   useEffect(() => {
     const p = getProjects().find(p => p.id === projectId);
@@ -39,7 +40,7 @@ export default function WallBuilderPage() {
         setWallInput(wall);
         setLoadKey(k => k + 1);
         const result = calculateWallLayout(wall);
-        setLayout(result);
+        if (!result.error) setLayout(result);
         setWallName(wall.name);
         try { setTimberRatio(computeWallTimberRatio(wall)); } catch { setTimberRatio(null); }
       }
@@ -54,6 +55,11 @@ export default function WallBuilderPage() {
 
   const handleCalculate = (wall) => {
     const result = calculateWallLayout(wall);
+    if (result.error) {
+      setCalcError(result.error);
+      return;
+    }
+    setCalcError(null);
     setLayout(result);
     setWallName(wall.name);
     setWallInput(wall);
@@ -106,6 +112,12 @@ export default function WallBuilderPage() {
           onChange={setWallInput}
           initialWall={wallInput}
         />
+
+        {calcError && (
+          <div role="alert" style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '12px 16px', marginTop: 16, color: '#991b1b', fontSize: 14 }}>
+            {calcError}
+          </div>
+        )}
 
         {layout && (
           <>

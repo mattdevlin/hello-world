@@ -9,6 +9,7 @@ import FloorEpsCutPlans from '../components/FloorEpsCutPlans.jsx';
 import FloorOffcuts from '../components/FloorOffcuts.jsx';
 import FloorSummary from '../components/FloorSummary.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
+import ErrorBoundary from '../components/ErrorBoundary.jsx';
 import { calculateFloorLayout } from '../utils/floorCalculator.js';
 import { getProjects, getProjectFloors, saveFloor } from '../utils/storage.js';
 import { DEVPRO_FLOOR_R, REFERENCE_R_VALUES, REFERENCE_TIMBER_FRACTION, getClimateZone } from '../utils/h1Constants.js';
@@ -134,7 +135,9 @@ export default function FloorBuilderPage() {
                   </span>
                 );
               })()}>
-              <FloorPlanView layout={layout} floorName={floorName} projectName={project.name} />
+              <ErrorBoundary>
+                <FloorPlanView layout={layout} floorName={floorName} projectName={project.name} />
+              </ErrorBoundary>
             </CollapsibleSection>
             <CollapsibleSection sectionKey="floorFraming" title="Framing Plan" forceOpen={generateKey} headerRight={(() => {
                 const splineArea = [...layout.reinforcedSplines, ...layout.unreinforcedSplines]
@@ -155,7 +158,9 @@ export default function FloorBuilderPage() {
                   </span>
                 );
               })()}>
-              <FloorFramingPlan layout={layout} floorName={floorName} projectName={project.name} />
+              <ErrorBoundary>
+                <FloorFramingPlan layout={layout} floorName={floorName} projectName={project.name} />
+              </ErrorBoundary>
             </CollapsibleSection>
             <CollapsibleSection sectionKey="floorEps" title="EPS Plan" defaultCollapsed forceOpen={generateKey} headerRight={(() => {
                 const splineArea = [...layout.reinforcedSplines, ...layout.unreinforcedSplines]
@@ -176,7 +181,9 @@ export default function FloorBuilderPage() {
                   </span>
                 );
               })()}>
-              <FloorEpsPlan layout={layout} floorName={floorName} projectName={project.name} />
+              <ErrorBoundary>
+                <FloorEpsPlan layout={layout} floorName={floorName} projectName={project.name} />
+              </ErrorBoundary>
             </CollapsibleSection>
             <CollapsibleSection sectionKey="floorPanelPlans" title="Panel Cut Plans" defaultCollapsed>
               <FloorPanelPlans layout={layout} floorName={floorName} projectName={project.name} />

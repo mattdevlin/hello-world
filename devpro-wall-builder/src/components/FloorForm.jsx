@@ -54,13 +54,12 @@ export default function FloorForm({ onCalculate, onChange, initialFloor }) {
     });
   };
 
-  const removePoint = (index) => {
-    if (floor.polygon.length <= 3) return;
-    if (index === 0) return; // first point locked at origin
-    updateFloor(prev => ({
-      ...prev,
-      polygon: prev.polygon.filter((_, i) => i !== index),
-    }));
+  const removePoint = (idx) => {
+    updateFloor(prev => {
+      if (prev.polygon.length <= 3) return prev;
+      const polygon = prev.polygon.filter((_, i) => i !== idx);
+      return { ...prev, polygon };
+    });
   };
 
   // Bearer lines

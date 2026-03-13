@@ -122,8 +122,11 @@ export function computeWallGlueArea(layout) {
   }
 
   // ── Spline EPS surface area ──
+  // EPS width inside spline = SPLINE_WIDTH minus magboard skins on both sides
+  const MAGBOARD_THICKNESS = 10;
+  const splineEpsW = SPLINE_WIDTH - MAGBOARD_THICKNESS * 2; // 126mm
   const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2 - 10;
-  const splineEpsSA = splineCount * SPLINE_WIDTH * splineH;
+  const splineEpsSA = splineCount * splineEpsW * splineH;
 
   // ── Footer panel EPS surface area ──
   let footerPanelEpsSA = 0;

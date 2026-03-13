@@ -381,9 +381,13 @@ export function buildEpsElevationDxf(layout, wallName) {
 /**
  * Export EPS elevation plan as a DXF file download.
  */
+function sanitize(str) {
+  return (str || '').replace(/[<>:"/\\|?*]/g, '_');
+}
+
 export function exportEpsElevationDxf(layout, wallName, projectName) {
   const d = buildEpsElevationDxf(layout, wallName);
-  const parts = [projectName, wallName, 'EPS Elevation'].filter(Boolean);
+  const parts = [sanitize(projectName), sanitize(wallName), 'EPS Elevation'].filter(Boolean);
   const filename = parts.join(' ').replace(/\s+/g, ' ').trim() + '.dxf';
   downloadDxf(d, filename);
 }

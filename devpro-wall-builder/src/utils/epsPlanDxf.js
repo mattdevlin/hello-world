@@ -244,9 +244,13 @@ export function buildEpsPlanDxf(layout, wallName) {
 /**
  * Export EPS cut plans as a DXF file download.
  */
+function sanitize(str) {
+  return (str || '').replace(/[<>:"/\\|?*]/g, '_');
+}
+
 export function exportEpsPlanDxf(layout, wallName, projectName) {
   const d = buildEpsPlanDxf(layout, wallName);
-  const parts = [projectName, wallName, 'EPS Cut Plans'].filter(Boolean);
+  const parts = [sanitize(projectName), sanitize(wallName), 'EPS Cut Plans'].filter(Boolean);
   const filename = parts.join(' ').replace(/\s+/g, ' ').trim() + '.dxf';
   downloadDxf(d, filename);
 }

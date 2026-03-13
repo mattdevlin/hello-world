@@ -56,6 +56,8 @@ export default function WallDrawing({ layout, wallName, projectName }) {
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block', margin: '0 auto' }}
+        role="img"
+        aria-label="Wall panel elevation drawing"
       >
         {/* Title */}
         <text x={svgWidth / 2} y={24} textAnchor="middle" fontSize="16" fontWeight="bold" fill="#333">
