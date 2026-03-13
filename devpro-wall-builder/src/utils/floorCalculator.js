@@ -470,17 +470,12 @@ export function computeColumnPositions(bb, panelDirection, openings) {
 
   const zones = computeExclusionZones(openings || [], panelDirection, minPos, maxPos);
 
-  // No conflicting openings → uniform pitch (same as before)
+  // No conflicting openings → reuse fillClearSpanColumns for proper remainder handling
   if (zones.length === 0) {
-    const columns = [];
-    let pos = minPos;
-    while (pos < maxPos) {
-      const w = Math.min(PANEL_WIDTH, maxPos - pos);
-      if (w < 1) break;
-      columns.push({ start: pos, width: w, isPenetration: false, openingIndices: [] });
-      pos += PANEL_PITCH;
-    }
-    return columns;
+    const spanLen = maxPos - minPos;
+    return fillClearSpanColumns(minPos, spanLen).map(col => ({
+      ...col, isPenetration: false, openingIndices: [],
+    }));
   }
 
   // Build clear spans between exclusion zones

@@ -11,6 +11,7 @@ import FloorSummary from '../components/FloorSummary.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import { calculateFloorLayout } from '../utils/floorCalculator.js';
 import { getProjects, getProjectFloors, saveFloor } from '../utils/storage.js';
+import { DEVPRO_FLOOR_R, REFERENCE_R_VALUES, REFERENCE_TIMBER_FRACTION, getClimateZone } from '../utils/h1Constants.js';
 
 export default function FloorBuilderPage() {
   const { projectId, floorId } = useParams();
@@ -22,6 +23,7 @@ export default function FloorBuilderPage() {
   const [floorInput, setFloorInput] = useState(null);
   const [loadKey, setLoadKey] = useState(0);
   const [generateKey, setGenerateKey] = useState(0);
+  const [saveKey, setSaveKey] = useState(0);
   const [calcError, setCalcError] = useState(null);
 
   useEffect(() => {
@@ -64,6 +66,7 @@ export default function FloorBuilderPage() {
     if (!floorInput || !projectId) return;
     const saved = saveFloor(projectId, floorInput);
     setFloorInput(saved);
+    setSaveKey(k => k + 1);
     if (!floorId || floorId === 'new') {
       navigate(`/project/${projectId}/floor/${saved.id}`, { replace: true });
     }
@@ -98,12 +101,14 @@ export default function FloorBuilderPage() {
       </header>
 
       <main style={styles.main}>
-        <FloorForm
-          key={loadKey}
-          onCalculate={handleCalculate}
-          onChange={setFloorInput}
-          initialFloor={floorInput}
-        />
+        <CollapsibleSection sectionKey="floorDimensions" title="Floor Dimensions" forceOpen={generateKey} forceCollapse={saveKey}>
+          <FloorForm
+            key={loadKey}
+            onCalculate={handleCalculate}
+            onChange={setFloorInput}
+            initialFloor={floorInput}
+          />
+        </CollapsibleSection>
 
         {calcError && (
           <div role="alert" style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '12px 16px', marginTop: 16, color: '#991b1b', fontSize: 14 }}>
@@ -113,13 +118,64 @@ export default function FloorBuilderPage() {
 
         {layout && (
           <>
-            <CollapsibleSection sectionKey="floorPlan" title="Floor Plan View" forceOpen={generateKey}>
+            <CollapsibleSection sectionKey="floorPlan" title="Floor Plan View" forceOpen={generateKey} headerRight={(() => {
+                const zone = getClimateZone(project.territorialAuthority);
+                const ref = REFERENCE_R_VALUES[zone] || REFERENCE_R_VALUES[1];
+                const areaM2 = layout.totalArea / 1e6;
+                const devHL = areaM2 / DEVPRO_FLOOR_R;
+                const refHL = areaM2 / ref.otherFloor;
+                const devBetter = devHL < refHL;
+                const pctMore = Math.round((refHL / devHL) * 100);
+                return (
+                  <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500, alignItems: 'baseline' }}>
+                    <span style={{ color: devBetter ? '#2E7D32' : '#E65100' }}>DEVPRO: {devHL.toFixed(2)} W/K</span>
+                    <span style={{ color: devBetter ? '#E65100' : '#2E7D32' }}>NZBC: {refHL.toFixed(2)} W/K</span>
+                    {devBetter && <span style={{ fontSize: 11, color: '#E65100', fontStyle: 'italic' }}>NZBC loses {pctMore}% more heat</span>}
+                  </span>
+                );
+              })()}>
               <FloorPlanView layout={layout} floorName={floorName} projectName={project.name} />
             </CollapsibleSection>
-            <CollapsibleSection sectionKey="floorFraming" title="Framing Plan" forceOpen={generateKey}>
+            <CollapsibleSection sectionKey="floorFraming" title="Framing Plan" forceOpen={generateKey} headerRight={(() => {
+                const splineArea = [...layout.reinforcedSplines, ...layout.unreinforcedSplines]
+                  .reduce((sum, s) => sum + s.width * s.length, 0);
+                const plateArea = layout.perimeterPlates.reduce((sum, p) => {
+                  const len = Math.sqrt((p.x2 - p.x1) ** 2 + (p.y2 - p.y1) ** 2);
+                  return sum + len * layout.perimeterPlateWidth * layout.boundaryJoistCount;
+                }, 0);
+                const devTimber = layout.totalArea > 0 ? (splineArea + plateArea) / layout.totalArea * 100 : 0;
+                const refTimber = REFERENCE_TIMBER_FRACTION * 100;
+                const devBetter = devTimber < refTimber;
+                const pctMore = Math.round((refTimber / devTimber) * 100);
+                return (
+                  <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500, alignItems: 'baseline' }}>
+                    <span style={{ color: devBetter ? '#2E7D32' : '#E65100' }}>DEVPRO: {devTimber.toFixed(1)}% timber</span>
+                    <span style={{ color: devBetter ? '#E65100' : '#2E7D32' }}>NZBC: {refTimber.toFixed(0)}% timber</span>
+                    {devBetter && <span style={{ fontSize: 11, color: '#E65100', fontStyle: 'italic' }}>NZBC has {pctMore}% more thermal bridging</span>}
+                  </span>
+                );
+              })()}>
               <FloorFramingPlan layout={layout} floorName={floorName} projectName={project.name} />
             </CollapsibleSection>
-            <CollapsibleSection sectionKey="floorEps" title="EPS Plan" defaultCollapsed forceOpen={generateKey}>
+            <CollapsibleSection sectionKey="floorEps" title="EPS Plan" defaultCollapsed forceOpen={generateKey} headerRight={(() => {
+                const splineArea = [...layout.reinforcedSplines, ...layout.unreinforcedSplines]
+                  .reduce((sum, s) => sum + s.width * s.length, 0);
+                const plateArea = layout.perimeterPlates.reduce((sum, p) => {
+                  const len = Math.sqrt((p.x2 - p.x1) ** 2 + (p.y2 - p.y1) ** 2);
+                  return sum + len * layout.perimeterPlateWidth * layout.boundaryJoistCount;
+                }, 0);
+                const devIns = layout.totalArea > 0 ? (1 - (splineArea + plateArea) / layout.totalArea) * 100 : 0;
+                const refIns = (1 - REFERENCE_TIMBER_FRACTION) * 100;
+                const devBetter = devIns > refIns;
+                const pctLess = Math.round(((devIns - refIns) / refIns) * 100);
+                return (
+                  <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500, alignItems: 'baseline' }}>
+                    <span style={{ color: devBetter ? '#2E7D32' : '#E65100' }}>DEVPRO: {devIns.toFixed(1)}% insulation</span>
+                    <span style={{ color: devBetter ? '#E65100' : '#2E7D32' }}>NZBC: {refIns.toFixed(0)}% insulation</span>
+                    {devBetter && <span style={{ fontSize: 11, color: '#E65100', fontStyle: 'italic' }}>NZBC has {pctLess}% less insulation</span>}
+                  </span>
+                );
+              })()}>
               <FloorEpsPlan layout={layout} floorName={floorName} projectName={project.name} />
             </CollapsibleSection>
             <CollapsibleSection sectionKey="floorPanelPlans" title="Panel Cut Plans" defaultCollapsed>

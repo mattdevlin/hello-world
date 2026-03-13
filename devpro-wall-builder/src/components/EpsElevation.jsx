@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, SPLINE_WIDTH, HSPLINE_CLEARANCE, EPS_GAP, MAGBOARD, buildHSplineSegments } from '../utils/constants.js';
+import { REFERENCE_TIMBER_FRACTION } from '../utils/h1Constants.js';
 import PrintButton from './PrintButton.jsx';
 import ExportDxfButton from './ExportDxfButton.jsx';
 import { exportWallEpsCsvFromLayout } from '../utils/epsSpreadsheetExport.js';
@@ -9,6 +10,7 @@ const HALF_SPLINE = SPLINE_WIDTH / 2;
 const MARGIN = { top: 60, right: 40, bottom: 110, left: 60 };
 const MAX_SVG_WIDTH = 1200;
 const MAX_SVG_HEIGHT = 500;
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
 const STROKE_COLOR = '#333';
 const LABEL_COLOR = '#555';
 const EPS_FILL = '#B3D9FF';
@@ -18,27 +20,22 @@ const SPLINE_EPS_STROKE = '#6AACE6';
 
 export default function EpsElevation({ layout, wallName, projectName, timberRatio }) {
   const sectionRef = useRef(null);
-  const clipId = useRef(`eps-clip-${Math.random().toString(36).slice(2, 8)}`).current;
-  const [showTimberInfo, setShowTimberInfo] = useState(true);
+  const clipId = useId();
+  const [zoomIdx, setZoomIdx] = useState(2);
+  const zoom = ZOOM_STEPS[zoomIdx];
   if (!layout) return null;
 
   const { grossLength, height, maxHeight, panels, openings, footerPanels, lintelPanels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
 
   const useHeight = maxHeight || height;
   const drawWidth = MAX_SVG_WIDTH - MARGIN.left - MARGIN.right;
-  const scale = drawWidth / grossLength;
-  const svgWidth = MAX_SVG_WIDTH;
+  const scale = (drawWidth / grossLength) * zoom;
+  const svgWidth = drawWidth * zoom + MARGIN.left + MARGIN.right;
   const svgHeight = useHeight * scale + MARGIN.top + MARGIN.bottom;
-  const displayHeight = Math.min(svgHeight, MAX_SVG_HEIGHT);
 
   const s = (mm) => mm * scale;
   const yTopAt = (x) => useHeight - (heightAt ? heightAt(x) : height);
   const yBottom = useHeight;
-
-  // EPS vertical bounds (for standard walls)
-  const epsTop = TOP_PLATE * 2 + EPS_GAP;
-  const epsBottom_std = height - BOTTOM_PLATE - EPS_GAP;
-  const epsHeight = epsBottom_std - epsTop;
 
   // ── Collect all exclusion zones (x-ranges where there's no EPS) ──
   // These are all splines, plates, and openings that occupy space inside panels.
@@ -202,28 +199,30 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
   });
 
   return (
-    <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
+    <div ref={sectionRef} data-print-section style={{ background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 12px 0', gap: 4 }}>
-        {timberRatio && (
-          <label className="no-print" style={{ fontSize: 12, color: '#666', cursor: 'pointer', marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <input type="checkbox" checked={showTimberInfo} onChange={e => setShowTimberInfo(e.target.checked)} />
-            Show timber %
-          </label>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 'auto' }}>
+          <button onClick={() => setZoomIdx(i => Math.max(0, i - 1))} disabled={zoomIdx === 0}
+            style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>-</button>
+          <span style={{ fontSize: 12, minWidth: 40, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1))} disabled={zoomIdx === ZOOM_STEPS.length - 1}
+            style={{ width: 28, height: 28, border: '1px solid #ccc', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>+</button>
+        </div>
         <PrintButton sectionRef={sectionRef} label="EPS" projectName={projectName} wallName={wallName} />
         <ExportDxfButton layout={layout} wallName={wallName} projectName={projectName} planType="eps-elevation" />
         <button
           onClick={() => exportWallEpsCsvFromLayout(layout, wallName, projectName)}
-          style={{ padding: '4px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
+          className="no-print"
+          style={{ padding: '6px 16px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600, flexShrink: 0 }}
         >
           Export CSV
         </button>
       </div>
+      <div style={{ overflow: 'auto', maxHeight: 700 }}>
       <svg
         width={svgWidth}
-        height={displayHeight}
+        height={svgHeight}
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-        preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block', margin: '0 auto' }}
       >
         {/* Title */}
@@ -282,6 +281,7 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
           {/* Use course 0 panels — internal multi-course rendering handles all courses */}
           {panels.filter(p => (p.course ?? 0) === 0).map((panel, i) => {
             const segments = getEpsSegments(panel.x, panel.x + panel.width);
+            const widestSeg = segments.reduce((best, seg) => (!best || (seg[1] - seg[0]) > (best[1] - best[0])) ? seg : best, null);
 
             const getVertExclusions = (xEdge) => {
               const zones = [];
@@ -330,7 +330,6 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
             const rightX = panel.x + panel.width;
             const leftSegs = vertSegments(leftX);
             const rightSegs = vertSegments(rightX);
-            const panelMidH = (yTopAt(leftX) + yTopAt(rightX)) / 2;
             // Shortest side (highest yTopAt) — EPS rectangle must stay below top plates at every point
             const panelShortTopY = Math.max(yTopAt(leftX), yTopAt(rightX));
 
@@ -512,40 +511,77 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
                     />
                   ) : null;
                 })}
-                {/* Panel labels — one per course, aligned to common Y across all panels */}
+                {/* Panel labels + EPS dimensions below */}
                 {courseList.map((course, ci) => {
                   const cY = course.y;
-                  // Centre label on EPS midpoint (midpoint of widest segment)
-                  const widestSeg = segments.reduce((best, seg) => (!best || (seg[1] - seg[0]) > (best[1] - best[0])) ? seg : best, null);
                   const panelCenterX = widestSeg ? (widestSeg[0] + widestSeg[1]) / 2 : panel.x + panel.width / 2;
-                  // Skip label if wall height across this panel doesn't reach this course
                   const wallHMax = heightAt ? Math.max(heightAt(panel.x), heightAt(panel.x + panel.width)) : height;
                   if (wallHMax <= cY) return null;
                   const commonY = courseLabelY[ci];
                   if (commonY == null) return null;
-                  // If common Y falls outside this panel's wall area, centre on shortest vertical edge
                   const cTop = cY + course.height;
                   const wallHAtLabel = heightAt ? heightAt(panelCenterX) : height;
                   const clampedTop = Math.max(Math.min(wallHAtLabel, cTop), cY);
                   const epsRegionTop = yBottom - clampedTop;
                   const epsRegionBot = yBottom - cY;
                   const fitsCommon = commonY <= epsRegionBot && commonY >= epsRegionTop;
-                  // Fallback: midpoint of the shorter vertical side of the EPS area
                   const wallHL = heightAt ? Math.min(heightAt(panel.x), cTop) : height;
                   const wallHR = heightAt ? Math.min(heightAt(panel.x + panel.width), cTop) : height;
                   const shortSideH = Math.max(Math.min(wallHL, wallHR) - cY, 0);
                   const fallbackY = yBottom - cY - shortSideH / 2;
                   const labelY = fitsCommon ? commonY : fallbackY;
                   const label = isMultiCourse ? `P${i + 1}·C${ci + 1}` : `P${i + 1}`;
+
+                  // Compute EPS dimension for the widest segment in this course
+                  let dimText = '';
+                  if (widestSeg) {
+                    const [segL, segR] = widestSeg;
+                    const w = segR - segL;
+                    if (w > 0) {
+                      let h;
+                      if (isMultiCourse && courses.length > 1) {
+                        const isBottomCourse = ci === 0;
+                        const isTopCourse = ci === courses.length - 1;
+                        const plateBelow = isBottomCourse ? BOTTOM_PLATE : (HALF_SPLINE - EPS_GAP);
+                        const plateAbove = isTopCourse ? TOP_PLATE * 2 : (HALF_SPLINE - EPS_GAP);
+                        const cEpsBot = yBottom - course.y - plateBelow - EPS_GAP;
+                        const cEpsTop = isTopCourse
+                          ? (isRaked ? Math.max(yTopAt(segL), yTopAt(segR)) : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_GAP
+                          : Math.max(
+                              yBottom - course.y - course.height + plateAbove + EPS_GAP,
+                              (isRaked ? Math.max(yTopAt(segL), yTopAt(segR)) : yTopAt(leftX)) + TOP_PLATE * 2 + EPS_GAP
+                            );
+                        h = cEpsBot - cEpsTop;
+                      } else if (isRaked) {
+                        const epsBot = yBottom - BOTTOM_PLATE - EPS_GAP;
+                        const shortTopY = Math.max(yTopAt(segL), yTopAt(segR)) + TOP_PLATE * 2 + EPS_GAP;
+                        h = epsBot - shortTopY;
+                      } else {
+                        h = pEpsH;
+                      }
+                      if (h > 0) dimText = `${Math.round(w)}×${Math.round(h)}`;
+                    }
+                  }
+
                   return (
-                    <text
-                      key={`label-c${ci}`}
-                      x={s(panelCenterX)}
-                      y={s(labelY) + 4}
-                      textAnchor="middle" fontSize={isMultiCourse ? 8 : 10} fill={LABEL_COLOR}
-                    >
-                      {label}
-                    </text>
+                    <g key={`label-c${ci}`}>
+                      <text
+                        x={s(panelCenterX)}
+                        y={s(labelY)}
+                        textAnchor="middle" fontSize={isMultiCourse ? 10 : 12} fill={LABEL_COLOR} fontWeight="bold"
+                      >
+                        {label}
+                      </text>
+                      {dimText && (
+                        <text
+                          x={s(panelCenterX)}
+                          y={s(labelY) + (isMultiCourse ? 12 : 14)}
+                          textAnchor="middle" fontSize={9} fill="#336" fontWeight="bold"
+                        >
+                          {dimText}
+                        </text>
+                      )}
+                    </g>
                   );
                 })}
               </g>
@@ -905,46 +941,12 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
 
           {/* Course join lines removed — visible on External Elevation instead */}
 
-          {/* ── Running measurement ── */}
-          <g>
-            {(() => {
-              const points = new Set([0, grossLength]);
-              if (deductionLeft > 0) points.add(deductionLeft);
-              if (deductionRight > 0) points.add(grossLength - deductionRight);
-              // Use course 0 panels for measurement ticks (same x-positions across courses)
-              basePanels.forEach(p => {
-                if (p.type === 'lcut') {
-                  if (p.side === 'left') {
-                    const adj = p.openBottom > 0 ? WINDOW_OVERHANG : 0;
-                    points.add(Math.round(p.x + p.width - adj));
-                  } else if (p.side === 'right') {
-                    points.add(Math.round(p.x + p.width));
-                  } else {
-                    const adj = p.rightOpenBottom > 0 ? WINDOW_OVERHANG : 0;
-                    points.add(Math.round(p.x + p.width - adj));
-                  }
-                } else {
-                  points.add(Math.round(p.x + p.width));
-                }
-              });
-              footerPanels.forEach(f => points.add(Math.round(f.x + f.width)));
-              const sorted = [...points].sort((a, b) => a - b);
-              const tickY = s(yBottom) + 22;
-              return sorted.map((pt, j) => (
-                <g key={`rm-${j}`}>
-                  <line x1={s(pt)} y1={tickY - 4} x2={s(pt)} y2={tickY + 4} stroke={COLORS.DIMENSION} strokeWidth={1} />
-                  <text x={s(pt)} y={tickY + 14} textAnchor="middle" fontSize="9" fill={COLORS.DIMENSION}>{pt}</text>
-                </g>
-              ));
-            })()}
-          </g>
-
           {/* ── Total width dimension ── */}
           <g>
-            <line x1={0} y1={s(yBottom) + 44} x2={s(grossLength)} y2={s(yBottom) + 44} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={0} y1={s(yBottom) + 39} x2={0} y2={s(yBottom) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <line x1={s(grossLength)} y1={s(yBottom) + 39} x2={s(grossLength)} y2={s(yBottom) + 49} stroke={COLORS.DIMENSION} strokeWidth={1} />
-            <text x={s(grossLength / 2)} y={s(yBottom) + 60} textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold">
+            <line x1={0} y1={s(yBottom) + 20} x2={s(grossLength)} y2={s(yBottom) + 20} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={0} y1={s(yBottom) + 15} x2={0} y2={s(yBottom) + 25} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <line x1={s(grossLength)} y1={s(yBottom) + 15} x2={s(grossLength)} y2={s(yBottom) + 25} stroke={COLORS.DIMENSION} strokeWidth={1} />
+            <text x={s(grossLength / 2)} y={s(yBottom) + 36} textAnchor="middle" fontSize="12" fill={COLORS.DIMENSION} fontWeight="bold">
               {grossLength} mm
             </text>
           </g>
@@ -992,19 +994,17 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
 
         </g>
       </svg>
-      {showTimberInfo && timberRatio && (
+      </div>
+      {timberRatio && (
         <div style={timberInfoStyles.panel}>
           <div style={timberInfoStyles.header}>
-            <span style={timberInfoStyles.title}>Thermal Bridging — Timber Fraction</span>
-            <span style={{ ...timberInfoStyles.pct, color: '#2E7D32' }}>{timberRatio.insulationPercentage.toFixed(1)}% insulation</span>
-            <span style={timberInfoStyles.sep}>|</span>
-            <span style={timberInfoStyles.pct}>{timberRatio.timberPercentage.toFixed(1)}% timber</span>
+            <span style={timberInfoStyles.title}>Insulation Fraction</span>
           </div>
           <div style={timberInfoStyles.row}>
             <table style={timberInfoStyles.table}>
               <thead>
                 <tr>
-                  <th style={timberInfoStyles.th}>Component</th>
+                  <th style={timberInfoStyles.th}>Timber Deduction</th>
                   <th style={{ ...timberInfoStyles.th, textAlign: 'right' }}>Face Area (m²)</th>
                 </tr>
               </thead>
@@ -1019,19 +1019,46 @@ export default function EpsElevation({ layout, wallName, projectName, timberRati
                 ].filter(([, v]) => v > 0).map(([label, v], i) => (
                   <tr key={i} style={i % 2 === 0 ? { background: '#fafafa' } : undefined}>
                     <td style={timberInfoStyles.td}>{label}</td>
-                    <td style={{ ...timberInfoStyles.td, textAlign: 'right' }}>{(v / 1e6).toFixed(3)}</td>
+                    <td style={{ ...timberInfoStyles.td, textAlign: 'right' }}>−{(v / 1e6).toFixed(3)}</td>
                   </tr>
                 ))}
                 <tr style={{ borderTop: '2px solid #ccc' }}>
                   <td style={{ ...timberInfoStyles.td, fontWeight: 700 }}>Total Timber</td>
-                  <td style={{ ...timberInfoStyles.td, textAlign: 'right', fontWeight: 700 }}>{(timberRatio.timberFaceArea / 1e6).toFixed(3)}</td>
+                  <td style={{ ...timberInfoStyles.td, textAlign: 'right', fontWeight: 700 }}>−{(timberRatio.timberFaceArea / 1e6).toFixed(3)}</td>
+                </tr>
+                <tr style={{ background: '#e8f5e9' }}>
+                  <td style={{ ...timberInfoStyles.td, fontWeight: 700, color: '#2E7D32' }}>Insulation Area</td>
+                  <td style={{ ...timberInfoStyles.td, textAlign: 'right', fontWeight: 700, color: '#2E7D32' }}>{((timberRatio.effectiveWallArea - timberRatio.timberFaceArea) / 1e6).toFixed(3)}</td>
                 </tr>
               </tbody>
             </table>
             <div style={timberInfoStyles.summary}>
-              <div style={timberInfoStyles.summaryRow}><span>Gross wall area:</span><span>{(timberRatio.grossWallArea / 1e6).toFixed(2)} m²</span></div>
+              <div style={timberInfoStyles.summaryRow}><span>Wall envelope area:</span><span>{(timberRatio.grossWallArea / 1e6).toFixed(2)} m²</span></div>
               <div style={timberInfoStyles.summaryRow}><span>Opening area:</span><span>{(timberRatio.openingArea / 1e6).toFixed(2)} m²</span></div>
-              <div style={{ ...timberInfoStyles.summaryRow, fontWeight: 700 }}><span>Effective wall area:</span><span>{(timberRatio.effectiveWallArea / 1e6).toFixed(2)} m²</span></div>
+              <div style={{ ...timberInfoStyles.summaryRow, fontWeight: 700 }}><span>Net wall area:</span><span>{(timberRatio.effectiveWallArea / 1e6).toFixed(2)} m²</span></div>
+              <div style={timberInfoStyles.refDivider} />
+              {(() => {
+                const refInsulation = (1 - REFERENCE_TIMBER_FRACTION) * 100;
+                const devInsulation = timberRatio.insulationPercentage;
+                const refR = 1.60;
+                const devR = 4.14;
+                const devInsulationBetter = devInsulation >= refInsulation;
+                const devRBetter = devR >= refR;
+                const good = '#2E7D32';
+                const bad = '#E65100';
+                const refInsulationRow = <div style={timberInfoStyles.refRow}><span>H1/AS1 Reference:</span><span style={{ color: devInsulationBetter ? bad : good, fontWeight: 700 }}>{refInsulation.toFixed(0)}%</span></div>;
+                const devInsulationRow = <div style={timberInfoStyles.refRow}><span>DEVPRO Wall:</span><span style={{ color: devInsulationBetter ? good : bad, fontWeight: 700 }}>{devInsulation.toFixed(1)}%</span></div>;
+                const refRRow = <div style={timberInfoStyles.refRow}><span>H1/AS1 Reference:</span><span style={{ color: devRBetter ? bad : good, fontWeight: 700 }}>R{refR.toFixed(2)}</span></div>;
+                const devRRow = <div style={timberInfoStyles.refRow}><span>DEVPRO Wall:</span><span style={{ color: devRBetter ? good : bad, fontWeight: 700 }}>R{devR.toFixed(2)}</span></div>;
+                return (
+                  <>
+                    <div style={timberInfoStyles.refTitle}>Insulation Fraction</div>
+                    {devInsulationBetter ? <>{devInsulationRow}{refInsulationRow}</> : <>{refInsulationRow}{devInsulationRow}</>}
+                    <div style={timberInfoStyles.refTitle}>Wall R-value</div>
+                    {devRBetter ? <>{devRRow}{refRRow}</> : <>{refRRow}{devRRow}</>}
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -1063,15 +1090,6 @@ const timberInfoStyles = {
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
     marginRight: 'auto',
-  },
-  pct: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: '#D84315',
-  },
-  sep: {
-    color: '#ccc',
-    fontSize: 14,
   },
   row: {
     display: 'flex',
@@ -1112,5 +1130,25 @@ const timberInfoStyles = {
     display: 'flex',
     justifyContent: 'space-between',
     gap: 16,
+  },
+  refDivider: {
+    borderTop: '1px solid #ddd',
+    margin: '6px 0 4px',
+  },
+  refTitle: {
+    fontWeight: 700,
+    fontSize: 10,
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: '0.3px',
+    marginTop: 4,
+    marginBottom: 1,
+  },
+  refRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 16,
+    fontSize: 11,
+    color: '#555',
   },
 };

@@ -11,6 +11,7 @@ import Offcuts from '../components/Offcuts.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import { calculateWallLayout } from '../utils/calculator.js';
 import { computeWallTimberRatio } from '../utils/timberCalculator.js';
+import { REFERENCE_TIMBER_FRACTION } from '../utils/h1Constants.js';
 import { getProjects, getProjectWalls, saveWall } from '../utils/storage.js';
 import { FONT_STACK, BRAND, NEUTRAL, RADIUS } from '../utils/designTokens.js';
 
@@ -111,10 +112,20 @@ export default function WallBuilderPage() {
             <CollapsibleSection sectionKey="wallDrawing" title="External Elevation" forceOpen={generateKey}>
               <WallDrawing layout={layout} wallName={wallName} projectName={project.name} />
             </CollapsibleSection>
-            <CollapsibleSection sectionKey="framing" title="Framing Elevation" forceOpen={generateKey}>
+            <CollapsibleSection sectionKey="framing" title="Framing Elevation" forceOpen={generateKey} headerRight={timberRatio && (
+                <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500 }}>
+                  <span style={{ color: timberRatio.timberPercentage < REFERENCE_TIMBER_FRACTION * 100 ? '#2E7D32' : '#E65100' }}>DEVPRO: {timberRatio.timberPercentage.toFixed(1)}% timber</span>
+                  <span style={{ color: REFERENCE_TIMBER_FRACTION * 100 > timberRatio.timberPercentage ? '#E65100' : '#2E7D32' }}>NZBC: {(REFERENCE_TIMBER_FRACTION * 100).toFixed(0)}% timber</span>
+                </span>
+              )}>
               <FramingElevation layout={layout} wallName={wallName} projectName={project.name} timberRatio={timberRatio} />
             </CollapsibleSection>
-            <CollapsibleSection sectionKey="eps" title="EPS Elevation" defaultCollapsed forceOpen={generateKey}>
+            <CollapsibleSection sectionKey="eps" title="EPS Elevation" defaultCollapsed forceOpen={generateKey} headerRight={timberRatio && (
+                <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500 }}>
+                  <span style={{ color: timberRatio.insulationPercentage > (1 - REFERENCE_TIMBER_FRACTION) * 100 ? '#2E7D32' : '#E65100' }}>DEVPRO: {timberRatio.insulationPercentage.toFixed(1)}% insulation</span>
+                  <span style={{ color: (1 - REFERENCE_TIMBER_FRACTION) * 100 < timberRatio.insulationPercentage ? '#E65100' : '#2E7D32' }}>NZBC: {((1 - REFERENCE_TIMBER_FRACTION) * 100).toFixed(0)}% insulation</span>
+                </span>
+              )}>
               <EpsElevation layout={layout} wallName={wallName} projectName={project.name} timberRatio={timberRatio} />
             </CollapsibleSection>
             <CollapsibleSection sectionKey="panelPlans" title="CNC Panel Plans" defaultCollapsed>
