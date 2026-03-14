@@ -8,7 +8,7 @@ router.get('/', (req, res) => {
   res.json(rows);
 });
 
-router.put('/:category', (req, res) => {
+router.put('/:category', (req, res, next) => {
   const { category } = req.params;
   const { unit_cost, description } = req.body;
 
@@ -16,17 +16,21 @@ router.put('/:category', (req, res) => {
     return res.status(400).json({ error: 'unit_cost must be a number' });
   }
 
-  const stmt = db.prepare(
-    `UPDATE pricing SET unit_cost = ?, description = COALESCE(?, description), updated_at = datetime('now') WHERE category = ?`
-  );
-  const result = stmt.run(unit_cost, description ?? null, category);
+  try {
+    const stmt = db.prepare(
+      `UPDATE pricing SET unit_cost = ?, description = COALESCE(?, description), updated_at = datetime('now') WHERE category = ?`
+    );
+    const result = stmt.run(unit_cost, description ?? null, category);
 
-  if (result.changes === 0) {
-    return res.status(404).json({ error: `Category "${category}" not found` });
+    if (result.changes === 0) {
+      return res.status(404).json({ error: `Category "${category}" not found` });
+    }
+
+    const row = db.prepare('SELECT * FROM pricing WHERE category = ?').get(category);
+    res.json(row);
+  } catch (err) {
+    next(err);
   }
-
-  const row = db.prepare('SELECT * FROM pricing WHERE category = ?').get(category);
-  res.json(row);
 });
 
 export default router;

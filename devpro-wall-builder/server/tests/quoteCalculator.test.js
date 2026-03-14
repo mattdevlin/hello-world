@@ -134,4 +134,47 @@ describe('calculateQuotePrice', () => {
     expect(result.overheadAmount).toBe(0);
     expect(result.totalPrice).toBe(result.totalBeforeOverhead);
   });
+
+  it('clamps negative quantities to zero', () => {
+    const materials = {
+      magboard: { totalSheets: -10 },
+      eps: { totalBlocks: -5 },
+      glue: { totalLitres: -20 },
+      timber: { totalLinealMetres: -100 },
+    };
+
+    const result = calculateQuotePrice(materials, defaultPricing, defaultMargins);
+
+    expect(result.subtotals.magboard.quantity).toBe(0);
+    expect(result.subtotals.magboard.baseCost).toBe(0);
+    expect(result.totalPrice).toBe(0);
+  });
+
+  it('handles completely empty pricing object', () => {
+    const materials = {
+      magboard: { totalSheets: 10 },
+      eps: { totalBlocks: 5 },
+    };
+
+    const result = calculateQuotePrice(materials, {}, defaultMargins);
+
+    expect(result.subtotals.magboard.unitCost).toBe(0);
+    expect(result.subtotals.magboard.baseCost).toBe(0);
+    expect(result.totalPrice).toBe(0);
+  });
+
+  it('handles completely empty margins object', () => {
+    const materials = {
+      magboard: { totalSheets: 10 },
+    };
+
+    const result = calculateQuotePrice(materials, defaultPricing, {});
+
+    // No markup: baseCost = markedUpCost
+    expect(result.subtotals.magboard.baseCost).toBe(850);
+    expect(result.subtotals.magboard.markedUpCost).toBe(850);
+    // No overhead
+    expect(result.overheadAmount).toBe(0);
+    expect(result.totalPrice).toBe(850);
+  });
 });

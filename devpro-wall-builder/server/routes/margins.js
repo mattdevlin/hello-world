@@ -8,7 +8,7 @@ router.get('/', (req, res) => {
   res.json(rows);
 });
 
-router.put('/:key', (req, res) => {
+router.put('/:key', (req, res, next) => {
   const { key } = req.params;
   const { value } = req.body;
 
@@ -16,17 +16,21 @@ router.put('/:key', (req, res) => {
     return res.status(400).json({ error: 'value must be a number' });
   }
 
-  const stmt = db.prepare(
-    `UPDATE margins SET value = ?, updated_at = datetime('now') WHERE key = ?`
-  );
-  const result = stmt.run(value, key);
+  try {
+    const stmt = db.prepare(
+      `UPDATE margins SET value = ?, updated_at = datetime('now') WHERE key = ?`
+    );
+    const result = stmt.run(value, key);
 
-  if (result.changes === 0) {
-    return res.status(404).json({ error: `Margin key "${key}" not found` });
+    if (result.changes === 0) {
+      return res.status(404).json({ error: `Margin key "${key}" not found` });
+    }
+
+    const row = db.prepare('SELECT * FROM margins WHERE key = ?').get(key);
+    res.json(row);
+  } catch (err) {
+    next(err);
   }
-
-  const row = db.prepare('SELECT * FROM margins WHERE key = ?').get(key);
-  res.json(row);
 });
 
 export default router;

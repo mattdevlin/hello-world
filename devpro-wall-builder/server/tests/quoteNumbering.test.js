@@ -52,6 +52,21 @@ describe('quoteNumbering', () => {
     const year = new Date().getFullYear();
     expect(num).toBe(`Q-${year}-1000`);
   });
+
+  it('keeps separate sequences for different years', () => {
+    // Seed a different year
+    db.prepare('INSERT INTO quote_number_seq (year, last_seq) VALUES (?, ?)').run(2025, 50);
+
+    const num = nextQuoteNumber(db);
+    const year = new Date().getFullYear();
+
+    // Current year should start at 001, not continue from 2025's sequence
+    expect(num).toBe(`Q-${year}-001`);
+
+    // 2025 sequence should be untouched
+    const row = db.prepare('SELECT last_seq FROM quote_number_seq WHERE year = 2025').get();
+    expect(row.last_seq).toBe(50);
+  });
 });
 
 describe('revisionQuoteNumber', () => {

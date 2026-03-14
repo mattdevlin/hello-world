@@ -21,7 +21,7 @@ export function calculateQuotePrice(materials, pricing, margins) {
   let totalBeforeOverhead = 0;
 
   for (const { key, qtyField, markupKey } of categories) {
-    const quantity = materials[key]?.[qtyField] || 0;
+    const quantity = Math.max(0, materials[key]?.[qtyField] || 0);
     const unitCost = pricing[key]?.unit_cost || 0;
     const markup = margins[markupKey] || 0;
 

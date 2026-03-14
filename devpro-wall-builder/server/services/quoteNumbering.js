@@ -5,15 +5,16 @@
 export function nextQuoteNumber(db) {
   const year = new Date().getFullYear();
 
-  const upsert = db.prepare(`
-    INSERT INTO quote_number_seq (year, last_seq) VALUES (?, 1)
-    ON CONFLICT(year) DO UPDATE SET last_seq = last_seq + 1
-  `);
-  upsert.run(year);
+  const getNextSeq = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO quote_number_seq (year, last_seq) VALUES (?, 1)
+      ON CONFLICT(year) DO UPDATE SET last_seq = last_seq + 1
+    `).run(year);
 
-  const row = db.prepare('SELECT last_seq FROM quote_number_seq WHERE year = ?').get(year);
-  const seq = String(row.last_seq).padStart(3, '0');
+    return db.prepare('SELECT last_seq FROM quote_number_seq WHERE year = ?').get(year).last_seq;
+  });
 
+  const seq = String(getNextSeq()).padStart(3, '0');
   return `Q-${year}-${seq}`;
 }
 
