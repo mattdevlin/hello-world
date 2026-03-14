@@ -1,0 +1,95 @@
+{
+  "project": {
+    "name": "Sample Northland House",
+    "address": "123 Example Road, Whangarei"
+  },
+  "site": {
+    "wind_region": "A",
+    "terrain_category": "T2",
+    "topography": "flat",
+    "shielding": "partial",
+    "soil_type": "C",
+    "territorial_authority": "Whangarei District"
+  },
+  "storeys": [
+    {
+      "level_name": "Ground Floor",
+      "is_top_storey": true,
+      "floor": {
+        "type": "suspended_timber",
+        "zones": [
+          {
+            "zone": "Main",
+            "joist_span_m": 4.0,
+            "joist_spacing_mm": 450,
+            "bearer_span_m": 1.65,
+            "bearer_load_width_m": 2.0,
+            "bearer_continuous": true,
+            "load_kpa": 1.5
+          }
+        ]
+      },
+      "walls": [
+        {
+          "wall_id": "W1",
+          "wall_name": "Front Wall (North)",
+          "length_mm": 12000,
+          "height_mm": 2700,
+          "is_loadbearing": true,
+          "stud_spacing_mm": 600,
+          "openings": [
+            { "type": "window", "width_mm": 1800, "height_mm": 1200 },
+            { "type": "window", "width_mm": 1200, "height_mm": 1200 },
+            { "type": "door", "width_mm": 900, "height_mm": 2100 }
+          ]
+        },
+        {
+          "wall_id": "W2",
+          "wall_name": "Rear Wall (South)",
+          "length_mm": 12000,
+          "height_mm": 2700,
+          "is_loadbearing": true,
+          "stud_spacing_mm": 600,
+          "openings": [
+            { "type": "window", "width_mm": 2400, "height_mm": 1200 },
+            { "type": "door", "width_mm": 1800, "height_mm": 2100 }
+          ]
+        },
+        {
+          "wall_id": "W3",
+          "wall_name": "Left Wall (West)",
+          "length_mm": 8000,
+          "height_mm": 2700,
+          "is_loadbearing": true,
+          "stud_spacing_mm": 600,
+          "openings": [
+            { "type": "window", "width_mm": 1200, "height_mm": 1200 }
+          ]
+        },
+        {
+          "wall_id": "W4",
+          "wall_name": "Right Wall (East)",
+          "length_mm": 8000,
+          "height_mm": 2700,
+          "is_loadbearing": true,
+          "stud_spacing_mm": 600,
+          "openings": [
+            { "type": "window", "width_mm": 1200, "height_mm": 1200 },
+            { "type": "door", "width_mm": 900, "height_mm": 2100 }
+          ]
+        }
+      ],
+      "roof": {
+        "type": "gable",
+        "rafter_span_m": 4.0,
+        "rafter_spacing_mm": 600,
+        "roof_weight": "light",
+        "ceiling_span_m": 4.0,
+        "ceiling_spacing_mm": 600,
+        "ridge_span_m": 8.0,
+        "ridge_loaded_width_m": 2.0,
+        "plan_width_m": 8.0
+      }
+    }
+  ]
+}

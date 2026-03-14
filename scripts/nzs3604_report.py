@@ -27,7 +27,7 @@ def count_wall_studs(wall: dict) -> int:
     For a standard wall: studs = floor(length / spacing) + 1
     Each opening removes the infill studs but adds trimmers.
     """
-    length_mm = wall.get("length_mm", 0)
+    length_mm = wall.get("length_mm", wall.get("wall_length_mm", 0))
     stud = wall.get("stud", {})
     spacing = stud.get("spacing", 600)
 
@@ -53,14 +53,14 @@ def count_stickframe_components(wall: dict) -> dict:
 
     Returns a dict of component counts.
     """
-    length_mm = wall.get("length_mm", 0)
+    length_mm = wall.get("length_mm", wall.get("wall_length_mm", 0))
     height_mm = wall.get("height_mm", 2700)
 
     studs = count_wall_studs(wall)
     openings = wall.get("openings", [])
     lintels = len(openings)
     trimmers = lintels * 2  # 2 trimming studs per opening
-    sill_trimmers = sum(1 for o in openings if o.get("type") == "window")
+    sill_trimmers = sum(1 for o in openings if o.get("type", o.get("opening_type")) == "window")
 
     # Dwangs: typically at sheet joins and mid-height
     # For a 2700mm wall: dwangs at 1200 and 1350 (sheet join + mid)

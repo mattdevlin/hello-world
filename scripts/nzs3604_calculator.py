@@ -447,6 +447,29 @@ def get_wall_position(storey: dict, wall: dict) -> str:
         return "lot"
 
 
+def _enforce_min_stud_size(size: str, min_size: str = "90x45") -> str:
+    """Enforce minimum stud size — NZ builders don't use 90x35.
+
+    NZS 3604 tables include 90x35 and 70x45 but NZ industry practice
+    is to use 90x45 as the minimum stud for both loadbearing and
+    non-loadbearing walls. Mills stock 45mm as standard thickness;
+    ordering 35mm-thick timber just for studs is impractical.
+
+    Returns the table size if it meets or exceeds the minimum,
+    otherwise returns min_size.
+    """
+    if size == "SED":
+        return size
+    try:
+        w, t = (int(x) for x in size.split("x"))
+        mw, mt = (int(x) for x in min_size.split("x"))
+        if w * t < mw * mt:
+            return min_size
+    except (ValueError, AttributeError):
+        pass
+    return size
+
+
 def lookup_stud(
     wind_zone: str,
     position: str,
@@ -458,6 +481,8 @@ def lookup_stud(
 
     Table 8.2 structure: position → wind_zone → loaded_dim → height → spacing → size
     Table 8.4 structure: wind_zone → height → spacing → size
+
+    Enforces 90x45 as the minimum stud size per NZ industry practice.
 
     Returns dict with size, spacing, height_m, table_ref.
     """
@@ -485,6 +510,7 @@ def lookup_stud(
             return {"size": "SED", "spacing": spacing, "height_m": height_m,
                     "table_ref": "Table 8.4", "note": "No valid size at this spacing"}
 
+        size = _enforce_min_stud_size(size)
         return {"size": size, "spacing": int(spacing_key), "height_m": height_m,
                 "table_ref": "Table 8.4"}
 
@@ -530,6 +556,7 @@ def lookup_stud(
         return {"size": "SED", "spacing": spacing, "height_m": height_m,
                 "table_ref": "Table 8.2", "note": "No valid size"}
 
+    size = _enforce_min_stud_size(size)
     return {"size": size, "spacing": int(spacing_key), "height_m": height_m,
             "table_ref": "Table 8.2"}
 
@@ -605,7 +632,8 @@ def lookup_lintel(
 
     table_key = table_map.get(load_case, "lintel_roof_only")
     lintel_table = tables.get(table_key, {})
-    table_ref = f"Table {tables.get(table_key, {}).get('_ref', table_key)}"
+    raw_ref = tables.get(table_key, {}).get("_ref", table_key)
+    table_ref = raw_ref if raw_ref.startswith("Table") else f"Table {raw_ref}"
 
     # Build the weight combination key for the table
     if load_case == "roof_only":
@@ -962,6 +990,40 @@ def get_dwang_positions(height_mm: int) -> list:
     return positions
 
 
+def _format_member(count: int, size: str, grade: str = "SG8") -> str:
+    """Format a member specification the way NZ builders write it.
+
+    Examples:
+        (1, "90x45", "SG8")  → "90x45 SG8"
+        (2, "90x45", "SG8")  → "2/90x45 SG8"
+        (1, "140x70", "SG8") → "140x70 SG8"
+    """
+    if size == "SED":
+        return "SED"
+    if count > 1:
+        return f"{count}/{size} {grade}"
+    return f"{size} {grade}"
+
+
+def _lintel_member_count(size: str) -> int:
+    """Determine whether a lintel should be single or doubled.
+
+    NZS 3604 lintel tables give the minimum cross-section required.
+    In NZ practice:
+    - 70mm thick lintels (e.g., 90x70, 140x70) are single solid members
+    - 45mm thick lintels could be a single 90x45 or doubled 2/90x45
+    - Anything under 70mm thick is typically doubled to get rigidity
+    """
+    if size == "SED":
+        return 1
+    try:
+        _w, t = (int(x) for x in size.split("x"))
+        # 70mm+ thick = single member, under 70mm = double it
+        return 1 if t >= 70 else 2
+    except (ValueError, AttributeError):
+        return 1
+
+
 def size_opening(
     opening: dict,
     wall: dict,
@@ -971,7 +1033,15 @@ def size_opening(
     stud: dict,
     site: dict,
 ) -> dict:
-    """Size lintel + trimming studs for one opening.
+    """Size all framing members for one opening.
+
+    Produces builder-ready output with full member specifications:
+    - Lintel: size, quantity, grade, load case, fixing
+    - Jamb studs: the full-height studs each side of the opening
+    - Trimmer studs: additional studs beside jambs per Table 8.5
+    - Sill trimmer: horizontal member under windows (Table 8.15)
+    - Head trimmer: horizontal member above openings (same as sill)
+    - Cripple studs: short studs below sill and above head
 
     Args:
         opening: dict with width_mm, height_mm, type, sill_mm, etc.
@@ -982,60 +1052,174 @@ def size_opening(
         stud: stud lookup result dict
         site: site params
 
-    Returns: dict with all opening member sizes
+    Returns: dict with all opening member sizes and counts
     """
-    span_m = opening.get("width_mm", 1000) / 1000
+    width_mm = opening.get("width_mm", 1000)
+    height_mm = opening.get("height_mm", 2100)
+    span_m = width_mm / 1000
     wall_height_mm = wall.get("height_mm", 2400)
+    stud_size = stud.get("size", "90x45")
+    stud_spacing = stud.get("spacing", 600)
     roof_weight = site.get("roof_weight", "light")
     cladding_weight = site.get("upper_cladding_weight", "light")
-
-    # Determine lintel load case from Table 8.8
-    load_case = determine_lintel_load_case(wall)
-
-    # Lintel sizing — Tables 8.9-8.13
-    lintel = lookup_lintel(load_case, loaded_dim_m, span_m,
-                           roof_weight, cladding_weight)
-
-    # Trimming studs — Table 8.5
-    stud_thick_600 = get_stud_thickness_at_600(
-        wind_zone, position, loaded_dim_m, stud.get("height_m", 2.4)
-    )
-    trimmer = lookup_trimming_stud(position, span_m, stud_thick_600)
-
-    # Sill/head trimmer — Table 8.15 (for windows)
     opening_type = opening.get("type", "window")
-    sill_trimmer = None
-    if opening_type == "window":
-        sill_trimmer = lookup_sill_head_trimmer(span_m)
 
-    # Lintel fixing — Table 8.14
+    # ---- 1. Lintel (Tables 8.9-8.13) ----
+    load_case = determine_lintel_load_case(wall)
+    lintel_raw = lookup_lintel(load_case, loaded_dim_m, span_m,
+                               roof_weight, cladding_weight)
+    lintel_size = lintel_raw.get("size", "SED")
+    lintel_count = _lintel_member_count(lintel_size)
+    lintel_spec = _format_member(lintel_count, lintel_size)
+
+    lintel = {
+        "size": lintel_size,
+        "quantity": lintel_count,
+        "specification": lintel_spec,
+        "max_span_m": lintel_raw.get("max_span"),
+        "load_case": load_case,
+        "table_ref": lintel_raw.get("table_ref", ""),
+    }
+
+    # ---- 2. Lintel fixing (Table 8.14) ----
     lintel_fixing = lookup_lintel_fixing(load_case, wind_zone,
                                           loaded_dim_m, roof_weight)
 
-    # Jack studs (cripple studs below sill / above head)
-    stud_spacing = stud.get("spacing", 600)
+    # ---- 3. Jamb studs (full-height studs each side of opening) ----
+    # Per NZS 3604 S8.6, each opening gets a full-height stud on each side.
+    # These are the same size as the wall studs.
+    jamb_studs = {
+        "size": stud_size,
+        "quantity": 2,
+        "specification": f"2/{stud_size} SG8 (one each side)",
+        "note": "Full-height studs at opening jambs per S8.6",
+    }
+
+    # ---- 4. Trimmer studs (Table 8.5) ----
+    # Additional studs beside the jambs to carry the lintel load.
+    stud_thick_600 = get_stud_thickness_at_600(
+        wind_zone, position, loaded_dim_m, stud.get("height_m", 2.4)
+    )
+    trimmer_raw = lookup_trimming_stud(position, span_m, stud_thick_600)
+    trimmer_count = trimmer_raw.get("count", 1)
+    trimmer_total = trimmer_count * 2  # both sides of the opening
+
+    trimmers = {
+        "size": stud_size,
+        "count_per_side": trimmer_count,
+        "total_count": trimmer_total,
+        "specification": _format_member(trimmer_count, stud_size) + " each side",
+        "required_thickness_mm": trimmer_raw.get("thickness_mm"),
+        "table_ref": trimmer_raw.get("table_ref", "Table 8.5"),
+    }
+
+    # ---- 5. Sill trimmer / head trimmer (Table 8.15) ----
+    # Horizontal members: sill (under windows), head (above all openings)
+    sill_trimmer = None
+    head_trimmer = None
+
+    if opening_type == "window":
+        sill_raw = lookup_sill_head_trimmer(span_m)
+        sill_thickness = sill_raw.get("thickness_mm")
+        if sill_thickness and sill_thickness != "SED":
+            # Sill trimmer width matches stud width, thickness at least stud thickness
+            stud_width = int(stud_size.split("x")[0]) if "x" in stud_size else 90
+            stud_thick = int(stud_size.split("x")[1]) if "x" in stud_size else 45
+            sill_thick = max(sill_thickness, stud_thick)  # at least stud thickness
+            sill_size = f"{stud_width}x{sill_thick}"
+            sill_trimmer = {
+                "size": sill_size,
+                "quantity": 1,
+                "specification": f"{sill_size} SG8",
+                "table_ref": sill_raw.get("table_ref", "Table 8.15"),
+                "note": "Horizontal member under window sill",
+            }
+
+    # Head trimmer (same logic, above all openings)
+    head_raw = lookup_sill_head_trimmer(span_m)
+    head_thickness = head_raw.get("thickness_mm")
+    if head_thickness and head_thickness != "SED":
+        stud_width = int(stud_size.split("x")[0]) if "x" in stud_size else 90
+        stud_thick = int(stud_size.split("x")[1]) if "x" in stud_size else 45
+        head_thick = max(head_thickness, stud_thick)  # at least stud thickness
+        head_size = f"{stud_width}x{head_thick}"
+        head_trimmer = {
+            "size": head_size,
+            "quantity": 1,
+            "specification": f"{head_size} SG8",
+            "table_ref": head_raw.get("table_ref", "Table 8.15"),
+            "note": "Horizontal member above opening head",
+        }
+
+    # ---- 6. Cripple studs (below sill and above head) ----
+    # Short studs that fill in below the window sill and above the lintel.
     sill_height_mm = opening.get("sill_mm", 0)
-    head_height_mm = opening.get("head_height_mm",
-                                  sill_height_mm + opening.get("height_mm", 2100))
+    if opening_type == "window" and sill_height_mm == 0:
+        # Default window sill height ~900mm from floor for standard windows
+        sill_height_mm = max(0, wall_height_mm - height_mm - 200)
+        # But if opening height + 200mm > wall height, sill is near floor
+        if sill_height_mm < 0:
+            sill_height_mm = 0
+
+    head_height_mm = sill_height_mm + height_mm
     above_head_mm = wall_height_mm - head_height_mm
 
-    jack_studs_below = max(0, int(sill_height_mm / stud_spacing) - 1) if sill_height_mm > 100 else 0
-    jack_studs_above = max(0, int(above_head_mm / stud_spacing) - 1) if above_head_mm > 100 else 0
+    # Count cripples: one per stud spacing across the opening width
+    cripples_per_row = max(0, math.floor(width_mm / stud_spacing) - 1)
 
-    return {
+    cripple_studs_below_sill = None
+    if opening_type == "window" and sill_height_mm > 100 and cripples_per_row > 0:
+        cripple_studs_below_sill = {
+            "size": stud_size,
+            "quantity": cripples_per_row,
+            "length_mm": sill_height_mm,
+            "specification": f"{cripples_per_row}/{stud_size} SG8 @ {stud_spacing}mm crs",
+            "note": f"Short studs below window sill, {sill_height_mm}mm long",
+        }
+
+    cripple_studs_above_head = None
+    if above_head_mm > 100 and cripples_per_row > 0:
+        cripple_studs_above_head = {
+            "size": stud_size,
+            "quantity": cripples_per_row,
+            "length_mm": above_head_mm,
+            "specification": f"{cripples_per_row}/{stud_size} SG8 @ {stud_spacing}mm crs",
+            "note": f"Short studs above lintel, {above_head_mm}mm long",
+        }
+
+    # ---- Assemble result ----
+    result = {
         "opening_ref": opening.get("ref", opening.get("name", "O1")),
         "opening_type": opening_type,
-        "width_mm": opening.get("width_mm", 1000),
-        "height_mm": opening.get("height_mm", 2100),
+        "width_mm": width_mm,
+        "height_mm": height_mm,
         "span_m": round(span_m, 2),
-        "load_case": load_case,
         "lintel": lintel,
-        "trimmer": trimmer,
-        "sill_trimmer": sill_trimmer,
         "lintel_fixing": lintel_fixing,
-        "jack_studs_below_sill": jack_studs_below,
-        "jack_studs_above_head": jack_studs_above,
+        "jamb_studs": jamb_studs,
+        "trimmer_studs": trimmers,
+        "head_trimmer": head_trimmer,
     }
+
+    if opening_type == "window":
+        result["sill_trimmer"] = sill_trimmer
+        result["cripple_studs_below_sill"] = cripple_studs_below_sill
+
+    result["cripple_studs_above_head"] = cripple_studs_above_head
+
+    # Total piece count for this opening
+    total_pieces = (
+        lintel_count  # lintel members
+        + 2  # jamb studs
+        + trimmer_total  # trimmer studs
+        + (1 if sill_trimmer else 0)  # sill trimmer
+        + (1 if head_trimmer else 0)  # head trimmer
+        + (cripple_studs_below_sill["quantity"] if cripple_studs_below_sill else 0)
+        + (cripple_studs_above_head["quantity"] if cripple_studs_above_head else 0)
+    )
+    result["total_pieces"] = total_pieces
+
+    return result
 
 
 def size_walls(storey: dict, wind_zone: str, site: dict) -> list:
@@ -1056,7 +1240,7 @@ def size_walls(storey: dict, wind_zone: str, site: dict) -> list:
 
     for wall in walls:
         w = {}
-        w["wall_name"] = wall.get("name", "unnamed")
+        w["wall_name"] = wall.get("wall_name", wall.get("name", "unnamed"))
         w["wall_type"] = wall.get("wall_type", "external_loadbearing")
 
         # 1. Wall position
@@ -1438,10 +1622,20 @@ def size_floor(storey: dict) -> dict:
     }
 
     for zone in storey.get("floor_zones", []):
-        joist_span_m = zone.get("width_mm", 4000) / 1000
-        bearer_span_m = zone.get("bearer_span_mm", 1800) / 1000
-        spacing = zone.get("spacing", 450)
+        # Accept span in metres or mm
+        if "joist_span_m" in zone:
+            joist_span_m = zone["joist_span_m"]
+        else:
+            joist_span_m = zone.get("width_mm", 4000) / 1000
+        if "bearer_span_m" in zone:
+            bearer_span_m = zone["bearer_span_m"]
+        else:
+            bearer_span_m = zone.get("bearer_span_mm", 1800) / 1000
+        spacing = zone.get("joist_spacing_mm", zone.get("spacing", 450))
         load_kpa = zone.get("load_kpa", "1.5_kpa")
+        # Accept numeric load values
+        if isinstance(load_kpa, (int, float)):
+            load_kpa = f"{load_kpa}_kpa"
 
         # Joist — Table 7.1
         joist = lookup_joist(joist_span_m, spacing, load_kpa)
@@ -1467,7 +1661,7 @@ def size_floor(storey: dict) -> dict:
         pile = lookup_pile_footing(bearer_span_m, joist_span_m, pile_load_type)
 
         zone_result = {
-            "zone": zone.get("name", "Floor"),
+            "zone": zone.get("zone", zone.get("name", "Floor")),
             "joist": joist,
             "bearer": bearer,
             "flooring": flooring,
@@ -2130,7 +2324,7 @@ def size_roof(storey: dict, wind_zone: str, site: dict) -> dict:
     roof_weight = site.get("roof_weight", "light")
     pitch = storey.get("roof_pitch", 22.5)
     rafter_span_m = storey.get("rafter_span_m", 4.0)
-    rafter_spacing = storey.get("rafter_spacing", 600)
+    rafter_spacing = storey.get("rafter_spacing_mm", storey.get("rafter_spacing", 600))
 
     # Rafter — Table 10.1
     rafter = lookup_rafter(wind_zone, rafter_span_m, rafter_spacing, roof_weight)
@@ -2150,7 +2344,7 @@ def size_roof(storey: dict, wind_zone: str, site: dict) -> dict:
         "ceiling_span_m",
         storey.get("plan_width_mm", 8000) / 1000,
     )
-    ceiling_spacing = storey.get("ceiling_spacing", 600)
+    ceiling_spacing = storey.get("ceiling_spacing_mm", storey.get("ceiling_spacing", 600))
     ceiling_joist = lookup_ceiling_joist(ceiling_span_m, ceiling_spacing)
 
     # Underpurlin — Table 10.5 (if span specified)
@@ -2510,16 +2704,32 @@ def calculate_nzs3604(measurements: dict) -> dict:
     for i, storey in enumerate(storeys):
         is_top = storey.get("is_top_storey", i == 0)
 
+        # Merge nested "floor" sub-dict into storey-level keys for size_floor
+        floor_input = dict(storey)
+        if "floor" in storey and isinstance(storey["floor"], dict):
+            floor_data = storey["floor"]
+            # Map nested floor keys to what size_floor expects
+            if "type" in floor_data:
+                floor_input["floor_type"] = (
+                    "slab" if "slab" in floor_data["type"] else "timber"
+                )
+            if "zones" in floor_data:
+                floor_input["floor_zones"] = floor_data["zones"]
+
         level = {
             "level_name": storey.get("level_name", f"Level {i}"),
             "is_top_storey": is_top,
             "walls": size_walls(storey, wind_zone, site),
-            "floor": size_floor(storey),
+            "floor": size_floor(floor_input),
         }
 
         # Only the top storey gets roof sizing
         if is_top:
-            level["roof"] = size_roof(storey, wind_zone, site)
+            # Merge nested "roof" sub-dict into storey-level keys for size_roof
+            roof_input = dict(storey)
+            if "roof" in storey and isinstance(storey["roof"], dict):
+                roof_input.update(storey["roof"])
+            level["roof"] = size_roof(roof_input, wind_zone, site)
 
         level_designs.append(level)
 
