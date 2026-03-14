@@ -881,3 +881,63 @@ describe('calculateWallLayout — raked wall door lintel', () => {
     expect(lintel.heightRight).toBeGreaterThan(lintel.heightLeft);
   });
 });
+
+// ── Invalid input handling ──
+
+describe('calculateWallLayout — invalid input', () => {
+  it('returns error for null wall', () => {
+    const result = calculateWallLayout(null);
+    expect(result.error).toBeDefined();
+    expect(result.panels).toEqual([]);
+  });
+
+  it('returns error for missing dimensions', () => {
+    const result = calculateWallLayout({});
+    expect(result.error).toBeDefined();
+    expect(result.panels).toEqual([]);
+  });
+
+  it('returns error for negative length', () => {
+    const result = calculateWallLayout(makeWall({ length_mm: -1000, height_mm: 2440 }));
+    expect(result.error).toBeDefined();
+    expect(result.panels).toEqual([]);
+  });
+
+  it('returns error for zero height', () => {
+    const result = calculateWallLayout(makeWall({ length_mm: 4000, height_mm: 0 }));
+    expect(result.error).toBeDefined();
+    expect(result.panels).toEqual([]);
+  });
+
+  it('returns error for NaN dimensions', () => {
+    const result = calculateWallLayout({ length_mm: NaN, height_mm: 2440 });
+    expect(result.error).toBeDefined();
+    expect(result.panels).toEqual([]);
+  });
+
+  it('handles wall shorter than MIN_PANEL gracefully', () => {
+    const result = calculateWallLayout(makeWall({ length_mm: 100, height_mm: 2440 }));
+    // Should succeed but produce no panels (too short)
+    expect(result.error).toBeUndefined();
+    expect(result.panels).toHaveLength(0);
+  });
+
+  it('handles overlapping openings without crashing', () => {
+    const result = calculateWallLayout(makeWall({
+      length_mm: 4000,
+      height_mm: 2440,
+      openings: [
+        { ref: 'W1', type: OPENING_TYPES.WINDOW, width_mm: 1200, height_mm: 1000, sill_mm: 900, position_from_left_mm: 1000 },
+        { ref: 'W2', type: OPENING_TYPES.WINDOW, width_mm: 1200, height_mm: 1000, sill_mm: 900, position_from_left_mm: 1500 },
+      ],
+    }));
+    // Should not throw — produces some layout
+    expect(result.panels).toBeDefined();
+  });
+
+  it('handles wall with single panel width', () => {
+    const result = calculateWallLayout(makeWall({ length_mm: PANEL_WIDTH, height_mm: 2440 }));
+    expect(result.panels.length).toBe(1);
+    expect(result.panels[0].width).toBe(PANEL_WIDTH);
+  });
+});

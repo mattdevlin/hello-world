@@ -23,7 +23,7 @@ export const MIN_FLOOR_PANEL_WIDTH = 498;          // mm (332mm EPS + 2×83mm re
 export const FLOOR_EPS_RECESS = 83;                // mm EPS inset from panel edge
 export const FLOOR_PENETRATION_CLEARANCE = 45;     // mm clearance from penetration edge to panel boundary
 
-// Panel heights available
+// Panel heights available (nominal heights for UI selection — 2440 is NOT stocked, see STOCK_SHEET_HEIGHTS)
 export const PANEL_HEIGHTS = [2440, 2745, 3050]; // mm
 
 // Stock sheet heights for CNC cutting (2440mm not stocked — use 2745 or 3050)

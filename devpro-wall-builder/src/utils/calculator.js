@@ -142,7 +142,8 @@ export function computeCourses(wallHeight, availableSheets = STOCK_SHEET_HEIGHTS
  * Calculate the panel layout for a single DEVPRO wall.
  */
 export function calculateWallLayout(wall) {
-  if (!wall || typeof wall.length_mm !== 'number' || typeof wall.height_mm !== 'number') {
+  if (!wall || typeof wall.length_mm !== 'number' || typeof wall.height_mm !== 'number'
+    || !isFinite(wall.length_mm) || !isFinite(wall.height_mm)) {
     return { error: 'Wall must have numeric length_mm and height_mm', panels: [] };
   }
   if (wall.length_mm <= 0 || wall.height_mm <= 0) {

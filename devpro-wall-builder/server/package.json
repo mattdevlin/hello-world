@@ -8,14 +8,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@hubspot/api-client": "^12",
-    "@react-pdf/renderer": "^4",
     "better-sqlite3": "^11",
     "cors": "^2",
     "dotenv": "^16",
     "express": "^5",
     "helmet": "^8",
-    "react": "^19",
     "uuid": "^11"
   },
   "devDependencies": {

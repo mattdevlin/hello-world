@@ -12,6 +12,7 @@
 import { PANEL_GAP, BOTTOM_PLATE, TOP_PLATE, SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
+import { getEpsSegments } from './binPacking.js';
 
 const SPLINE_WIDTH = 146;
 const PANEL_EPS_DEPTH = 142;
@@ -77,32 +78,8 @@ export function computeWallGlueArea(layout) {
   for (const l of lintelPanels) exclusions.push([l.x, l.x + l.width]);
   exclusions.sort((a, b) => a[0] - b[0]);
 
-  const getEpsSegments = (panelLeft, panelRight) => {
-    const clipped = [];
-    for (const [eL, eR] of exclusions) {
-      const cL = Math.max(eL, panelLeft);
-      const cR = Math.min(eR, panelRight);
-      if (cL < cR) clipped.push([cL, cR]);
-    }
-    const merged = [];
-    for (const zone of clipped) {
-      if (merged.length > 0 && zone[0] <= merged[merged.length - 1][1]) {
-        merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], zone[1]);
-      } else {
-        merged.push([...zone]);
-      }
-    }
-    const segs = [];
-    let cursor = panelLeft + EPS_GAP;
-    for (const [eL, eR] of merged) {
-      const segRight = eL - EPS_GAP;
-      if (cursor < segRight) segs.push([cursor, segRight]);
-      cursor = eR + EPS_GAP;
-    }
-    const segRight = panelRight - EPS_GAP;
-    if (cursor < segRight) segs.push([cursor, segRight]);
-    return segs;
-  };
+  const computeSegments = (panelLeft, panelRight) =>
+    getEpsSegments(panelLeft, panelRight, exclusions, EPS_GAP);
 
   const epsTop = TOP_PLATE * 2 + EPS_GAP;
   const epsBottom = height - BOTTOM_PLATE - EPS_GAP;
@@ -111,7 +88,7 @@ export function computeWallGlueArea(layout) {
   // ── Panel EPS surface area ──
   let panelEpsSA = 0;
   for (const panel of panels) {
-    const segments = getEpsSegments(panel.x, panel.x + panel.width);
+    const segments = computeSegments(panel.x, panel.x + panel.width);
     const panelEpsH = isRaked
       ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_GAP * 2)
       : stdEpsH;

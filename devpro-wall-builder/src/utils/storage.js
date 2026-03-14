@@ -29,7 +29,8 @@ function readJson(key) {
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
-  } catch {
+  } catch (err) {
+    console.warn(`Failed to parse localStorage key "${key}":`, err);
     return null;
   }
 }
@@ -83,11 +84,15 @@ export function renameProject(id, name) {
   }
 }
 
+const ALLOWED_PROJECT_FIELDS = ['name', 'address', 'territorialAuthority'];
+
 export function updateProjectDetails(id, fields) {
   const projects = getProjects();
   const p = projects.find(p => p.id === id);
   if (p) {
-    Object.assign(p, fields);
+    for (const key of ALLOWED_PROJECT_FIELDS) {
+      if (key in fields) p[key] = fields[key];
+    }
     p.updatedAt = Date.now();
     saveProjects(projects);
   }

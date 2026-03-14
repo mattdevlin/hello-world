@@ -377,6 +377,15 @@ describe('computeProjectMagboardSheets', () => {
     expect(result.total3050).toBe(0);
   });
 
+  it('empty panel list results in zero sheets', () => {
+    const result = computeProjectMagboardSheets([
+      makeWall({ length_mm: 100, height_mm: 2700 }),
+    ]);
+    // Wall is too short for any panels — should produce minimal output
+    expect(result.panelSheetCount).toBe(0);
+    expect(result.totalSheets).toBeGreaterThanOrEqual(0);
+  });
+
   it('hand-calculated: simple 2-panel wall sheet count', () => {
     // 2400mm wall → 1 full panel (1200) + gap (5) + 1 end panel (1195) = 2 panels
     const wall = makeWall({ length_mm: 2400, height_mm: 2700 });

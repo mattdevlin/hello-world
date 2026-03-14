@@ -401,3 +401,43 @@ describe('computeProjectTimberRatio', () => {
     expect(r.projectTimberPercentage).toBe(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// Invalid input handling
+// ─────────────────────────────────────────────────────────────
+
+describe('computeWallTimber — invalid input', () => {
+  it('handles wall with missing layout properties gracefully', () => {
+    const wall = {
+      id: 'w1', name: 'Bad', length_mm: 100, height_mm: 2440,
+      profile: 'standard', deduction_left_mm: 0, deduction_right_mm: 0, openings: [],
+    };
+    // Very short wall — should not crash
+    const pieces = computeWallTimber(wall);
+    expect(Array.isArray(pieces)).toBe(true);
+  });
+
+  it('handles zero-length wall without crashing', () => {
+    const wall = {
+      id: 'w1', name: 'Zero', length_mm: 0, height_mm: 2440,
+      profile: 'standard', deduction_left_mm: 0, deduction_right_mm: 0, openings: [],
+    };
+    // calculateWallLayout returns error for 0-length, computeWallTimber should handle it
+    // It calls calculateWallLayout which returns { error, panels: [] }, but may still produce plates
+    const pieces = computeWallTimber(wall);
+    expect(Array.isArray(pieces)).toBe(true);
+  });
+});
+
+describe('splitPlate — edge cases', () => {
+  it('handles very small positive length', () => {
+    const pieces = splitPlate(1);
+    expect(pieces).toEqual([1]);
+  });
+
+  it('handles length exactly 2× max', () => {
+    const pieces = splitPlate(MAX_PLATE_LENGTH * 2);
+    expect(pieces).toHaveLength(2);
+    expect(pieces.every(p => p === MAX_PLATE_LENGTH)).toBe(true);
+  });
+});
