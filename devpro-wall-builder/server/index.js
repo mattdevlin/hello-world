@@ -1,0 +1,54 @@
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import db from './db.js';
+import { seed } from './seeds/defaultPricing.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import pricingRoutes from './routes/pricing.js';
+import marginsRoutes from './routes/margins.js';
+import settingsRoutes from './routes/settings.js';
+import clientsRoutes from './routes/clients.js';
+import quotesRoutes from './routes/quotes.js';
+
+// Seed default data (idempotent)
+seed(db);
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+app.use(helmet());
+app.use(cors());
+app.use(express.json({ limit: '1mb' }));
+
+// Routes
+app.use('/api/pricing', pricingRoutes);
+app.use('/api/margins', marginsRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/clients', clientsRoutes);
+app.use('/api/quotes', quotesRoutes);
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// Error handler
+app.use(errorHandler);
+
+const server = app.listen(PORT, () => {
+  console.log(`DEVPRO Quote Server running on port ${PORT}`);
+});
+
+function shutdown() {
+  console.log('Shutting down...');
+  server.close(() => {
+    db.close();
+    process.exit(0);
+  });
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
+export default app;
