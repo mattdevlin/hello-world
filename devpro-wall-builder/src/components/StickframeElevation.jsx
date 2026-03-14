@@ -14,20 +14,20 @@ const W_LIGHT = 0.75;
 const C_LIGHT = '#666';
 const W_FINE = 0.5;
 
-// Member fill colours
-const FILL_PLATE = '#e8d5a8';    // warm timber — plates
-const FILL_STUD = '#f0e6c8';     // lighter timber — studs
-const FILL_LINTEL = '#d4b878';   // darker timber — lintels
-const FILL_DWANG = '#e8dbb8';    // mid timber — dwangs
-const FILL_TRIMMER = '#dcc898';  // trimmer studs
-const FILL_CRIPPLE = '#f0e6c8';  // same as studs
+// Member fill colours (NZS 3604 terminology)
+const FILL_PLATE = '#e8d5a8';      // warm timber — plates
+const FILL_STUD = '#f0e6c8';       // lighter timber — studs
+const FILL_LINTEL = '#d4b878';     // darker timber — lintels
+const FILL_DWANG = '#e8dbb8';      // mid timber — dwangs
+const FILL_DOUBLING = '#dcc898';   // doubling studs (understuds)
+const FILL_JACK = '#f0e6c8';       // jack studs — same as studs
 
 const STROKE_PLATE = '#8B7355';
 const STROKE_STUD = '#A0896B';
 const STROKE_LINTEL = '#7A6240';
 const STROKE_DWANG = '#A09070';
-const STROKE_TRIMMER = '#907850';
-const STROKE_CRIPPLE = '#B0A080';
+const STROKE_DOUBLING = '#907850';
+const STROKE_JACK = '#B0A080';
 
 // Opening
 const FILL_OPENING = '#FFFFFF';
@@ -42,18 +42,18 @@ function getMemberStyle(type) {
     case 'stud':
     case 'end_stud':
       return { fill: FILL_STUD, stroke: STROKE_STUD, strokeWidth: W_MEDIUM };
-    case 'king_stud':
+    case 'trimming_stud':
       return { fill: FILL_STUD, stroke: STROKE_STUD, strokeWidth: W_MEDIUM };
-    case 'trimmer_stud':
-      return { fill: FILL_TRIMMER, stroke: STROKE_TRIMMER, strokeWidth: W_LIGHT };
+    case 'doubling_stud':
+      return { fill: FILL_DOUBLING, stroke: STROKE_DOUBLING, strokeWidth: W_LIGHT };
     case 'lintel':
       return { fill: FILL_LINTEL, stroke: STROKE_LINTEL, strokeWidth: W_MEDIUM };
     case 'sill_trimmer':
       return { fill: FILL_PLATE, stroke: STROKE_PLATE, strokeWidth: W_LIGHT };
     case 'dwang':
       return { fill: FILL_DWANG, stroke: STROKE_DWANG, strokeWidth: W_FINE };
-    case 'cripple_stud':
-      return { fill: FILL_CRIPPLE, stroke: STROKE_CRIPPLE, strokeWidth: W_FINE };
+    case 'jack_stud':
+      return { fill: FILL_JACK, stroke: STROKE_JACK, strokeWidth: W_FINE };
     default:
       return { fill: '#eee', stroke: '#999', strokeWidth: W_FINE };
   }
@@ -77,7 +77,7 @@ export default function StickframeElevation({ stickframeLayout, wallName, projec
   const s = (mm) => mm * scale;
 
   // Sort members for draw order: plates first (bottom), then studs, then dwangs, then openings framing
-  const drawOrder = ['bottom_plate', 'top_plate_1', 'top_plate_2', 'lintel', 'sill_trimmer', 'dwang', 'cripple_stud', 'stud', 'end_stud', 'king_stud', 'trimmer_stud'];
+  const drawOrder = ['bottom_plate', 'top_plate_1', 'top_plate_2', 'lintel', 'sill_trimmer', 'dwang', 'jack_stud', 'stud', 'end_stud', 'trimming_stud', 'doubling_stud'];
   const sortedMembers = [...members].sort((a, b) => {
     const ai = drawOrder.indexOf(a.type);
     const bi = drawOrder.indexOf(b.type);
@@ -155,11 +155,7 @@ export default function StickframeElevation({ stickframeLayout, wallName, projec
             </>
           )}
 
-          {/* ── Opening voids ── */}
-          {(stickframeLayout.members || [])
-            .filter(m => m.type === 'sill_trimmer' || m.type === 'lintel')
-            // Group by opening ref to draw voids — we'll use opening data from wall instead
-          }
+          {/* ── Opening voids — drawn via member rects below ── */}
 
           {/* ── Members ── */}
           {sortedMembers.map((m, i) => {
@@ -193,14 +189,16 @@ export default function StickframeElevation({ stickframeLayout, wallName, projec
             {wallHeight}mm
           </text>
 
-          {/* ── Member count legend ── */}
+          {/* ── Member count legend (NZS 3604 terminology) ── */}
           <text x={0} y={s(wallHeight) + 60} fontSize="10" fill="#666">
             {[
-              memberCounts.stud && `${(memberCounts.stud || 0) + (memberCounts.end_stud || 0) + (memberCounts.king_stud || 0)} studs`,
-              memberCounts.trimmer_stud && `${memberCounts.trimmer_stud} trimmers`,
-              memberCounts.cripple_stud && `${memberCounts.cripple_stud} cripples`,
+              memberCounts.stud && `${(memberCounts.stud || 0) + (memberCounts.end_stud || 0)} studs`,
+              memberCounts.trimming_stud && `${memberCounts.trimming_stud} trimming`,
+              memberCounts.doubling_stud && `${memberCounts.doubling_stud} doublings`,
+              memberCounts.jack_stud && `${memberCounts.jack_stud} jack studs`,
               memberCounts.dwang && `${memberCounts.dwang} dwangs`,
               memberCounts.lintel && `${memberCounts.lintel} lintels`,
+              memberCounts.sill_trimmer && `${memberCounts.sill_trimmer} sill trimmers`,
               `3 plates`,
             ].filter(Boolean).join(' | ')}
           </text>
@@ -237,11 +235,11 @@ export default function StickframeElevation({ stickframeLayout, wallName, projec
               <tbody>
                 {[
                   ['Plates (bottom + 2× top)', thermalRatio.breakdown.plates],
-                  ['Studs (end + regular + king)', thermalRatio.breakdown.studs],
+                  ['Studs (end + regular + trimming)', thermalRatio.breakdown.studs],
                   ['Dwangs (nogs)', thermalRatio.breakdown.dwangs],
                   ['Lintels', thermalRatio.breakdown.lintels],
-                  ['Trimmers + sills', thermalRatio.breakdown.trimmers],
-                  ['Cripple studs', thermalRatio.breakdown.crippleStuds],
+                  ['Doublings + sill trimmers', thermalRatio.breakdown.doublings],
+                  ['Jack studs', thermalRatio.breakdown.jackStuds],
                 ].filter(([, v]) => v > 0).map(([label, v], i) => (
                   <tr key={i} style={i % 2 === 0 ? { background: '#fafafa' } : undefined}>
                     <td style={timberInfoStyles.td}>{label}</td>
