@@ -8,7 +8,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "better-sqlite3": "^11",
+    "sql.js": "^1",
     "cors": "^2",
     "dotenv": "^16",
     "express": "^5",
