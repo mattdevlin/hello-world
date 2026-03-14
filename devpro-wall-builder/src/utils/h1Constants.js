@@ -5,11 +5,6 @@
  * minimum R-values, and slab-on-ground Appendix E lookup tables.
  */
 
-// ── Reference Timber Fraction ──
-// NZS 3604 stickframe: ~22% of wall face area is timber (thermal bridge)
-// Used as NZBC reference for comparison against DEVPRO SIP framing
-export const REFERENCE_TIMBER_FRACTION = 0.22;
-
 // ── Climate Zone Lookup ──
 // Territorial authority → climate zone (1–6)
 // Source: H1/AS1 6th Edition, Table 1
