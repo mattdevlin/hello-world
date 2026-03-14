@@ -12,6 +12,7 @@
 import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_WIDTH, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
+import { shelfPack } from './binPacking.js';
 
 export const MAGBOARD_SHEETS = {
   medium: { width: 1200, height: 2745 },
@@ -83,7 +84,7 @@ export function extractMagboardPieces(layout, wallName = '') {
   // Track which joints have vertical splines (needed for horizontal spline sizing)
   // Use course 0 panels for joint detection (x-positions are identical across courses)
   const basePanels = panels.filter(p => (p.course ?? 0) === 0);
-  const jointHasSpline = new Array(basePanels.length - 1).fill(false);
+  const jointHasSpline = new Array(Math.max(0, basePanels.length - 1)).fill(false);
   const splineH = height - BOTTOM_PLATE - TOP_PLATE * 2 - 10;
   if (splineH > 0) {
     // Joint splines
@@ -193,71 +194,6 @@ export function extractMagboardPieces(layout, wallName = '') {
   }
 
   return { panelSheets, cutPieces };
-}
-
-// ─────────────────────────────────────────────────────────────
-// Shelf-based 2D bin packing for cut pieces onto sheets
-// ─────────────────────────────────────────────────────────────
-
-function shelfPack(pieces, sheetW, sheetH) {
-  const sorted = [...pieces].sort((a, b) => {
-    const aMax = Math.max(a.width, a.height);
-    const bMax = Math.max(b.width, b.height);
-    return bMax - aMax;
-  });
-
-  const sheets = [];
-
-  for (const piece of sorted) {
-    const orients = [{ w: piece.width, h: piece.height }];
-    if (piece.width !== piece.height) {
-      orients.push({ w: piece.height, h: piece.width });
-    }
-    orients.sort((a, b) => a.h - b.h);
-
-    let placed = false;
-
-    for (const o of orients) {
-      if (o.w > sheetW || o.h > sheetH) continue;
-
-      for (const sheet of sheets) {
-        for (const shelf of sheet.shelves) {
-          if (shelf.remainingW >= o.w && shelf.h >= o.h) {
-            shelf.pieces.push({ ...piece, placedW: o.w, placedH: o.h });
-            shelf.remainingW -= o.w;
-            placed = true;
-            break;
-          }
-        }
-        if (placed) break;
-
-        const usedH = sheet.shelves.reduce((s, sh) => s + sh.h, 0);
-        if (usedH + o.h <= sheetH) {
-          sheet.shelves.push({
-            h: o.h,
-            remainingW: sheetW - o.w,
-            pieces: [{ ...piece, placedW: o.w, placedH: o.h }],
-          });
-          placed = true;
-          break;
-        }
-      }
-      if (placed) break;
-    }
-
-    if (!placed) {
-      const o = orients.find(o => o.w <= sheetW && o.h <= sheetH) || orients[0];
-      sheets.push({
-        shelves: [{
-          h: o.h,
-          remainingW: sheetW - o.w,
-          pieces: [{ ...piece, placedW: o.w, placedH: o.h }],
-        }],
-      });
-    }
-  }
-
-  return sheets;
 }
 
 // ─────────────────────────────────────────────────────────────

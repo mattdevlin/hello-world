@@ -41,7 +41,7 @@ export default function WallBuilderPage() {
         const result = calculateWallLayout(wall);
         setLayout(result);
         setWallName(wall.name);
-        try { setTimberRatio(computeWallTimberRatio(wall)); } catch { setTimberRatio(null); }
+        try { setTimberRatio(computeWallTimberRatio(wall)); } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); }
       }
     } else {
       setWallInput(null);
@@ -58,7 +58,7 @@ export default function WallBuilderPage() {
     setWallName(wall.name);
     setWallInput(wall);
     setGenerateKey(k => k + 1);
-    try { setTimberRatio(computeWallTimberRatio(wall)); } catch { setTimberRatio(null); }
+    try { setTimberRatio(computeWallTimberRatio(wall)); } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); }
   };
 
   const handleSave = () => {

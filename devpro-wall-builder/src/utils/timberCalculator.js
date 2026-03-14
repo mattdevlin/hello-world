@@ -14,6 +14,7 @@ import {
   MAX_PLATE_LENGTH, WALL_PLATE_WIDTH, WALL_PLATE_DEPTH,
   LINTEL_WIDTH, TOP_PLATE_STAGGER,
   FLOOR_PLATE_DEPTH,
+  WALL_PROFILES,
 } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
@@ -258,9 +259,9 @@ export function computeWallTimberRatio(wall) {
 
   // ── Gross wall area (before opening deductions) ──
   let grossWallArea;
-  if (profile === 'raked') {
+  if (profile === WALL_PROFILES.RAKED) {
     grossWallArea = netLength * (heightLeft + heightRight) / 2;
-  } else if (profile === 'gable') {
+  } else if (profile === WALL_PROFILES.GABLE) {
     const peakH = layout.peakHeight || heightLeft;
     // Gable = two triangles on top of rectangle
     // Area = base × minHeight + (peakH - minHeight) × base / 2

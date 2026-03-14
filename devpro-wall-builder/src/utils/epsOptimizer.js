@@ -13,6 +13,7 @@ import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH
   FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK, SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP, MAGBOARD } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
+import { shelfPack, getEpsSegments } from './binPacking.js';
 
 // ── Block dimensions ──
 export const EPS_BLOCK = {
@@ -84,32 +85,8 @@ export function extractEpsPieces(layout, wallName = '') {
 
   exclusions.sort((a, b) => a[0] - b[0]);
 
-  const getEpsSegments = (panelLeft, panelRight) => {
-    const clipped = [];
-    for (const [eL, eR] of exclusions) {
-      const cL = Math.max(eL, panelLeft);
-      const cR = Math.min(eR, panelRight);
-      if (cL < cR) clipped.push([cL, cR]);
-    }
-    const merged = [];
-    for (const zone of clipped) {
-      if (merged.length > 0 && zone[0] <= merged[merged.length - 1][1]) {
-        merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], zone[1]);
-      } else {
-        merged.push([...zone]);
-      }
-    }
-    const segs = [];
-    let cursor = panelLeft + EPS_GAP;
-    for (const [eL, eR] of merged) {
-      const segRight = eL - EPS_GAP;
-      if (cursor < segRight) segs.push([cursor, segRight]);
-      cursor = eR + EPS_GAP;
-    }
-    const segRight = panelRight - EPS_GAP;
-    if (cursor < segRight) segs.push([cursor, segRight]);
-    return segs;
-  };
+  const computeSegments = (panelLeft, panelRight) =>
+    getEpsSegments(panelLeft, panelRight, exclusions, EPS_GAP);
 
   // EPS height bounds
   const epsTop = TOP_PLATE * 2 + EPS_GAP;
@@ -118,7 +95,7 @@ export function extractEpsPieces(layout, wallName = '') {
 
   // ── Panel EPS pieces ──
   panels.forEach((panel) => {
-    const segments = getEpsSegments(panel.x, panel.x + panel.width);
+    const segments = computeSegments(panel.x, panel.x + panel.width);
     const panelEpsH = isRaked
       ? Math.round(((panel.heightLeft + panel.heightRight) / 2) - BOTTOM_PLATE - TOP_PLATE * 2 - EPS_GAP * 2)
       : epsHeight;
@@ -209,87 +186,6 @@ export function extractEpsPieces(layout, wallName = '') {
   }
 
   return pieces;
-}
-
-// ─────────────────────────────────────────────────────────────
-// Shelf-based 2D bin packing with rotation
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Pack rectangular pieces onto slabs (4900 × 1220) using shelf algorithm.
- * Pieces may be rotated 90° if it helps.
- *
- * @param {Array} pieces - {width, height, ...}
- * @param {number} slabW - slab width (4900)
- * @param {number} slabH - slab height (1220)
- * @returns {Array} slabs, each { shelves: [{height, pieces, usedWidth}] }
- */
-function shelfPack(pieces, slabW, slabH) {
-  // Sort by tallest dimension descending — packs shelves more tightly
-  const sorted = [...pieces].sort((a, b) => {
-    const aMax = Math.max(a.width, a.height);
-    const bMax = Math.max(b.width, b.height);
-    return bMax - aMax;
-  });
-
-  const slabs = [];
-
-  for (const piece of sorted) {
-    // Build candidate orientations
-    const orients = [{ w: piece.width, h: piece.height }];
-    if (piece.width !== piece.height) {
-      orients.push({ w: piece.height, h: piece.width });
-    }
-    // Prefer the orientation where width (placed along shelf) is larger
-    // and height is smaller, so shelves stay short and more fit vertically
-    orients.sort((a, b) => a.h - b.h);
-
-    let placed = false;
-
-    for (const o of orients) {
-      if (o.w > slabW || o.h > slabH) continue;
-
-      // Try to fit on an existing slab's existing shelf
-      for (const slab of slabs) {
-        for (const shelf of slab.shelves) {
-          if (shelf.remainingW >= o.w && shelf.h >= o.h) {
-            shelf.pieces.push({ ...piece, placedW: o.w, placedH: o.h });
-            shelf.remainingW -= o.w;
-            placed = true;
-            break;
-          }
-        }
-        if (placed) break;
-
-        // Try a new shelf on this slab
-        const usedH = slab.shelves.reduce((s, sh) => s + sh.h, 0);
-        if (usedH + o.h <= slabH) {
-          slab.shelves.push({
-            h: o.h,
-            remainingW: slabW - o.w,
-            pieces: [{ ...piece, placedW: o.w, placedH: o.h }],
-          });
-          placed = true;
-          break;
-        }
-      }
-      if (placed) break;
-    }
-
-    if (!placed) {
-      // Open a new slab
-      const o = orients.find(o => o.w <= slabW && o.h <= slabH) || orients[0];
-      slabs.push({
-        shelves: [{
-          h: o.h,
-          remainingW: slabW - o.w,
-          pieces: [{ ...piece, placedW: o.w, placedH: o.h }],
-        }],
-      });
-    }
-  }
-
-  return slabs;
 }
 
 // ─────────────────────────────────────────────────────────────

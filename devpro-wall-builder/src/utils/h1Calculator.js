@@ -23,10 +23,14 @@ import {
  * @returns {number} weighted R-value, or 0 if total area is 0
  */
 export function computeWeightedR(constructions) {
-  const totalArea = constructions.reduce((sum, c) => sum + c.area, 0);
+  const valid = constructions.filter(c => {
+    if (c.rValue <= 0) throw new Error(`Invalid rValue (${c.rValue}): must be > 0`);
+    return c.area > 0;
+  });
+  const totalArea = valid.reduce((sum, c) => sum + c.area, 0);
   if (totalArea === 0) return 0;
   // Weighted by heat flow: 1/R_weighted = sum(area_i / R_i) / totalArea
-  const totalHeatLoss = constructions.reduce((sum, c) => sum + c.area / c.rValue, 0);
+  const totalHeatLoss = valid.reduce((sum, c) => sum + c.area / c.rValue, 0);
   return totalArea / totalHeatLoss;
 }
 

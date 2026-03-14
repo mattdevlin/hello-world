@@ -303,3 +303,44 @@ describe('checkH1Compliance', () => {
     expect(result.compliant).toBe(false);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// Invalid input handling
+// ─────────────────────────────────────────────────────────────
+
+describe('computeWeightedR — invalid input', () => {
+  it('throws for zero R-value', () => {
+    expect(() => computeWeightedR([{ area: 100, rValue: 0 }])).toThrow();
+  });
+
+  it('throws for negative R-value', () => {
+    expect(() => computeWeightedR([{ area: 50, rValue: -1 }])).toThrow();
+  });
+
+  it('returns 0 for constructions with only zero-area entries', () => {
+    expect(computeWeightedR([{ area: 0, rValue: 4.0 }])).toBe(0);
+  });
+});
+
+describe('checkH1Compliance — invalid input', () => {
+  it('returns error for climate zone 0', () => {
+    const result = checkH1Compliance({ climateZone: 0, grossWallArea: 100, constructions: {} });
+    expect(result.error).toBeDefined();
+  });
+
+  it('returns error for climate zone 7', () => {
+    const result = checkH1Compliance({ climateZone: 7, grossWallArea: 100, constructions: {} });
+    expect(result.error).toBeDefined();
+  });
+
+  it('returns error for negative climate zone', () => {
+    const result = checkH1Compliance({ climateZone: -1, grossWallArea: 100, constructions: {} });
+    expect(result.error).toBeDefined();
+  });
+
+  it('handles empty constructions object gracefully', () => {
+    const result = checkH1Compliance({ climateZone: 1, grossWallArea: 100, constructions: {} });
+    expect(result.compliant).toBeDefined();
+    expect(result.hlProposed).toBe(0);
+  });
+});
