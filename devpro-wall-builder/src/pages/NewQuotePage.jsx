@@ -16,6 +16,7 @@ export default function NewQuotePage() {
   const [validityDays, setValidityDays] = useState(30);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     const p = getProjects().find(p => p.id === projectId);
@@ -31,7 +32,35 @@ export default function NewQuotePage() {
     setMaterials(agg);
 
     api.get('/clients').then(setClients).catch(() => {});
+    // Pre-load HubSpot contacts availability silently
   }, [projectId, navigate]);
+
+  async function handleImportHubSpotContacts() {
+    setImporting(true);
+    try {
+      const contacts = await api.get('/hubspot/contacts');
+      for (const c of contacts) {
+        const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email;
+        if (!name) continue;
+        try {
+          await api.post('/clients', {
+            name,
+            company: c.company || null,
+            email: c.email || null,
+            phone: c.phone || null,
+          });
+        } catch (_err) {
+          // Client may already exist — skip
+        }
+      }
+      const updated = await api.get('/clients');
+      setClients(updated);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -93,7 +122,17 @@ export default function NewQuotePage() {
         <form onSubmit={handleSubmit}>
           {/* Client Selection */}
           <section style={styles.section}>
-            <h2 style={styles.sectionTitle}>Client</h2>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>Client</h2>
+              <button
+                type="button"
+                onClick={handleImportHubSpotContacts}
+                disabled={importing}
+                style={styles.importBtn}
+              >
+                {importing ? 'Importing...' : 'Import from HubSpot'}
+              </button>
+            </div>
             <select
               value={selectedClientId}
               onChange={e => setSelectedClientId(e.target.value)}
@@ -220,11 +259,27 @@ const styles = {
     border: `1px solid ${NEUTRAL.border}`,
     padding: '20px 24px',
   },
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   sectionTitle: {
-    margin: '0 0 4px',
+    margin: 0,
     fontSize: 16,
     fontWeight: 600,
     color: NEUTRAL.text,
+  },
+  importBtn: {
+    padding: '5px 12px',
+    background: '#ff7a59',
+    color: '#fff',
+    border: 'none',
+    borderRadius: RADIUS.sm,
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 600,
   },
   sectionHint: {
     margin: '0 0 12px',

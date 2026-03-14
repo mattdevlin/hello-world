@@ -10,6 +10,7 @@ import marginsRoutes from './routes/margins.js';
 import settingsRoutes from './routes/settings.js';
 import clientsRoutes from './routes/clients.js';
 import quotesRoutes from './routes/quotes.js';
+import hubspotRoutes from './routes/hubspot.js';
 
 // Seed default data (idempotent)
 seed(db);
@@ -27,6 +28,7 @@ app.use('/api/margins', marginsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/quotes', quotesRoutes);
+app.use('/api/hubspot', hubspotRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

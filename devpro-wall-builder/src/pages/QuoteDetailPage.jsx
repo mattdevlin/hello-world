@@ -55,6 +55,18 @@ export default function QuoteDetailPage() {
     }
   }
 
+  async function handleHubSpotSync() {
+    setUpdating(true);
+    try {
+      await api.post(`/hubspot/sync-quote/${quoteId}`);
+      loadQuote();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   async function handleRevise() {
     setUpdating(true);
     try {
@@ -136,6 +148,9 @@ export default function QuoteDetailPage() {
             >
               Download PDF
             </a>
+            <button onClick={handleHubSpotSync} disabled={updating} style={styles.hubspotBtn}>
+              {quote.hubspot_deal_id ? 'Re-sync to HubSpot' : 'Push to HubSpot'}
+            </button>
           </div>
         </div>
 
@@ -343,6 +358,16 @@ const styles = {
     fontWeight: 600,
     textDecoration: 'none',
     display: 'inline-block',
+  },
+  hubspotBtn: {
+    padding: '8px 16px',
+    background: '#ff7a59',
+    color: '#fff',
+    border: 'none',
+    borderRadius: RADIUS.md,
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 600,
   },
   section: {
     marginBottom: 24,
