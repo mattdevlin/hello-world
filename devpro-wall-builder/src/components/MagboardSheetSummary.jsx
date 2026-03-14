@@ -1,16 +1,19 @@
 import { useState, useMemo } from 'react';
-import { computeProjectMagboardSheets, computeProjectMagboardSheetsWithFloors } from '../utils/magboardOptimizer.js';
+import { computeProjectMagboardSheets, computeProjectMagboardSheetsWithFloors, computeProjectMagboardSheetsWithRoofs } from '../utils/magboardOptimizer.js';
 
-export default function MagboardSheetSummary({ walls, floors }) {
+export default function MagboardSheetSummary({ walls, floors, roofs }) {
   const [expanded, setExpanded] = useState(false);
 
   const result = useMemo(() => {
-    if ((!walls || walls.length === 0) && (!floors || floors.length === 0)) return null;
+    if ((!walls || walls.length === 0) && (!floors || floors.length === 0) && (!roofs || roofs.length === 0)) return null;
+    if (roofs && roofs.length > 0) {
+      return computeProjectMagboardSheetsWithRoofs(walls || [], floors || [], roofs);
+    }
     if (floors && floors.length > 0) {
       return computeProjectMagboardSheetsWithFloors(walls || [], floors);
     }
     return computeProjectMagboardSheets(walls);
-  }, [walls, floors]);
+  }, [walls, floors, roofs]);
 
   if (!result) return null;
 

@@ -2,22 +2,22 @@ import { useState, useCallback } from 'react';
 import { exportProjectZip } from '../utils/projectExporter.js';
 import { useToast } from '../hooks/useToast.js';
 
-export default function ExportProjectButton({ projectName, walls, floors }) {
+export default function ExportProjectButton({ projectName, walls, floors, roofs }) {
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const showToast = useToast();
 
   const handleExport = useCallback(async () => {
-    if (exporting || (!walls?.length && !floors?.length)) return;
+    if (exporting || (!walls?.length && !floors?.length && !roofs?.length)) return;
 
     setExporting(true);
-    const totalItems = (walls?.length || 0) * 5 + (floors?.length || 0) * 4;
+    const totalItems = (walls?.length || 0) * 5 + (floors?.length || 0) * 4 + (roofs?.length || 0) * 2;
     setProgress({ current: 0, total: totalItems });
 
     try {
       await exportProjectZip(projectName, walls || [], (current, total) => {
         setProgress({ current, total });
-      }, floors || []);
+      }, floors || [], roofs || []);
       showToast({ type: 'success', message: 'DXF export completed.' });
     } catch (err) {
       console.error('Project export failed:', err);
@@ -25,9 +25,9 @@ export default function ExportProjectButton({ projectName, walls, floors }) {
     } finally {
       setExporting(false);
     }
-  }, [exporting, projectName, walls, floors, showToast]);
+  }, [exporting, projectName, walls, floors, roofs, showToast]);
 
-  if (!walls?.length && !floors?.length) return null;
+  if (!walls?.length && !floors?.length && !roofs?.length) return null;
 
   return (
     <button

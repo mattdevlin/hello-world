@@ -14,7 +14,7 @@ export function seed(db) {
   const seedAll = db.transaction(() => {
     // Default unit costs (placeholder values — update via admin UI)
     insertPricing.run('magboard', 'sheet', 85.0, 'Magboard 1200×2745/3050');
-    insertPricing.run('eps', 'block', 45.0, 'EPS Block 1200×600×100');
+    insertPricing.run('eps', 'block', 45.0, 'EPS Block 4900×1220×630');
     insertPricing.run('glue', 'litre', 18.0, 'PU Adhesive');
     insertPricing.run('timber', 'lineal_metre', 6.5, 'Framing Timber');
 

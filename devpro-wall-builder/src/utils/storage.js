@@ -21,6 +21,10 @@ function projectFloorsKey(projectId) {
   return `devpro-project-${projectId}-floors`;
 }
 
+function projectRoofsKey(projectId) {
+  return `devpro-project-${projectId}-roofs`;
+}
+
 function projectH1Key(projectId) {
   return `devpro-project-${projectId}-h1`;
 }
@@ -103,6 +107,7 @@ export function deleteProject(id) {
   saveProjects(projects);
   localStorage.removeItem(projectWallsKey(id));
   localStorage.removeItem(projectFloorsKey(id));
+  localStorage.removeItem(projectRoofsKey(id));
   localStorage.removeItem(projectH1Key(id));
   localStorage.removeItem(projectConnectionsKey(id));
   localStorage.removeItem(projectPlacementsKey(id));
@@ -224,6 +229,51 @@ export function deleteFloor(projectId, floorId) {
   syncFloorCount(projectId);
 }
 
+// ── Roofs within a project ──
+
+export function getProjectRoofs(projectId) {
+  return (readJson(projectRoofsKey(projectId)) || []).sort(
+    (a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' })
+  );
+}
+
+function syncRoofCount(projectId) {
+  const roofs = getProjectRoofs(projectId);
+  const projects = getProjects();
+  const p = projects.find(p => p.id === projectId);
+  if (p) {
+    p.roofCount = roofs.length;
+    p.updatedAt = Date.now();
+    saveProjects(projects);
+  }
+}
+
+export function saveRoof(projectId, roofInput) {
+  const roofs = getProjectRoofs(projectId);
+  const existing = roofs.findIndex(r => r.id === roofInput.id);
+  const entry = {
+    ...roofInput,
+    id: roofInput.id || crypto.randomUUID(),
+    updatedAt: Date.now(),
+  };
+  if (!entry.createdAt) entry.createdAt = Date.now();
+
+  if (existing >= 0) {
+    roofs[existing] = entry;
+  } else {
+    roofs.push(entry);
+  }
+  writeJson(projectRoofsKey(projectId), roofs);
+  syncRoofCount(projectId);
+  return entry;
+}
+
+export function deleteRoof(projectId, roofId) {
+  const roofs = getProjectRoofs(projectId).filter(r => r.id !== roofId);
+  writeJson(projectRoofsKey(projectId), roofs);
+  syncRoofCount(projectId);
+}
+
 // ── Connections (wall snap layout) ──
 
 export function getProjectConnections(projectId) {
@@ -275,12 +325,14 @@ export async function exportProject(projectId) {
   const walls = getProjectWalls(projectId);
   const connections = getProjectConnections(projectId);
   const floors = getProjectFloors(projectId);
+  const roofs = getProjectRoofs(projectId);
   const h1Data = getProjectH1(projectId);
   const zip = new JSZip();
   zip.file('project.json', JSON.stringify({ ...project, exportedAt: Date.now() }, null, 2));
   zip.file('walls.json', JSON.stringify(walls, null, 2));
   zip.file('connections.json', JSON.stringify(connections, null, 2));
   zip.file('floors.json', JSON.stringify(floors, null, 2));
+  zip.file('roofs.json', JSON.stringify(roofs, null, 2));
   if (h1Data) {
     zip.file('h1.json', JSON.stringify(h1Data, null, 2));
   }
@@ -362,6 +414,10 @@ export async function importProject(file) {
   const floorsJson = await zip.file('floors.json')?.async('string');
   const floorsData = floorsJson ? JSON.parse(floorsJson) : [];
 
+  // Import roofs if present (backward compatible with older exports)
+  const roofsJson = await zip.file('roofs.json')?.async('string');
+  const roofsData = roofsJson ? JSON.parse(roofsJson) : [];
+
   // Remap wall IDs in connections
   const wallIdMap = new Map();
   const walls = validWalls.map(w => {
@@ -382,7 +438,14 @@ export async function importProject(file) {
     id: crypto.randomUUID(),
   }));
 
+  // Remap roof IDs
+  const roofs = roofsData.map(r => ({
+    ...r,
+    id: crypto.randomUUID(),
+  }));
+
   project.floorCount = floors.length;
+  project.roofCount = roofs.length;
 
   const projects = getProjects();
   projects.push(project);
@@ -390,6 +453,9 @@ export async function importProject(file) {
   writeJson(projectWallsKey(newId), walls);
   if (floors.length > 0) {
     writeJson(projectFloorsKey(newId), floors);
+  }
+  if (roofs.length > 0) {
+    writeJson(projectRoofsKey(newId), roofs);
   }
   if (connections.length > 0) {
     saveProjectConnections(newId, connections);

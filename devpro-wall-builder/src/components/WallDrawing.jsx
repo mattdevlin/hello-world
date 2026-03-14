@@ -64,7 +64,7 @@ export default function WallDrawing({ layout, wallName, projectName }) {
         </text>
         <text x={svgWidth / 2} y={42} textAnchor="middle" fontSize="12" fill="#666">
           {grossLength}mm × {isRaked ? `${layout.heightLeft}–${layout.heightRight}mm` : `${height}mm`}
-          {' '}| {layout.totalPanels} panels ({layout.fullPanels} full, {layout.lcutPanels} L-cut, {layout.endPanels} end)
+          {' '}| {layout.totalPanels} panels ({layout.fullPanels} full, {layout.lcutPanels} L-cut, {layout.endPanels} end{layout.totalLintelPanels > 0 ? `, ${layout.totalLintelPanels} lintel` : ''}{layout.totalFooterPanels > 0 ? `, ${layout.totalFooterPanels} footer` : ''})
           {isMultiCourse && ` | ${courses.length} courses: ${courses.map(c => `${c.height}mm (${c.sheetHeight}mm sheet)`).join(' + ')}`}
         </text>
 

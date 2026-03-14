@@ -12,6 +12,7 @@
 import { PANEL_GAP, BOTTOM_PLATE, TOP_PLATE, SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
+import { calculateRoofLayout } from './roofCalculator.js';
 import { getEpsSegments } from './binPacking.js';
 
 const SPLINE_WIDTH = 146;
@@ -266,5 +267,85 @@ export function computeProjectGlueWithFloors(walls, floors) {
     drumCapacityUsed,
     perFloor,
     hasFloors: true,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Roof glue area
+// ─────────────────────────────────────────────────────────────
+
+const ROOF_MAGBOARD = 10;
+
+/**
+ * Compute glue bond area for a single roof layout.
+ */
+export function computeRoofGlueArea(layout) {
+  const { panels = [], splines = [] } = layout || {};
+
+  let panelAreaMm2 = 0;
+  for (const panel of panels) {
+    panelAreaMm2 += panel.width * panel.length;
+  }
+
+  const splineEpsW = CONST_SPLINE_WIDTH - ROOF_MAGBOARD * 2;
+  let splineAreaMm2 = 0;
+  for (const s of splines) {
+    splineAreaMm2 += splineEpsW * s.length;
+  }
+
+  // Both faces of every EPS piece
+  return {
+    panelAreaMm2: panelAreaMm2 * 2,
+    splineAreaMm2: splineAreaMm2 * 2,
+    footerPanelAreaMm2: 0,
+    totalAreaMm2: (panelAreaMm2 + splineAreaMm2) * 2,
+  };
+}
+
+/**
+ * Compute glue requirements for walls + floors + roofs.
+ */
+export function computeProjectGlueWithRoofs(walls, floors, roofs) {
+  const baseResult = (floors && floors.length > 0)
+    ? computeProjectGlueWithFloors(walls, floors)
+    : computeProjectGlue(walls);
+
+  if (!roofs || roofs.length === 0) return baseResult;
+
+  let roofTotalAreaMm2 = 0;
+  const perRoof = [];
+
+  for (const roof of roofs) {
+    const layout = calculateRoofLayout(roof);
+    if (layout.error) continue;
+    const area = computeRoofGlueArea(layout);
+    roofTotalAreaMm2 += area.totalAreaMm2;
+
+    const roofM2 = area.totalAreaMm2 / 1e6;
+    perRoof.push({
+      roofName: roof.name,
+      roofId: roof.id,
+      areaM2: roofM2,
+      glueKg: roofM2 * GLUE_RATE_KG_M2,
+      glueLitres: (roofM2 * GLUE_RATE_KG_M2) / GLUE_SPECIFIC_GRAVITY,
+    });
+  }
+
+  const combinedAreaMm2 = baseResult.totalAreaM2 * 1e6 + roofTotalAreaMm2;
+  const combinedM2 = combinedAreaMm2 / 1e6;
+  const combinedKg = combinedM2 * GLUE_RATE_KG_M2;
+  const combinedLitres = combinedKg / GLUE_SPECIFIC_GRAVITY;
+  const drumsNeeded = combinedLitres > 0 ? Math.ceil(combinedLitres / DRUM_LITRES) : 0;
+  const drumCapacityUsed = drumsNeeded > 0 ? combinedLitres / (drumsNeeded * DRUM_LITRES) : 0;
+
+  return {
+    ...baseResult,
+    totalAreaM2: combinedM2,
+    totalKg: combinedKg,
+    totalLitres: combinedLitres,
+    drumsNeeded,
+    drumCapacityUsed,
+    perRoof,
+    hasRoofs: true,
   };
 }

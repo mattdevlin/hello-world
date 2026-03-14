@@ -1,18 +1,21 @@
 import { useState, useMemo } from 'react';
-import { computeProjectEpsBlocks, computeProjectEpsBlocksWithFloors, EPS_BLOCK, PANEL_SLABS_PER_BLOCK, SPLINE_SLABS_PER_BLOCK } from '../utils/epsOptimizer.js';
+import { computeProjectEpsBlocks, computeProjectEpsBlocksWithFloors, computeProjectEpsBlocksWithRoofs, EPS_BLOCK, PANEL_SLABS_PER_BLOCK, SPLINE_SLABS_PER_BLOCK } from '../utils/epsOptimizer.js';
 import { FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH } from '../utils/constants.js';
 import { exportWallEpsCsv, exportAllWallsEpsCsv } from '../utils/epsSpreadsheetExport.js';
 
-export default function EpsBlockSummary({ walls, floors, projectName }) {
+export default function EpsBlockSummary({ walls, floors, roofs, projectName }) {
   const [expanded, setExpanded] = useState(false);
 
   const result = useMemo(() => {
-    if ((!walls || walls.length === 0) && (!floors || floors.length === 0)) return null;
+    if ((!walls || walls.length === 0) && (!floors || floors.length === 0) && (!roofs || roofs.length === 0)) return null;
+    if ((roofs && roofs.length > 0)) {
+      return computeProjectEpsBlocksWithRoofs(walls || [], floors || [], roofs);
+    }
     if (floors && floors.length > 0) {
       return computeProjectEpsBlocksWithFloors(walls || [], floors);
     }
     return computeProjectEpsBlocks(walls);
-  }, [walls, floors]);
+  }, [walls, floors, roofs]);
 
   if (!result) return null;
 

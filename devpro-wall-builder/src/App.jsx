@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { createHashRouter, RouterProvider, Outlet, useLocation } from 'react-router-dom';
 import PrintWatermark from './components/PrintWatermark.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { ToastProvider } from './components/ToastContext.jsx';
@@ -9,6 +9,7 @@ const ProjectsPage = lazy(() => import('./pages/ProjectsPage.jsx'));
 const ProjectPage = lazy(() => import('./pages/ProjectPage.jsx'));
 const WallBuilderPage = lazy(() => import('./pages/WallBuilderPage.jsx'));
 const FloorBuilderPage = lazy(() => import('./pages/FloorBuilderPage.jsx'));
+const RoofBuilderPage = lazy(() => import('./pages/RoofBuilderPage.jsx'));
 const H1Page = lazy(() => import('./pages/H1Page.jsx'));
 const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
@@ -22,7 +23,7 @@ function RouteFocusManager() {
   return null;
 }
 
-function App() {
+function RootLayout() {
   return (
     <ErrorBoundary>
       <ToastProvider>
@@ -30,19 +31,31 @@ function App() {
         <PrintWatermark />
         <RouteFocusManager />
         <Suspense fallback={<SkeletonPage />}>
-          <Routes>
-            <Route path="/" element={<ProjectsPage />} />
-            <Route path="/project/:projectId" element={<ProjectPage />} />
-            <Route path="/project/:projectId/wall/:wallId" element={<WallBuilderPage />} />
-            <Route path="/project/:projectId/floor/:floorId" element={<FloorBuilderPage />} />
-            <Route path="/project/:projectId/h1" element={<H1Page />} />
-            <Route path="/admin" element={<AdminPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Outlet />
         </Suspense>
       </ToastProvider>
     </ErrorBoundary>
   );
+}
+
+const router = createHashRouter([
+  {
+    element: <RootLayout />,
+    children: [
+      { path: '/', element: <ProjectsPage /> },
+      { path: '/project/:projectId', element: <ProjectPage /> },
+      { path: '/project/:projectId/wall/:wallId', element: <WallBuilderPage /> },
+      { path: '/project/:projectId/floor/:floorId', element: <FloorBuilderPage /> },
+      { path: '/project/:projectId/roof/:roofId', element: <RoofBuilderPage /> },
+      { path: '/project/:projectId/h1', element: <H1Page /> },
+      { path: '/admin', element: <AdminPage /> },
+      { path: '*', element: <NotFound /> },
+    ],
+  },
+]);
+
+function App() {
+  return <RouterProvider router={router} />;
 }
 
 export default App;

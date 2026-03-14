@@ -153,9 +153,11 @@ function MarginsSection({ data, onDataChange }) {
 
   useEffect(() => {
     if (data) {
+      // data may be an array of {key, value, label} rows from the API — convert to object keyed by key
+      const rows = Array.isArray(data) ? data : Object.values(data);
       const asPercent = {};
-      for (const [k, v] of Object.entries(data)) {
-        asPercent[k] = { ...v, value: (Number(v.value) * 100).toFixed(2) };
+      for (const row of rows) {
+        asPercent[row.key] = { ...row, value: (Number(row.value) * 100).toFixed(2) };
       }
       setDraft(JSON.parse(JSON.stringify(asPercent)));
       setSaved(JSON.parse(JSON.stringify(asPercent)));

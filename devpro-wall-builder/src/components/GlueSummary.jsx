@@ -1,12 +1,15 @@
 import { useState, useMemo } from 'react';
-import { computeProjectGlue, computeProjectGlueWithFloors } from '../utils/glueCalculator.js';
+import { computeProjectGlue, computeProjectGlueWithFloors, computeProjectGlueWithRoofs } from '../utils/glueCalculator.js';
 
-export default function GlueSummary({ walls, floors }) {
+export default function GlueSummary({ walls, floors, roofs }) {
   const [expanded, setExpanded] = useState(false);
 
   const { result, error } = useMemo(() => {
-    if ((!walls || walls.length === 0) && (!floors || floors.length === 0)) return { result: null, error: null };
+    if ((!walls || walls.length === 0) && (!floors || floors.length === 0) && (!roofs || roofs.length === 0)) return { result: null, error: null };
     try {
+      if (roofs && roofs.length > 0) {
+        return { result: computeProjectGlueWithRoofs(walls || [], floors || [], roofs), error: null };
+      }
       if (floors && floors.length > 0) {
         return { result: computeProjectGlueWithFloors(walls || [], floors), error: null };
       }
@@ -15,7 +18,7 @@ export default function GlueSummary({ walls, floors }) {
       console.error('GlueSummary error:', e);
       return { result: null, error: e.message };
     }
-  }, [walls, floors]);
+  }, [walls, floors, roofs]);
 
   if (error) {
     return (

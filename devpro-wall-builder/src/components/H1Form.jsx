@@ -139,6 +139,7 @@ export default function H1Form({ projectId, climateZone, initialData, onChange, 
               {importSummary.glazingCount > 0 && `, ${importSummary.glazingCount} window${importSummary.glazingCount !== 1 ? 's' : ''}`}
               {importSummary.doorCount > 0 && `, ${importSummary.doorCount} door${importSummary.doorCount !== 1 ? 's' : ''}`}
               {importSummary.floorCount > 0 && `, ${importSummary.floorAreaM2.toFixed(1)} m\u00B2 floor`}
+              {importSummary.roofsImported > 0 && `, ${importSummary.roofAreaM2.toFixed(1)} m\u00B2 roof`}
               {' '}imported
             </span>
           )}
@@ -181,7 +182,7 @@ export default function H1Form({ projectId, climateZone, initialData, onChange, 
         <div style={styles.section}>
           {input.constructions.wall.map((c, i) => (
             <div key={i} style={styles.constructionRow}>
-              <Field label="Area (m\u00B2)" value={c.area} onChange={v => setConstruction('wall', i, 'area', v)} />
+              <Field label="Net area (m\u00B2)" value={c.area} onChange={v => setConstruction('wall', i, 'area', v)} />
               <Field label="R-value" value={c.rValue} onChange={v => setConstruction('wall', i, 'rValue', v)} step="0.1" />
               {input.constructions.wall.length > 1 && (
                 <button style={styles.removeBtn} onClick={() => removeConstruction('wall', i)}>x</button>

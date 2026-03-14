@@ -23,6 +23,35 @@ export const MIN_FLOOR_PANEL_WIDTH = 498;          // mm (332mm EPS + 2×83mm re
 export const FLOOR_EPS_RECESS = 83;                // mm EPS inset from panel edge
 export const FLOOR_PENETRATION_CLEARANCE = 45;     // mm clearance from penetration edge to panel boundary
 
+// Roof panel system
+export const ROOF_EPS_DEPTH = 222;                 // mm (242 - 2×10mm magboard)
+export const ROOF_SPLINE_DEPTH = 220;              // mm
+export const ROOF_SPLINE_EPS_DEPTH = 200;          // mm
+export const ROOF_PANEL_SLABS_PER_BLOCK = 2;       // 222×2 = 444mm from 630
+export const ROOF_SPLINE_SLABS_PER_BLOCK = 2;      // 220×2 = 440mm from 630
+export const DEFAULT_EAVE_OVERHANG = 450;           // mm
+export const DEFAULT_GABLE_OVERHANG = 300;          // mm
+
+// Roof types
+export const ROOF_TYPES = {
+  GABLE: 'gable',
+  SKILLION: 'skillion',
+  FLAT: 'flat',
+};
+
+// Roof panel directions
+export const ROOF_PANEL_DIRECTIONS = {
+  ALONG_RIDGE: 'along_ridge',
+  EAVE_TO_RIDGE: 'eave_to_ridge',
+};
+
+// Roof thickness options (total thickness including magboard skins)
+export const ROOF_THICKNESS_OPTIONS = {
+  wall: { total: 162, eps: 142, label: 'Wall (162mm)' },
+  floor: { total: 192, eps: 172, label: 'Floor (192mm)' },
+  roof: { total: 242, eps: 222, label: 'Roof (242mm)' },
+};
+
 // Panel heights available (nominal heights for UI selection — 2440 is NOT stocked, see STOCK_SHEET_HEIGHTS)
 export const PANEL_HEIGHTS = [2440, 2745, 3050]; // mm
 

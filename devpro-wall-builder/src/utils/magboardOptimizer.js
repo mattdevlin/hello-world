@@ -12,6 +12,7 @@
 import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_WIDTH, SPLINE_WIDTH, HSPLINE_CLEARANCE, buildHSplineSegments } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
+import { calculateRoofLayout } from './roofCalculator.js';
 import { shelfPack } from './binPacking.js';
 
 export const MAGBOARD_SHEETS = {
@@ -355,5 +356,80 @@ export function computeProjectMagboardSheetsWithFloors(walls, floors) {
     totalSheets: wallResult.totalSheets + floorPanelSheetCount + packedFloorCut.length,
     perFloor,
     hasFloors: true,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Roof magboard piece extraction
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Extract magboard pieces from a single roof layout.
+ */
+export function extractRoofMagboardPieces(layout, roofName = '') {
+  const panelSheets = [];
+  const cutPieces = [];
+  const { panels, splines = [] } = layout;
+
+  // Panel sheets — 2 per panel (front + back), using 2745mm sheets
+  for (const panel of panels) {
+    const sheetH = 2745;
+    panelSheets.push({ sheetHeight: sheetH, label: `P${panel.globalIndex + 1}`, roofName });
+    panelSheets.push({ sheetHeight: sheetH, label: `P${panel.globalIndex + 1}`, roofName });
+  }
+
+  // Spline magboard (2 each)
+  for (const s of splines) {
+    for (let j = 0; j < 2; j++) {
+      cutPieces.push({
+        width: SPLINE_WIDTH,
+        height: Math.round(s.length),
+        type: 'spline',
+        label: 'Roof Spline',
+        roofName,
+      });
+    }
+  }
+
+  return { panelSheets, cutPieces };
+}
+
+/**
+ * Compute magboard sheets for walls + floors + roofs.
+ */
+export function computeProjectMagboardSheetsWithRoofs(walls, floors, roofs) {
+  const baseResult = (floors && floors.length > 0)
+    ? computeProjectMagboardSheetsWithFloors(walls, floors)
+    : computeProjectMagboardSheets(walls);
+
+  if (!roofs || roofs.length === 0) return baseResult;
+
+  let roofPanelSheetCount = 0;
+  const roofCutPieces = [];
+  const perRoof = [];
+
+  for (const roof of roofs) {
+    const layout = calculateRoofLayout(roof);
+    if (layout.error) continue;
+    const { panelSheets, cutPieces } = extractRoofMagboardPieces(layout, roof.name);
+    roofPanelSheetCount += panelSheets.length;
+    roofCutPieces.push(...cutPieces);
+    perRoof.push({
+      roofName: roof.name,
+      roofId: roof.id,
+      panelSheetCount: panelSheets.length,
+      splineCount: cutPieces.filter(p => p.type === 'spline').length,
+    });
+  }
+
+  const packedRoofCut = shelfPack(roofCutPieces, 1200, 2745);
+
+  return {
+    ...baseResult,
+    roofPanelSheetCount,
+    roofCutSheetCount: packedRoofCut.length,
+    totalSheets: baseResult.totalSheets + roofPanelSheetCount + packedRoofCut.length,
+    perRoof,
+    hasRoofs: true,
   };
 }

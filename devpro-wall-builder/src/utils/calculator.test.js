@@ -66,7 +66,7 @@ describe('calculateWallLayout — single course', () => {
     const layout = calculateWallLayout(wall);
 
     expect(layout.isMultiCourse).toBe(false);
-    expect(layout.totalPanels).toBe(layout.panels.length);
+    expect(layout.mainPanels).toBe(layout.panels.length);
     expect(layout.totalPanels).toBeGreaterThan(0);
     // All panels should have no course property or course === 0
     layout.panels.forEach(p => {
@@ -90,7 +90,7 @@ describe('calculateWallLayout — single course', () => {
     const layout = calculateWallLayout(wall);
     expect(layout.isMultiCourse).toBe(false);
     expect(layout.lcutPanels).toBeGreaterThan(0);
-    expect(layout.totalPanels).toBe(
+    expect(layout.mainPanels).toBe(
       layout.fullPanels + layout.lcutPanels + layout.endPanels
     );
   });
@@ -213,8 +213,8 @@ describe('calculateWallLayout — multi-course panel counts', () => {
     const wall = makeWall({ length_mm: 9740, height_mm: 4000 });
     const layout = calculateWallLayout(wall);
 
-    expect(layout.totalPanels).toBe(layout.panels.length);
-    expect(layout.totalPanels).toBe(
+    expect(layout.mainPanels).toBe(layout.panels.length);
+    expect(layout.mainPanels).toBe(
       layout.fullPanels + layout.lcutPanels + layout.endPanels
     );
   });

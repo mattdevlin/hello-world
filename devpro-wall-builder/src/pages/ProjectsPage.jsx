@@ -4,8 +4,10 @@ import { Search, Download, Edit2, Trash2, Plus } from 'lucide-react';
 import {
   getProjects, createProject, renameProject, deleteProject,
   exportProject, importProject, migrateLegacyWalls,
+  getProjectWalls, getProjectFloors, getProjectRoofs,
 } from '../utils/storage.js';
 import { FONT_STACK, BRAND, NEUTRAL, RADIUS, SHADOW } from '../utils/designTokens.js';
+import { calculateProjectPrice } from '../utils/priceCalculator.js';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { useToast } from '../hooks/useToast.js';
 
@@ -20,6 +22,7 @@ export default function ProjectsPage() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('date');
+  const [prices, setPrices] = useState({});
 
   const filteredProjects = useMemo(() => {
     let list = projects;
@@ -40,6 +43,30 @@ export default function ProjectsPage() {
     migrateLegacyWalls();
     setProjects(getProjects());
   }, []);
+
+  // Compute prices for all projects
+  useEffect(() => {
+    if (projects.length === 0) return;
+    let cancelled = false;
+    async function computePrices() {
+      const result = {};
+      for (const p of projects) {
+        const walls = getProjectWalls(p.id);
+        const floors = getProjectFloors(p.id);
+        const roofs = getProjectRoofs(p.id);
+        if (walls.length > 0 || floors.length > 0 || roofs.length > 0) {
+          try {
+            result[p.id] = await calculateProjectPrice(walls, floors, roofs);
+          } catch {
+            // skip
+          }
+        }
+      }
+      if (!cancelled) setPrices(result);
+    }
+    computePrices();
+    return () => { cancelled = true; };
+  }, [projects]);
 
   const refresh = () => setProjects(getProjects());
 
@@ -213,6 +240,12 @@ export default function ProjectsPage() {
                       <span style={styles.wallCount}>
                         {p.wallCount} wall{p.wallCount !== 1 ? 's' : ''}
                       </span>
+                      {prices[p.id] && prices[p.id].totalIncGst > 0 && (
+                        <span style={styles.cardPrice}>
+                          ${prices[p.id].totalIncGst.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <span style={styles.cardPriceGst}> incl GST</span>
+                        </span>
+                      )}
                       <span style={styles.cardDate}>
                         {new Date(p.updatedAt).toLocaleDateString()}
                       </span>
@@ -428,6 +461,15 @@ const styles = {
     fontSize: 12,
     color: BRAND.primary,
     fontWeight: 500,
+  },
+  cardPrice: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: BRAND.success,
+  },
+  cardPriceGst: {
+    fontWeight: 400,
+    color: NEUTRAL.textFaint,
   },
   cardDate: {
     fontSize: 12,

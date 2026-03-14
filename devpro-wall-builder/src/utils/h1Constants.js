@@ -148,11 +148,12 @@ export const DEFAULT_R_UNKNOWN_WINDOW = 0.15;
 
 export const REFERENCE_GLAZING_RATIO = 0.30;
 export const MAX_GLAZING_RATIO = 0.40;
-export const REFERENCE_TIMBER_FRACTION = 0.18; // NZS 3604 standard timber framing fraction for walls
+export const REFERENCE_TIMBER_FRACTION = 0.38; // NZS 3604 standard timber framing fraction for walls
 
 // ── DEVPRO Product R-values ──
 export const DEVPRO_WALL_R = 4.14;   // 142mm EPS wall panel (weighted with timber bridging)
 export const DEVPRO_FLOOR_R = 5.02;  // 172mm EPS suspended floor panel (R4.82 EPS + surface resistances)
+export const DEVPRO_ROOF_R = 6.37;   // 222mm EPS roof panel (R6.17 EPS + surface resistances)
 
 
 // ── Window R-value Lookup Table ──

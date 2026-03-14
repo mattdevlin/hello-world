@@ -18,6 +18,9 @@ import { buildFloorPlanDxf } from './floorPlanDxf.js';
 import { buildFloorFramingDxf } from './floorFramingDxf.js';
 import { buildFloorEpsPlanDxf } from './floorEpsPlanDxf.js';
 import { buildFloorPanelPlansDxf } from './floorPanelPlansDxf.js';
+import { calculateRoofLayout } from './roofCalculator.js';
+import { buildRoofPlanDxf } from './roofPlanDxf.js';
+import { buildRoofSlopeDxf } from './roofSlopeDxf.js';
 
 const DXF_TYPES = [
   { key: 'External Elevation', build: buildExternalElevationDxf },
@@ -49,10 +52,15 @@ function sanitize(name) {
  * @param {function} onProgress - Optional callback(current, total) for UI updates
  * @returns {Promise<void>}
  */
-export async function exportProjectZip(projectName, walls, onProgress, floors = []) {
+const ROOF_DXF_TYPES = [
+  { key: 'Roof Plan',  build: buildRoofPlanDxf },
+  { key: 'Roof Slope', build: buildRoofSlopeDxf },
+];
+
+export async function exportProjectZip(projectName, walls, onProgress, floors = [], roofs = []) {
   const zip = new JSZip();
   const safeProjName = sanitize(projectName);
-  const total = walls.length * DXF_TYPES.length + floors.length * FLOOR_DXF_TYPES.length;
+  const total = walls.length * DXF_TYPES.length + floors.length * FLOOR_DXF_TYPES.length + roofs.length * ROOF_DXF_TYPES.length;
   let current = 0;
 
   for (const wall of walls) {
@@ -82,6 +90,23 @@ export async function exportProjectZip(projectName, walls, onProgress, floors = 
       const dxfStr = toDxfString(drawing);
       const filename = `${safeProjName} ${safeFloorName} ${key}.dxf`;
       floorFolder.file(filename, dxfStr);
+
+      current++;
+      if (onProgress) onProgress(current, total);
+    }
+  }
+
+  for (const roof of roofs) {
+    const layout = calculateRoofLayout(roof);
+    if (layout.error) continue;
+    const safeRoofName = sanitize(roof.name);
+    const roofFolder = zip.folder(safeRoofName);
+
+    for (const { key, build } of ROOF_DXF_TYPES) {
+      const drawing = build(layout, roof.name);
+      const dxfStr = toDxfString(drawing);
+      const filename = `${safeProjName} ${safeRoofName} ${key}.dxf`;
+      roofFolder.file(filename, dxfStr);
 
       current++;
       if (onProgress) onProgress(current, total);

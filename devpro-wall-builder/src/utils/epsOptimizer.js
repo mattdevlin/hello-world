@@ -10,9 +10,13 @@
  */
 
 import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH,
-  FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK, SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP, MAGBOARD } from './constants.js';
+  FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK,
+  ROOF_EPS_DEPTH, ROOF_SPLINE_EPS_DEPTH,
+  ROOF_PANEL_SLABS_PER_BLOCK, ROOF_SPLINE_SLABS_PER_BLOCK,
+  SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP, MAGBOARD } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
+import { calculateRoofLayout } from './roofCalculator.js';
 import { shelfPack, getEpsSegments } from './binPacking.js';
 
 // ── Block dimensions ──
@@ -374,5 +378,122 @@ export function computeProjectEpsBlocksWithFloors(walls, floors) {
     totalVolumeM3: ((parseFloat(wallResult.totalVolumeM3) * 1e9 + floorPanelVolume + floorSplineVolume) / 1e9).toFixed(3),
     perFloor,
     hasFloors: true,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Roof EPS piece extraction
+// ─────────────────────────────────────────────────────────────
+
+const ROOF_MAGBOARD = 10;
+
+/**
+ * Extract EPS pieces from a single roof layout.
+ */
+export function extractRoofEpsPieces(layout, roofName = '') {
+  const pieces = [];
+  const { panels, splines = [], epsDepth } = layout;
+  const roofEpsDepth = epsDepth || ROOF_EPS_DEPTH;
+
+  // Panel EPS pieces
+  for (const panel of panels) {
+    if (panel.width > 0 && panel.length > 0) {
+      pieces.push({
+        width: Math.round(panel.width),
+        height: Math.round(panel.length),
+        depth: roofEpsDepth,
+        label: `P${panel.globalIndex + 1}`,
+        roofName,
+      });
+    }
+  }
+
+  // Spline EPS pieces
+  const splineEpsW = CONST_SPLINE_WIDTH - ROOF_MAGBOARD * 2;
+  for (const s of splines) {
+    if (s.length > 0) {
+      pieces.push({
+        width: splineEpsW,
+        height: Math.round(s.length),
+        depth: ROOF_SPLINE_EPS_DEPTH,
+        label: 'Spline',
+        roofName,
+      });
+    }
+  }
+
+  return pieces;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Combined project EPS with floors + roofs
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Compute EPS block requirements for walls + floors + roofs.
+ */
+export function computeProjectEpsBlocksWithRoofs(walls, floors, roofs) {
+  // Start with walls + floors
+  const baseResult = (floors && floors.length > 0)
+    ? computeProjectEpsBlocksWithFloors(walls, floors)
+    : computeProjectEpsBlocks(walls);
+
+  if (!roofs || roofs.length === 0) return baseResult;
+
+  const roofPanelPieces = [];
+  const roofSplinePieces = [];
+  const perRoof = [];
+
+  for (const roof of roofs) {
+    const layout = calculateRoofLayout(roof);
+    if (layout.error) continue;
+    const pieces = extractRoofEpsPieces(layout, roof.name);
+    const panelP = pieces.filter(p => p.depth !== ROOF_SPLINE_EPS_DEPTH);
+    const splineP = pieces.filter(p => p.depth === ROOF_SPLINE_EPS_DEPTH);
+    roofPanelPieces.push(...panelP);
+    roofSplinePieces.push(...splineP);
+    perRoof.push({
+      roofName: roof.name,
+      roofId: roof.id,
+      panelCount: panelP.length,
+      splineCount: splineP.length,
+      panelArea: panelP.reduce((s, p) => s + p.width * p.height, 0),
+      splineArea: splineP.reduce((s, p) => s + p.width * p.height, 0),
+    });
+  }
+
+  const slabW = EPS_BLOCK.length;
+  const slabH = EPS_BLOCK.width;
+
+  const roofPanelSlabs = shelfPack(roofPanelPieces, slabW, slabH);
+  const roofSplineSlabs = shelfPack(roofSplinePieces, slabW, slabH);
+
+  const roofPanelBlocks = Math.ceil(roofPanelSlabs.length / ROOF_PANEL_SLABS_PER_BLOCK);
+  const roofSplineBlocks = Math.ceil(roofSplineSlabs.length / ROOF_SPLINE_SLABS_PER_BLOCK);
+
+  const slabArea = slabW * slabH;
+  const rPanelUsedArea = roofPanelPieces.reduce((s, p) => s + p.width * p.height, 0);
+  const rSplineUsedArea = roofSplinePieces.reduce((s, p) => s + p.width * p.height, 0);
+  const rPanelTotalArea = roofPanelSlabs.length * slabArea;
+  const rSplineTotalArea = roofSplineSlabs.length * slabArea;
+
+  const roofPanelVolume = rPanelUsedArea * ROOF_EPS_DEPTH;
+  const roofSplineVolume = rSplineUsedArea * ROOF_SPLINE_EPS_DEPTH;
+
+  return {
+    ...baseResult,
+    roofPanelPieces,
+    roofSplinePieces,
+    roofPanelSlabCount: roofPanelSlabs.length,
+    roofSplineSlabCount: roofSplineSlabs.length,
+    roofPanelBlocks,
+    roofSplineBlocks,
+    roofPanelUtilization: rPanelTotalArea > 0 ? rPanelUsedArea / rPanelTotalArea : 0,
+    roofSplineUtilization: rSplineTotalArea > 0 ? rSplineUsedArea / rSplineTotalArea : 0,
+    totalBlocks: baseResult.totalBlocks + roofPanelBlocks + roofSplineBlocks,
+    totalPieces: baseResult.totalPieces + roofPanelPieces.length + roofSplinePieces.length,
+    totalVolumeM3: ((parseFloat(baseResult.totalVolumeM3) * 1e9 + roofPanelVolume + roofSplineVolume) / 1e9).toFixed(3),
+    perRoof,
+    hasRoofs: true,
   };
 }

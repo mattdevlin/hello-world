@@ -8,6 +8,7 @@ export const BRAND = {
   danger: '#e74c3c',
   floor: '#5D4037',
   h1: '#2E7D32',
+  roof: '#8D6E63',
 };
 
 export const NEUTRAL = {

@@ -666,10 +666,13 @@ export function calculateWallLayout(wall) {
     lintelPanels,
     courses,
     isMultiCourse,
-    totalPanels: allPanels.length,
+    totalPanels: allPanels.length + footerPanels.length + lintelPanels.length,
+    mainPanels: allPanels.length,
     fullPanels: allPanels.filter(p => p.type === 'full').length,
     lcutPanels: allPanels.filter(p => p.type === 'lcut').length,
     endPanels: allPanels.filter(p => p.type === 'end').length,
+    totalFooterPanels: footerPanels.length,
+    totalLintelPanels: lintelPanels.length,
   };
 }
 

@@ -15,19 +15,21 @@ import { useToast } from '../hooks/useToast.js';
 import { calculateWallLayout } from '../utils/calculator.js';
 import { computeWallTimberRatio } from '../utils/timberCalculator.js';
 import { calculateStickframeLayout } from '../utils/stickframeCalculator.js';
-import { REFERENCE_TIMBER_FRACTION } from '../utils/h1Constants.js';
+import { REFERENCE_TIMBER_FRACTION, DEVPRO_WALL_R, REFERENCE_R_VALUES, getClimateZone } from '../utils/h1Constants.js';
 import { getProjects, getProjectWalls, saveWall, getProjectH1 } from '../utils/storage.js';
 import { checkH1Compliance } from '../utils/h1Calculator.js';
 import { FONT_STACK, BRAND, NEUTRAL, RADIUS } from '../utils/designTokens.js';
 
-function computeWallHeatLoss(projectId, tr) {
+function computeWallHeatLoss(projectId) {
   try {
     const h1Input = getProjectH1(projectId);
     if (!h1Input) return null;
     const result = checkH1Compliance(h1Input);
-    if (result.error || !result.breakdown?.wall?.weightedR) return null;
-    const wallAreaM2 = tr.effectiveWallArea / 1e6;
-    return wallAreaM2 / result.breakdown.wall.weightedR;
+    if (result.error || !result.breakdown?.wall) return null;
+    const devproHL = result.breakdown.wall.heatLoss;
+    const refHL = result.referenceBreakdown?.wall?.heatLoss;
+    if (devproHL == null) return null;
+    return { devpro: devproHL, reference: refHL ?? null };
   } catch { return null; }
 }
 
@@ -72,7 +74,7 @@ export default function WallBuilderPage() {
         try {
           const tr = computeWallTimberRatio(wall);
           setTimberRatio(tr);
-          setWallHeatLoss(computeWallHeatLoss(projectId, tr));
+          setWallHeatLoss(computeWallHeatLoss(projectId));
         } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); setWallHeatLoss(null); }
         try { setStickframeLayout(calculateStickframeLayout(wall)); } catch (err) { console.warn('Failed to compute stickframe layout:', err); setStickframeLayout(null); }
       }
@@ -141,7 +143,7 @@ export default function WallBuilderPage() {
     try {
       const tr = computeWallTimberRatio(wall);
       setTimberRatio(tr);
-      setWallHeatLoss(computeWallHeatLoss(projectId, tr));
+      setWallHeatLoss(computeWallHeatLoss(projectId));
     } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); setWallHeatLoss(null); }
     try { setStickframeLayout(calculateStickframeLayout(wall)); } catch (err) { console.warn('Failed to compute stickframe layout:', err); setStickframeLayout(null); }
   };
@@ -232,11 +234,22 @@ export default function WallBuilderPage() {
         {layout && (
           <>
             <CollapsibleSection sectionKey="wallDrawing" title="External Elevation" forceOpen={generateKey}
-              headerRight={wallHeatLoss != null && (
-                <span style={{ fontSize: 12, fontWeight: 500, color: '#555' }}>
-                  {wallHeatLoss.toFixed(1)} W/K
-                </span>
-              )}>
+              headerRight={timberRatio && (() => {
+                const zone = getClimateZone(project.territorialAuthority);
+                const ref = REFERENCE_R_VALUES[zone] || REFERENCE_R_VALUES[1];
+                const areaM2 = timberRatio.effectiveWallArea / 1e6;
+                const devHL = areaM2 / DEVPRO_WALL_R;
+                const refHL = areaM2 / ref.wall;
+                const devBetter = devHL < refHL;
+                const pctMore = devHL > 0 ? Math.round((refHL / devHL) * 100) : 0;
+                return (
+                  <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500, alignItems: 'baseline' }}>
+                    <span style={{ color: devBetter ? '#2E7D32' : '#E65100' }}>DEVPRO: {devHL.toFixed(2)} W/K</span>
+                    <span style={{ color: devBetter ? '#E65100' : '#2E7D32' }}>NZBC: {refHL.toFixed(2)} W/K</span>
+                    {devBetter && <span style={{ fontSize: 11, color: '#E65100', fontStyle: 'italic' }}>NZBC loses {pctMore}% more heat</span>}
+                  </span>
+                );
+              })()}>
               <WallDrawing layout={layout} wallName={wallName} projectName={project.name} />
             </CollapsibleSection>
             <CollapsibleSection sectionKey="framing" title="Framing Elevation" forceOpen={generateKey} headerRight={timberRatio && (
