@@ -4,6 +4,7 @@ import {
   GLAZING_TYPES, FRAME_TYPES, lookupWindowR,
   SLAB_FLOOR_TYPES, SLAB_INSULATION_POSITIONS, lookupSlabR,
 } from '../utils/h1Constants.js';
+import { buildH1FromDesign } from '../utils/h1DesignImport.js';
 
 const defaultConstruction = { area: 0, rValue: 0 };
 
@@ -30,8 +31,9 @@ const defaultH1Input = {
   heatedElements: { ceiling: false, wall: false, floor: false, bathroomOnly: false },
 };
 
-export default function H1Form({ climateZone, initialData, onChange, onCalculate }) {
+export default function H1Form({ projectId, climateZone, initialData, onChange, onCalculate }) {
   const [input, setInput] = useState(initialData || defaultH1Input);
+  const [importSummary, setImportSummary] = useState(null);
   const onChangeRef = useRef(onChange);
 
   useEffect(() => {
@@ -112,12 +114,37 @@ export default function H1Form({ climateZone, initialData, onChange, onCalculate
   const glazingRatio = input.grossWallArea > 0 ? ((glazingArea / input.grossWallArea) * 100).toFixed(1) : '0.0';
   const glazingOk = parseFloat(glazingRatio) <= 40;
 
+  const handleImportDesign = () => {
+    if (!projectId) return;
+    const { input: imported, summary } = buildH1FromDesign(projectId, input);
+    setInput(imported);
+    setImportSummary(summary);
+  };
+
   const handleCalculate = () => {
     if (onCalculate) onCalculate(input);
   };
 
   return (
     <div>
+      {/* Import from Design */}
+      {projectId && (
+        <div style={styles.importRow}>
+          <button style={styles.importBtn} onClick={handleImportDesign}>
+            Import from Design
+          </button>
+          {importSummary && (
+            <span style={styles.importSummary}>
+              {importSummary.wallsImported} wall{importSummary.wallsImported !== 1 ? 's' : ''}
+              {importSummary.glazingCount > 0 && `, ${importSummary.glazingCount} window${importSummary.glazingCount !== 1 ? 's' : ''}`}
+              {importSummary.doorCount > 0 && `, ${importSummary.doorCount} door${importSummary.doorCount !== 1 ? 's' : ''}`}
+              {importSummary.floorCount > 0 && `, ${importSummary.floorAreaM2.toFixed(1)} m\u00B2 floor`}
+              {' '}imported
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Building Envelope Areas */}
       <CollapsibleSection sectionKey="h1-areas" title="Building Envelope Areas">
         <div style={styles.section}>
@@ -420,6 +447,27 @@ const styles = {
   zoneNote: {
     fontSize: 13,
     color: '#888',
+    fontWeight: 500,
+  },
+  importRow: {
+    display: 'flex',
+    gap: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  importBtn: {
+    padding: '10px 20px',
+    background: '#E8F5E9',
+    color: '#2E7D32',
+    border: '1px solid #A5D6A7',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 600,
+  },
+  importSummary: {
+    fontSize: 13,
+    color: '#555',
     fontWeight: 500,
   },
 };

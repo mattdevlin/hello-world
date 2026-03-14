@@ -86,6 +86,7 @@ export default function H1Page() {
         ) : (
           <>
             <H1Form
+              projectId={projectId}
               climateZone={climateZone}
               initialData={h1Input}
               onChange={handleChange}
