@@ -379,12 +379,12 @@ export default function AdminPage() {
     <div style={pageStyles.page}>
       <div style={pageStyles.container}>
         {/* Header */}
-        <div style={pageStyles.header}>
+        <nav style={pageStyles.header} aria-label="Breadcrumb">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={() => navigate('/')} style={pageStyles.backBtn}>&larr; Projects</button>
+            <button onClick={() => navigate('/')} style={pageStyles.backBtn} aria-label="Back to projects">&larr; Projects</button>
             <h1 style={pageStyles.title}>Admin</h1>
           </div>
-        </div>
+        </nav>
 
         {/* Error banner */}
         {loadError && (
@@ -401,12 +401,12 @@ export default function AdminPage() {
 
         {/* Sections */}
         {!loading && !loadError && (
-          <>
+          <main id="main-content" tabIndex={-1} style={{ outline: 'none' }}>
             <PricingSection data={pricing} onDataChange={loadData} />
             <MarginsSection data={margins} onDataChange={loadData} />
             <CompanySection data={settings} onDataChange={loadData} />
             <TermsSection data={settings} onDataChange={loadData} />
-          </>
+          </main>
         )}
       </div>
     </div>

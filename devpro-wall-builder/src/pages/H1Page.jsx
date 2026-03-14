@@ -57,13 +57,13 @@ export default function H1Page() {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <div style={styles.topBar}>
-          <button onClick={() => navigate(`/project/${projectId}`)} style={styles.backBtn}>
+        <nav style={styles.topBar} aria-label="Breadcrumb">
+          <button onClick={() => navigate(`/project/${projectId}`)} style={styles.backBtn} aria-label={`Back to ${project.name}`}>
             &larr; {project.name}
           </button>
-        </div>
+        </nav>
 
-        <div style={styles.header}>
+        <header style={styles.header}>
           <div>
             <h1 style={styles.title}>H1/AS1 Compliance Check</h1>
             <p style={styles.subtitle}>
@@ -74,7 +74,7 @@ export default function H1Page() {
           <button style={styles.saveBtn} onClick={handleSave}>
             {saved ? 'Saved' : 'Save'}
           </button>
-        </div>
+        </header>
 
         {!climateZone ? (
           <div style={styles.noZone}>
@@ -84,7 +84,7 @@ export default function H1Page() {
             </button>
           </div>
         ) : (
-          <>
+          <main id="main-content" tabIndex={-1} style={{ outline: 'none' }}>
             <H1Form
               projectId={projectId}
               climateZone={climateZone}
@@ -93,7 +93,7 @@ export default function H1Page() {
               onCalculate={handleCalculate}
             />
             <H1Results results={results} />
-          </>
+          </main>
         )}
       </div>
     </div>
@@ -138,7 +138,7 @@ const styles = {
   subtitle: {
     margin: '4px 0 0',
     fontSize: 14,
-    color: '#888',
+    color: '#636363',
     display: 'flex',
     alignItems: 'center',
     gap: 8,

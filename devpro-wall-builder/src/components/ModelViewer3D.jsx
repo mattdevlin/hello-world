@@ -185,7 +185,7 @@ function WallMesh({ entry, layout, isSelected, onSelect, showWireframe }) {
         </Text>
         <Text
           fontSize={0.09}
-          color="#888"
+          color="#636363"
           anchorX="center"
           anchorY="top"
           position={[0, -0.02, 0]}
@@ -1164,12 +1164,12 @@ const styles = {
   },
   legendHint: {
     fontSize: 12,
-    color: '#888',
+    color: '#636363',
   },
   empty: {
     padding: '40px 20px',
     textAlign: 'center',
-    color: '#999',
+    color: '#737373',
     fontSize: 14,
   },
   cameraToolbar: {
@@ -1304,7 +1304,7 @@ const styles = {
     border: 'none',
     cursor: 'pointer',
     fontSize: 14,
-    color: '#999',
+    color: '#737373',
     padding: '2px 6px',
   },
   snapBody: {
@@ -1396,7 +1396,7 @@ const styles = {
   },
   sidebarCount: {
     fontSize: 11,
-    color: '#888',
+    color: '#636363',
   },
   sidebarList: {
     flex: 1,
@@ -1443,12 +1443,12 @@ const styles = {
   },
   catalogDims: {
     fontSize: 11,
-    color: '#888',
+    color: '#636363',
     marginTop: 3,
   },
   catalogOpenings: {
     marginLeft: 6,
-    color: '#999',
+    color: '#737373',
   },
   catalogActions: {
     marginTop: 5,
@@ -1466,7 +1466,7 @@ const styles = {
   catalogRemoveBtn: {
     padding: '3px 10px',
     background: '#fff',
-    color: '#999',
+    color: '#737373',
     border: '1px solid #ddd',
     borderRadius: 3,
     cursor: 'pointer',

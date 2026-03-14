@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react';
 import { exportProjectZip } from '../utils/projectExporter.js';
+import { useToast } from '../hooks/useToast.js';
 
 export default function ExportProjectButton({ projectName, walls, floors }) {
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const showToast = useToast();
 
   const handleExport = useCallback(async () => {
     if (exporting || (!walls?.length && !floors?.length)) return;
@@ -16,13 +18,14 @@ export default function ExportProjectButton({ projectName, walls, floors }) {
       await exportProjectZip(projectName, walls || [], (current, total) => {
         setProgress({ current, total });
       }, floors || []);
+      showToast({ type: 'success', message: 'DXF export completed.' });
     } catch (err) {
       console.error('Project export failed:', err);
-      alert('Export failed. See console for details.');
+      showToast({ type: 'error', message: 'Export failed: ' + (err.message || 'Unknown error') });
     } finally {
       setExporting(false);
     }
-  }, [exporting, projectName, walls, floors]);
+  }, [exporting, projectName, walls, floors, showToast]);
 
   if (!walls?.length && !floors?.length) return null;
 

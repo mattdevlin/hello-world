@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 
 const STORAGE_KEY = 'devpro-collapsed-sections';
 
@@ -40,7 +41,7 @@ export default function CollapsibleSection({ sectionKey, title, defaultCollapsed
   return (
     <div style={{ marginTop: 16 }}>
       <button onClick={toggle} style={styles.header} aria-expanded={!collapsed}>
-        <span style={styles.chevron} aria-hidden="true">{collapsed ? '▶' : '▼'}</span>
+        <span style={styles.chevron} aria-hidden="true">{collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</span>
         <span style={styles.title}>{title}</span>
         {headerRight && <span style={styles.headerRight}>{headerRight}</span>}
       </button>

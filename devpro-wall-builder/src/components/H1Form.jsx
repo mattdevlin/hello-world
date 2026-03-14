@@ -155,7 +155,7 @@ export default function H1Form({ projectId, climateZone, initialData, onChange, 
           <div style={styles.ratioRow}>
             <span>Glazing ratio: <strong style={{ color: glazingOk ? '#2E7D32' : '#c62828' }}>
               {glazingRatio}%</strong></span>
-            <span style={{ fontSize: 11, color: '#888' }}>(max 40%)</span>
+            <span style={{ fontSize: 11, color: '#636363' }}>(max 40%)</span>
           </div>
         </div>
       </CollapsibleSection>
@@ -364,7 +364,7 @@ const styles = {
   fieldLabelText: {
     fontSize: 11,
     fontWeight: 600,
-    color: '#888',
+    color: '#636363',
   },
   fieldInput: {
     padding: '6px 10px',
@@ -446,7 +446,7 @@ const styles = {
   },
   zoneNote: {
     fontSize: 13,
-    color: '#888',
+    color: '#636363',
     fontWeight: 500,
   },
   importRow: {

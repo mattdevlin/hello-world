@@ -250,7 +250,7 @@ export default function WallSummary({ layout, wallName, projectName }) {
                         <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.x}</td>
                         <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.heightLeft}</td>
                         <td style={{ ...styles.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.heightRight}</td>
-                        <td style={{ ...styles.td, color: '#888' }}>{p.openingRefs ? `Opens: ${p.openingRefs.join(', ')}` : '—'}</td>
+                        <td style={{ ...styles.td, color: '#636363' }}>{p.openingRefs ? `Opens: ${p.openingRefs.join(', ')}` : '—'}</td>
                       </tr>
                     );
                   })}
@@ -315,7 +315,7 @@ const styles = {
   },
   statUnit: {
     fontSize: 11,
-    color: '#999',
+    color: '#737373',
     marginTop: 2,
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
@@ -341,7 +341,7 @@ const styles = {
     fontWeight: 600,
     textTransform: 'uppercase',
     letterSpacing: '0.8px',
-    color: '#999',
+    color: '#737373',
     marginBottom: 8,
     paddingBottom: 6,
     borderBottom: '1px solid #eee',

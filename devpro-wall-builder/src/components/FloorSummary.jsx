@@ -114,7 +114,7 @@ export default function FloorSummary({ layout, floorName, projectName }) {
                     <td style={{ ...styles.td, textAlign: 'right' }}>{Math.round(p.width)}</td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>{Math.round(p.length)}</td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>{p.area.toLocaleString()}</td>
-                    <td style={{ ...styles.td, color: '#888' }}>
+                    <td style={{ ...styles.td, color: '#636363' }}>
                       {[...p.openingCuts, ...p.recessCuts].join(', ') || '—'}
                     </td>
                   </tr>
@@ -168,7 +168,7 @@ const styles = {
   },
   statUnit: {
     fontSize: 11,
-    color: '#999',
+    color: '#737373',
     marginTop: 2,
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
@@ -191,7 +191,7 @@ const styles = {
     fontWeight: 600,
     textTransform: 'uppercase',
     letterSpacing: '0.8px',
-    color: '#999',
+    color: '#737373',
     marginBottom: 8,
     paddingBottom: 6,
     borderBottom: '1px solid #eee',

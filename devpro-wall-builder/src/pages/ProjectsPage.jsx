@@ -1,18 +1,40 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Search, Download, Edit2, Trash2, Plus } from 'lucide-react';
 import {
   getProjects, createProject, renameProject, deleteProject,
   exportProject, importProject, migrateLegacyWalls,
 } from '../utils/storage.js';
-import { FONT_STACK, BRAND, NEUTRAL, RADIUS } from '../utils/designTokens.js';
+import { FONT_STACK, BRAND, NEUTRAL, RADIUS, SHADOW } from '../utils/designTokens.js';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import { useToast } from '../hooks/useToast.js';
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
+  const showToast = useToast();
   const [projects, setProjects] = useState([]);
   const [newName, setNewName] = useState('');
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
   const fileRef = useRef(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('date');
+
+  const filteredProjects = useMemo(() => {
+    let list = projects;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(p => p.name.toLowerCase().includes(q));
+    }
+    if (sortBy === 'name') {
+      list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'walls') {
+      list = [...list].sort((a, b) => (b.wallCount || 0) - (a.wallCount || 0));
+    }
+    // default 'date' — already sorted by updatedAt from storage
+    return list;
+  }, [projects, searchQuery, sortBy]);
 
   useEffect(() => {
     migrateLegacyWalls();
@@ -32,14 +54,26 @@ export default function ProjectsPage() {
 
   const handleDelete = (id, name, e) => {
     e.stopPropagation();
-    if (!window.confirm(`Delete project "${name}" and all its walls/floors? This cannot be undone.`)) return;
-    deleteProject(id);
-    refresh();
+    setConfirmDelete({ id, name });
+  };
+
+  const confirmDeleteProject = () => {
+    if (confirmDelete) {
+      deleteProject(confirmDelete.id);
+      refresh();
+      setConfirmDelete(null);
+    }
   };
 
   const handleExport = async (id, e) => {
     e.stopPropagation();
-    try { await exportProject(id); } catch (err) { console.error('Export failed:', err); }
+    try {
+      await exportProject(id);
+      showToast({ type: 'success', message: 'Project exported successfully.' });
+    } catch (err) {
+      console.error('Export failed:', err);
+      showToast({ type: 'error', message: 'Export failed: ' + (err.message || 'Unknown error') });
+    }
   };
 
   const handleImport = async (e) => {
@@ -48,7 +82,11 @@ export default function ProjectsPage() {
     try {
       await importProject(file);
       refresh();
-    } catch (err) { console.error('Import failed:', err); }
+      showToast({ type: 'success', message: 'Project imported successfully.' });
+    } catch (err) {
+      console.error('Import failed:', err);
+      showToast({ type: 'error', message: 'Import failed: ' + (err.message || 'Invalid file format') });
+    }
     e.target.value = '';
   };
 
@@ -67,77 +105,145 @@ export default function ProjectsPage() {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <div style={styles.header}>
+        <header style={styles.header}>
           <div>
             <h1 style={styles.title}>DEVPRO Wall Builder</h1>
             <p style={styles.subtitle}>SIP panel layout tool</p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <nav style={{ display: 'flex', gap: 8 }} aria-label="Page actions">
             <button onClick={() => navigate('/admin')} style={styles.importBtn}>Admin</button>
             <button onClick={() => fileRef.current?.click()} style={styles.importBtn}>
               Import .devpro
             </button>
-          </div>
-          <input ref={fileRef} type="file" accept=".devpro" onChange={handleImport} style={{ display: 'none' }} />
-        </div>
-
-        <form onSubmit={handleCreate} style={styles.createRow}>
+          </nav>
           <input
-            type="text"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            placeholder="New project name..."
-            style={styles.createInput}
+            ref={fileRef}
+            type="file"
+            accept=".devpro"
+            onChange={handleImport}
+            style={{ display: 'none' }}
+            aria-label="Import project file"
           />
-          <button type="submit" style={styles.createBtn}>+ New Project</button>
-        </form>
+        </header>
 
-        {projects.length === 0 ? (
-          <div style={styles.empty}>
-            <p style={styles.emptyText}>No projects yet</p>
-            <p style={styles.emptyHint}>Create a project above to get started.</p>
-          </div>
-        ) : (
-          <div style={styles.grid}>
-            {projects.map(p => (
-              <div
-                key={p.id}
-                style={styles.card}
-                onClick={() => navigate(`/project/${p.id}`)}
+        <main id="main-content" tabIndex={-1} style={{ outline: 'none' }}>
+          <form onSubmit={handleCreate} style={styles.createRow}>
+            <input
+              type="text"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder="New project name..."
+              style={styles.createInput}
+              aria-label="New project name"
+            />
+            <button type="submit" style={styles.createBtn}>
+              <Plus size={14} style={{ marginRight: 4, verticalAlign: -2 }} />New Project
+            </button>
+          </form>
+
+          {projects.length > 0 && (
+            <div style={styles.searchRow}>
+              <div style={styles.searchWrap}>
+                <Search size={14} style={styles.searchIcon} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search projects..."
+                  style={styles.searchInput}
+                  aria-label="Search projects"
+                />
+              </div>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                style={styles.sortSelect}
+                aria-label="Sort projects"
               >
-                <div style={styles.cardBody}>
-                  {renamingId === p.id ? (
-                    <input
-                      value={renameValue}
-                      onChange={e => setRenameValue(e.target.value)}
-                      onBlur={() => finishRename(p.id)}
-                      onKeyDown={e => e.key === 'Enter' && finishRename(p.id)}
-                      onClick={e => e.stopPropagation()}
-                      style={styles.renameInput}
-                      autoFocus
-                    />
-                  ) : (
-                    <h3 style={styles.cardTitle}>{p.name}</h3>
-                  )}
-                  <div style={styles.cardMeta}>
-                    <span style={styles.wallCount}>
-                      {p.wallCount} wall{p.wallCount !== 1 ? 's' : ''}
-                    </span>
-                    <span style={styles.cardDate}>
-                      {new Date(p.updatedAt).toLocaleDateString()}
-                    </span>
+                <option value="date">Sort by date</option>
+                <option value="name">Sort by name</option>
+                <option value="walls">Sort by walls</option>
+              </select>
+            </div>
+          )}
+
+          {projects.length === 0 ? (
+            <div style={styles.empty}>
+              <p style={styles.emptyText}>No projects yet</p>
+              <p style={styles.emptyHint}>Create your first project to start designing wall panels.</p>
+              <button
+                onClick={() => {
+                  const input = document.querySelector('[aria-label="New project name"]');
+                  if (input) input.focus();
+                }}
+                style={styles.emptyCta}
+              >
+                <Plus size={14} style={{ marginRight: 4, verticalAlign: -2 }} />Create Project
+              </button>
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <div style={styles.empty}>
+              <p style={styles.emptyText}>No matching projects</p>
+              <p style={styles.emptyHint}>Try a different search term.</p>
+            </div>
+          ) : (
+            <div style={styles.grid}>
+              {filteredProjects.map(p => (
+                <div
+                  key={p.id}
+                  style={styles.card}
+                  onClick={() => navigate(`/project/${p.id}`)}
+                >
+                  <div style={styles.cardBody}>
+                    {renamingId === p.id ? (
+                      <input
+                        value={renameValue}
+                        onChange={e => setRenameValue(e.target.value)}
+                        onBlur={() => finishRename(p.id)}
+                        onKeyDown={e => e.key === 'Enter' && finishRename(p.id)}
+                        onClick={e => e.stopPropagation()}
+                        style={styles.renameInput}
+                        aria-label={`Rename project ${p.name}`}
+                        autoFocus
+                      />
+                    ) : (
+                      <h3 style={styles.cardTitle}>{p.name}</h3>
+                    )}
+                    <div style={styles.cardMeta}>
+                      <span style={styles.wallCount}>
+                        {p.wallCount} wall{p.wallCount !== 1 ? 's' : ''}
+                      </span>
+                      <span style={styles.cardDate}>
+                        {new Date(p.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={styles.cardActions}>
+                    <button onClick={(e) => handleExport(p.id, e)} style={styles.actionBtn} aria-label={`Export project ${p.name}`}>
+                      <Download size={12} style={{ marginRight: 3, verticalAlign: -1 }} />Export
+                    </button>
+                    <button onClick={(e) => startRename(p, e)} style={styles.actionBtn} aria-label={`Rename project ${p.name}`}>
+                      <Edit2 size={12} style={{ marginRight: 3, verticalAlign: -1 }} />Rename
+                    </button>
+                    <button onClick={(e) => handleDelete(p.id, p.name, e)} style={styles.deleteBtn} aria-label={`Delete project ${p.name}`}>
+                      <Trash2 size={12} style={{ marginRight: 3, verticalAlign: -1 }} />Delete
+                    </button>
                   </div>
                 </div>
-                <div style={styles.cardActions}>
-                  <button onClick={(e) => handleExport(p.id, e)} style={styles.actionBtn} title="Export">Export</button>
-                  <button onClick={(e) => startRename(p, e)} style={styles.actionBtn} title="Rename">Rename</button>
-                  <button onClick={(e) => handleDelete(p.id, p.name, e)} style={styles.deleteBtn} title="Delete">Delete</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </main>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete Project"
+        message={confirmDelete ? `Delete project "${confirmDelete.name}" and all its walls/floors? This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        onConfirm={confirmDeleteProject}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }
@@ -208,6 +314,43 @@ const styles = {
     whiteSpace: 'nowrap',
   },
 
+  // Search & sort
+  searchRow: {
+    display: 'flex',
+    gap: 8,
+    marginBottom: 16,
+  },
+  searchWrap: {
+    flex: 1,
+    position: 'relative',
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: 12,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: NEUTRAL.textFaint,
+    pointerEvents: 'none',
+  },
+  searchInput: {
+    width: '100%',
+    padding: '8px 12px 8px 32px',
+    fontSize: 13,
+    border: `1px solid ${NEUTRAL.borderLight}`,
+    borderRadius: RADIUS.md,
+    outline: 'none',
+    background: NEUTRAL.surface,
+  },
+  sortSelect: {
+    padding: '8px 12px',
+    fontSize: 13,
+    border: `1px solid ${NEUTRAL.borderLight}`,
+    borderRadius: RADIUS.md,
+    background: NEUTRAL.surface,
+    color: NEUTRAL.textSecondary,
+    cursor: 'pointer',
+  },
+
   // Empty state
   empty: {
     textAlign: 'center',
@@ -225,7 +368,17 @@ const styles = {
   emptyHint: {
     fontSize: 13,
     color: NEUTRAL.textFaint,
-    margin: 0,
+    margin: '0 0 16px',
+  },
+  emptyCta: {
+    padding: '10px 20px',
+    background: BRAND.primary,
+    color: '#fff',
+    border: 'none',
+    borderRadius: RADIUS.md,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 600,
   },
 
   // Project cards
@@ -243,6 +396,7 @@ const styles = {
     border: `1px solid ${NEUTRAL.border}`,
     padding: '16px 20px',
     cursor: 'pointer',
+    boxShadow: SHADOW.sm,
     transition: 'box-shadow 0.15s, border-color 0.15s',
   },
   cardBody: {

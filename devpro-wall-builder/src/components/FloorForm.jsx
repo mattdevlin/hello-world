@@ -310,7 +310,7 @@ export default function FloorForm({ onCalculate, onChange, initialFloor }) {
           <input type="text" value="170 mm" disabled style={{ ...styles.input, background: '#f0f0f0', color: '#666' }} />
         </div>
       </div>
-      <p style={{ fontSize: 12, color: '#888', margin: '0 0 4px', fontStyle: 'italic' }}>
+      <p style={{ fontSize: 12, color: '#636363', margin: '0 0 4px', fontStyle: 'italic' }}>
         Outer joist aligns with panel edge. EPS recessed to fit.
         {(floor.boundaryJoistCount || 1) === 2 && ' Inner joist offset with standard gap to EPS.'}
       </p>
@@ -572,7 +572,7 @@ const styles = {
     lineHeight: 1,
   },
   emptyText: {
-    color: '#999',
+    color: '#737373',
     fontStyle: 'italic',
     fontSize: 14,
   },

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import WallForm from '../components/WallForm.jsx';
 import WallDrawing from '../components/WallDrawing.jsx';
 import WallSummary from '../components/WallSummary.jsx';
@@ -10,6 +10,8 @@ import EpsCutPlans from '../components/EpsCutPlans.jsx';
 import Offcuts from '../components/Offcuts.jsx';
 import StickframeElevation from '../components/StickframeElevation.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import { useToast } from '../hooks/useToast.js';
 import { calculateWallLayout } from '../utils/calculator.js';
 import { computeWallTimberRatio } from '../utils/timberCalculator.js';
 import { calculateStickframeLayout } from '../utils/stickframeCalculator.js';
@@ -32,6 +34,7 @@ function computeWallHeatLoss(projectId, tr) {
 export default function WallBuilderPage() {
   const { projectId, wallId } = useParams();
   const navigate = useNavigate();
+  const showToast = useToast();
 
   const [project, setProject] = useState(null);
   const [layout, setLayout] = useState(null);
@@ -43,6 +46,12 @@ export default function WallBuilderPage() {
   const [stickframeLayout, setStickframeLayout] = useState(null);
   const [saveKey, setSaveKey] = useState(0);
   const [wallHeatLoss, setWallHeatLoss] = useState(null);
+  const [dirty, setDirty] = useState(false);
+  const [savedSnap, setSavedSnap] = useState(null);
+  const [showNavWarning, setShowNavWarning] = useState(false);
+  const [saveIndicator, setSaveIndicator] = useState(null);
+  const autoSaveTimer = useRef(null);
+  const blockerRef = useRef(null);
 
   useEffect(() => {
     const p = getProjects().find(p => p.id === projectId);
@@ -54,6 +63,8 @@ export default function WallBuilderPage() {
       const wall = walls.find(w => w.id === wallId);
       if (wall) {
         setWallInput(wall);
+        setSavedSnap(JSON.stringify(wall));
+        setDirty(false);
         setLoadKey(k => k + 1);
         const result = calculateWallLayout(wall);
         setLayout(result);
@@ -67,6 +78,8 @@ export default function WallBuilderPage() {
       }
     } else {
       setWallInput(null);
+      setSavedSnap(null);
+      setDirty(false);
       setLayout(null);
       setWallName('');
       setTimberRatio(null);
@@ -75,6 +88,49 @@ export default function WallBuilderPage() {
       setLoadKey(k => k + 1);
     }
   }, [projectId, wallId, navigate]);
+
+  // Track dirty state
+  const handleWallChange = useCallback((wall) => {
+    setWallInput(wall);
+    if (savedSnap && JSON.stringify(wall) !== savedSnap) {
+      setDirty(true);
+    }
+  }, [savedSnap]);
+
+  // Auto-save (2s debounce)
+  useEffect(() => {
+    if (!dirty || !wallInput || !projectId) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      const saved = saveWall(projectId, wallInput);
+      setWallInput(saved);
+      setSavedSnap(JSON.stringify(saved));
+      setDirty(false);
+      setSaveIndicator('Saved');
+      setTimeout(() => setSaveIndicator(null), 2000);
+      if (!wallId || wallId === 'new') {
+        navigate(`/project/${projectId}/wall/${saved.id}`, { replace: true });
+      }
+    }, 2000);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [dirty, wallInput, projectId, wallId, navigate]);
+
+  // Unsaved changes: block navigation
+  const blocker = useBlocker(dirty);
+  useEffect(() => {
+    blockerRef.current = blocker;
+    if (blocker.state === 'blocked') {
+      setShowNavWarning(true);
+    }
+  }, [blocker]);
+
+  // Unsaved changes: beforeunload
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
 
   const handleCalculate = (wall) => {
     const result = calculateWallLayout(wall);
@@ -92,12 +148,44 @@ export default function WallBuilderPage() {
 
   const handleSave = () => {
     if (!wallInput || !projectId) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     const saved = saveWall(projectId, wallInput);
     setWallInput(saved);
+    setSavedSnap(JSON.stringify(saved));
+    setDirty(false);
     setSaveKey(k => k + 1);
-    // If this was a new wall, update the URL to reflect the saved ID
+    setSaveIndicator('Saved');
+    setTimeout(() => setSaveIndicator(null), 2000);
+    showToast({ type: 'success', message: 'Wall saved.' });
     if (!wallId || wallId === 'new') {
       navigate(`/project/${projectId}/wall/${saved.id}`, { replace: true });
+    }
+  };
+
+  // Keyboard shortcuts
+  const handleSaveRef = useRef(handleSave);
+  useEffect(() => { handleSaveRef.current = handleSave; });
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSaveRef.current();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  const handleNavConfirm = (action) => {
+    setShowNavWarning(false);
+    if (action === 'save') {
+      handleSave();
+      blockerRef.current?.proceed?.();
+    } else if (action === 'discard') {
+      setDirty(false);
+      blockerRef.current?.proceed?.();
+    } else {
+      blockerRef.current?.reset?.();
     }
   };
 
@@ -108,10 +196,12 @@ export default function WallBuilderPage() {
       <header style={styles.header}>
         <div style={styles.headerRow}>
           <div style={styles.headerLeft}>
-            <button onClick={() => navigate(`/project/${projectId}`)} style={styles.backBtn}>
+            <button onClick={() => navigate(`/project/${projectId}`)} style={styles.backBtn} aria-label={`Back to ${project.name}`}>
               &larr; {project.name}
             </button>
             {wallName && <span style={styles.wallLabel}>{wallName}</span>}
+            {saveIndicator && <span style={styles.saveIndicator}>{saveIndicator}</span>}
+            {dirty && !saveIndicator && <span style={styles.dirtyIndicator}>Unsaved</span>}
           </div>
           <div style={styles.headerActions}>
             <button
@@ -121,7 +211,7 @@ export default function WallBuilderPage() {
               + New Wall
             </button>
             {wallInput && (
-              <button onClick={handleSave} style={styles.saveBtn}>
+              <button onClick={handleSave} style={styles.saveBtn} title="Ctrl+S">
                 Save Wall
               </button>
             )}
@@ -129,12 +219,12 @@ export default function WallBuilderPage() {
         </div>
       </header>
 
-      <main style={styles.main}>
+      <main id="main-content" tabIndex={-1} style={styles.main}>
         <CollapsibleSection sectionKey="wallDimensions" title="Wall Dimensions" forceOpen={generateKey} forceCollapse={saveKey}>
           <WallForm
             key={loadKey}
             onCalculate={handleCalculate}
-            onChange={setWallInput}
+            onChange={handleWallChange}
             initialWall={wallInput}
           />
         </CollapsibleSection>
@@ -190,6 +280,17 @@ export default function WallBuilderPage() {
           </>
         )}
       </main>
+
+      <ConfirmDialog
+        open={showNavWarning}
+        title="Unsaved Changes"
+        message="You have unsaved changes. Would you like to save before leaving?"
+        confirmLabel="Save & Leave"
+        cancelLabel="Discard"
+        danger={false}
+        onConfirm={() => handleNavConfirm('save')}
+        onCancel={() => handleNavConfirm('discard')}
+      />
     </div>
   );
 }
@@ -232,6 +333,20 @@ const styles = {
     fontWeight: 600,
     opacity: 0.9,
   },
+  saveIndicator: {
+    fontSize: 12,
+    fontWeight: 500,
+    opacity: 0.7,
+    fontStyle: 'italic',
+  },
+  dirtyIndicator: {
+    fontSize: 12,
+    fontWeight: 500,
+    opacity: 0.6,
+    background: 'rgba(255,255,255,0.15)',
+    padding: '2px 8px',
+    borderRadius: RADIUS.sm,
+  },
   headerActions: {
     display: 'flex',
     gap: 8,
@@ -260,5 +375,6 @@ const styles = {
     maxWidth: 1280,
     margin: '24px auto',
     padding: '0 24px',
+    outline: 'none',
   },
 };

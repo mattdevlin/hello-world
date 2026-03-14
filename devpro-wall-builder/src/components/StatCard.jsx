@@ -24,14 +24,14 @@ const styles = {
   },
   statUnit: {
     fontSize: 11,
-    color: '#999',
+    color: '#737373',
     marginTop: 2,
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#636363',
     marginTop: 6,
     fontWeight: 500,
   },

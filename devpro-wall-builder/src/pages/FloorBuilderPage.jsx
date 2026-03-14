@@ -79,7 +79,7 @@ export default function FloorBuilderPage() {
       <header style={styles.header}>
         <div style={styles.headerRow}>
           <div style={styles.headerLeft}>
-            <button onClick={() => navigate(`/project/${projectId}`)} style={styles.backBtn}>
+            <button onClick={() => navigate(`/project/${projectId}`)} style={styles.backBtn} aria-label={`Back to ${project.name}`}>
               &larr; {project.name}
             </button>
             {floorName && <span style={styles.floorLabel}>{floorName}</span>}
@@ -100,7 +100,7 @@ export default function FloorBuilderPage() {
         </div>
       </header>
 
-      <main style={styles.main}>
+      <main id="main-content" tabIndex={-1} style={styles.main}>
         <CollapsibleSection sectionKey="floorDimensions" title="Floor Dimensions" forceOpen={generateKey} forceCollapse={saveKey}>
           <FloorForm
             key={loadKey}

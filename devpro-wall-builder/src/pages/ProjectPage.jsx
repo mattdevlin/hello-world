@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Plus, Trash2, Copy } from 'lucide-react';
 import {
   getProjects, getProjectWalls, deleteWall, renameProject,
   copyWallToProject, getProjectConnections, saveProjectConnections,
@@ -17,11 +18,14 @@ import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import ProjectWallSummary from '../components/ProjectWallSummary.jsx';
 import ExportProjectButton from '../components/ExportProjectButton.jsx';
 import ErrorBoundary from '../components/ErrorBoundary.jsx';
-import { FONT_STACK, BRAND, NEUTRAL, RADIUS } from '../utils/designTokens.js';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import { useToast } from '../hooks/useToast.js';
+import { FONT_STACK, BRAND, NEUTRAL, RADIUS, SHADOW } from '../utils/designTokens.js';
 
 export default function ProjectPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const showToast = useToast();
   const [project, setProject] = useState(null);
   const [walls, setWalls] = useState([]);
   const [renamingProject, setRenamingProject] = useState(false);
@@ -33,6 +37,7 @@ export default function ProjectPage() {
   const [floors, setFloors] = useState([]);
   const [address, setAddress] = useState('');
   const [ta, setTa] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
     const projects = getProjects();
@@ -78,16 +83,23 @@ export default function ProjectPage() {
 
   const handleDeleteWall = (wallId, wallName, e) => {
     e.stopPropagation();
-    if (!window.confirm(`Delete wall "${wallName}"? This cannot be undone.`)) return;
-    deleteWall(projectId, wallId);
-    refresh();
+    setConfirmDelete({ type: 'wall', id: wallId, name: wallName });
   };
 
   const handleDeleteFloor = (floorId, floorName, e) => {
     e.stopPropagation();
-    if (!window.confirm(`Delete floor "${floorName}"? This cannot be undone.`)) return;
-    deleteFloor(projectId, floorId);
+    setConfirmDelete({ type: 'floor', id: floorId, name: floorName });
+  };
+
+  const confirmDeleteItem = () => {
+    if (!confirmDelete) return;
+    if (confirmDelete.type === 'wall') {
+      deleteWall(projectId, confirmDelete.id);
+    } else {
+      deleteFloor(projectId, confirmDelete.id);
+    }
     refresh();
+    setConfirmDelete(null);
   };
 
   const handleRename = () => {
@@ -102,6 +114,7 @@ export default function ProjectPage() {
     copyWallToProject(wall, targetProjectId);
     setCopyingWallId(null);
     refresh();
+    showToast({ type: 'success', message: `Wall copied successfully.` });
   };
 
   const handleAddressBlur = () => {
@@ -121,14 +134,14 @@ export default function ProjectPage() {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        {/* Breadcrumb + header */}
-        <div style={styles.topBar}>
-          <button onClick={() => navigate('/')} style={styles.backBtn}>
+        {/* Breadcrumb */}
+        <nav style={styles.topBar} aria-label="Breadcrumb">
+          <button onClick={() => navigate('/')} style={styles.backBtn} aria-label="Back to projects">
             &larr; Projects
           </button>
-        </div>
+        </nav>
 
-        <div style={styles.header}>
+        <header style={styles.header}>
           <div style={styles.headerLeft}>
             {renamingProject ? (
               <input
@@ -137,6 +150,7 @@ export default function ProjectPage() {
                 onBlur={handleRename}
                 onKeyDown={e => e.key === 'Enter' && handleRename()}
                 style={styles.renameInput}
+                aria-label="Rename project"
                 autoFocus
               />
             ) : (
@@ -165,184 +179,210 @@ export default function ProjectPage() {
               onClick={() => navigate(`/project/${projectId}/wall/new`)}
               style={styles.newWallBtn}
             >
-              + New Wall
+              <Plus size={14} style={{ marginRight: 4, verticalAlign: -2 }} />New Wall
             </button>
             <button
               onClick={() => navigate(`/project/${projectId}/floor/new`)}
               style={styles.newFloorBtn}
             >
-              + New Floor
+              <Plus size={14} style={{ marginRight: 4, verticalAlign: -2 }} />New Floor
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Location */}
-        <div style={styles.locationRow}>
-          <div style={styles.locationField}>
-            <label style={styles.locationLabel}>Address</label>
-            <input
-              value={address}
-              onChange={e => setAddress(e.target.value)}
-              onBlur={handleAddressBlur}
-              placeholder="Property address"
-              style={styles.locationInput}
-            />
-          </div>
-          <div style={styles.locationField}>
-            <label style={styles.locationLabel}>Territorial Authority</label>
-            <input
-              list="ta-list"
-              value={ta}
-              onChange={handleTaChange}
-              placeholder="Select territorial authority"
-              style={styles.locationInput}
-            />
-            <datalist id="ta-list">
-              {TERRITORIAL_AUTHORITIES.map(t => <option key={t} value={t} />)}
-            </datalist>
-          </div>
-          {ta && TA_CLIMATE_ZONES[ta] && (
-            <div style={styles.zoneBadge}>
-              Zone {TA_CLIMATE_ZONES[ta]}
-            </div>
-          )}
-        </div>
-
-        {/* 3D Model Viewer */}
-        {walls.length > 0 && (
-          <CollapsibleSection sectionKey="project-3d-viewer" title="3D Model Viewer" defaultCollapsed={true}>
-            <ErrorBoundary>
-              <ModelViewer3D
-                walls={walls}
-                connections={connections}
-                onConnectionsChange={handleConnectionsChange}
-                placedWallIds={placedWallIds}
-                onPlacementsChange={handlePlacementsChange}
-                wallPositions={wallPositions}
-                onWallPositionsChange={handleWallPositionsChange}
+        <main id="main-content" tabIndex={-1} style={{ outline: 'none' }}>
+          {/* Location */}
+          <div style={styles.locationRow}>
+            <div style={styles.locationField}>
+              <label style={styles.locationLabel}>Address</label>
+              <input
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                onBlur={handleAddressBlur}
+                placeholder="Property address"
+                style={styles.locationInput}
               />
-            </ErrorBoundary>
-          </CollapsibleSection>
-        )}
-
-        {/* Wall Summary */}
-        {walls.length > 0 && (
-          <CollapsibleSection sectionKey="project-wall-summary" title="Wall Summary">
-            <ProjectWallSummary walls={walls} projectName={project.name} />
-          </CollapsibleSection>
-        )}
-
-        {/* Material Summaries */}
-        {(walls.length > 0 || floors.length > 0) && <MagboardSheetSummary walls={walls} floors={floors} />}
-        {(walls.length > 0 || floors.length > 0) && <EpsBlockSummary walls={walls} floors={floors} projectName={project.name} />}
-        {(walls.length > 0 || floors.length > 0) && <GlueSummary walls={walls} floors={floors} />}
-        {(walls.length > 0 || floors.length > 0) && <TimberTakeoffSummary walls={walls} floors={floors} />}
-
-        {/* Wall list */}
-        {walls.length === 0 ? (
-          <div style={styles.empty}>
-            <p style={styles.emptyText}>No walls yet</p>
-            <p style={styles.emptyHint}>Create a wall to start designing.</p>
-          </div>
-        ) : (
-          <div style={styles.wallList}>
-            {walls.map(w => (
-              <div key={w.id}>
-                <div
-                  style={styles.wallCard}
-                  onClick={() => navigate(`/project/${projectId}/wall/${w.id}`)}
-                >
-                  <div style={styles.wallBody}>
-                    <div style={styles.wallName}>{w.name}</div>
-                    <div style={styles.wallMeta}>
-                      <span>{w.length_mm} x {w.height_mm} mm</span>
-                      {w.openings?.length > 0 && (
-                        <span> &middot; {w.openings.length} opening{w.openings.length > 1 ? 's' : ''}</span>
-                      )}
-                      <span style={styles.wallProfile}>
-                        {w.profile === 'raked' ? 'Raked' : w.profile === 'gable' ? 'Gable' : 'Standard'}
-                      </span>
-                    </div>
-                  </div>
-                  <div style={styles.wallRight}>
-                    <span style={styles.wallDate}>{new Date(w.updatedAt).toLocaleDateString()}</span>
-                    <div style={styles.wallActions}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCopyingWallId(copyingWallId === w.id ? null : w.id);
-                        }}
-                        style={styles.actionBtn}
-                      >
-                        Copy to...
-                      </button>
-                      <button onClick={(e) => handleDeleteWall(w.id, w.name, e)} style={styles.deleteBtn}>
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                {copyingWallId === w.id && (
-                  <div style={styles.copyRow}>
-                    <span style={styles.copyLabel}>Copy to:</span>
-                    {otherProjects.length === 0 ? (
-                      <span style={styles.copyNone}>No other projects</span>
-                    ) : (
-                      otherProjects.map(tp => (
-                        <button
-                          key={tp.id}
-                          onClick={() => handleCopyWall(w, tp.id)}
-                          style={styles.copyTargetBtn}
-                        >
-                          {tp.name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
+            </div>
+            <div style={styles.locationField}>
+              <label style={styles.locationLabel}>Territorial Authority</label>
+              <input
+                list="ta-list"
+                value={ta}
+                onChange={handleTaChange}
+                placeholder="Select territorial authority"
+                style={styles.locationInput}
+              />
+              <datalist id="ta-list">
+                {TERRITORIAL_AUTHORITIES.map(t => <option key={t} value={t} />)}
+              </datalist>
+            </div>
+            {ta && TA_CLIMATE_ZONES[ta] && (
+              <div style={styles.zoneBadge}>
+                Zone {TA_CLIMATE_ZONES[ta]}
               </div>
-            ))}
+            )}
           </div>
-        )}
 
-        {/* Floor list */}
-        {floors.length > 0 && (
-          <>
-            <h3 style={{ fontSize: 16, fontWeight: 600, color: '#333', margin: '24px 0 8px' }}>Floors</h3>
+          {/* 3D Model Viewer */}
+          {walls.length > 0 && (
+            <CollapsibleSection sectionKey="project-3d-viewer" title="3D Model Viewer" defaultCollapsed={true}>
+              <ErrorBoundary>
+                <ModelViewer3D
+                  walls={walls}
+                  connections={connections}
+                  onConnectionsChange={handleConnectionsChange}
+                  placedWallIds={placedWallIds}
+                  onPlacementsChange={handlePlacementsChange}
+                  wallPositions={wallPositions}
+                  onWallPositionsChange={handleWallPositionsChange}
+                />
+              </ErrorBoundary>
+            </CollapsibleSection>
+          )}
+
+          {/* Wall Summary */}
+          {walls.length > 0 && (
+            <CollapsibleSection sectionKey="project-wall-summary" title="Wall Summary">
+              <ProjectWallSummary walls={walls} projectName={project.name} />
+            </CollapsibleSection>
+          )}
+
+          {/* Material Summaries */}
+          {(walls.length > 0 || floors.length > 0) && <MagboardSheetSummary walls={walls} floors={floors} />}
+          {(walls.length > 0 || floors.length > 0) && <EpsBlockSummary walls={walls} floors={floors} projectName={project.name} />}
+          {(walls.length > 0 || floors.length > 0) && <GlueSummary walls={walls} floors={floors} />}
+          {(walls.length > 0 || floors.length > 0) && <TimberTakeoffSummary walls={walls} floors={floors} />}
+
+          {/* Wall list */}
+          {walls.length === 0 ? (
+            <div style={styles.empty}>
+              <p style={styles.emptyText}>No walls yet</p>
+              <p style={styles.emptyHint}>Create a wall to start designing panel layouts.</p>
+              <button
+                onClick={() => navigate(`/project/${projectId}/wall/new`)}
+                style={styles.emptyCta}
+              >
+                <Plus size={14} style={{ marginRight: 4, verticalAlign: -2 }} />Create First Wall
+              </button>
+            </div>
+          ) : (
             <div style={styles.wallList}>
-              {floors.map(f => (
-                <div
-                  key={f.id}
-                  style={styles.wallCard}
-                  onClick={() => navigate(`/project/${projectId}/floor/${f.id}`)}
-                >
-                  <div style={styles.wallBody}>
-                    <div style={styles.wallName}>{f.name}</div>
-                    <div style={styles.wallMeta}>
-                      <span>{f.polygon?.length || 0} points</span>
-                      {f.openings?.length > 0 && (
-                        <span> &middot; {f.openings.length} opening{f.openings.length > 1 ? 's' : ''}</span>
-                      )}
-                      {f.recesses?.length > 0 && (
-                        <span> &middot; {f.recesses.length} recess{f.recesses.length > 1 ? 'es' : ''}</span>
-                      )}
-                      <span style={{ ...styles.wallProfile, background: '#E8D5B7' }}>Floor</span>
+              {walls.map(w => (
+                <div key={w.id}>
+                  <div
+                    style={styles.wallCard}
+                    onClick={() => navigate(`/project/${projectId}/wall/${w.id}`)}
+                  >
+                    <div style={styles.wallBody}>
+                      <div style={styles.wallName}>{w.name}</div>
+                      <div style={styles.wallMeta}>
+                        <span>{w.length_mm} x {w.height_mm} mm</span>
+                        {w.openings?.length > 0 && (
+                          <span> &middot; {w.openings.length} opening{w.openings.length > 1 ? 's' : ''}</span>
+                        )}
+                        <span style={styles.wallProfile}>
+                          {w.profile === 'raked' ? 'Raked' : w.profile === 'gable' ? 'Gable' : 'Standard'}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={styles.wallRight}>
+                      <span style={styles.wallDate}>{new Date(w.updatedAt).toLocaleDateString()}</span>
+                      <div style={styles.wallActions}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCopyingWallId(copyingWallId === w.id ? null : w.id);
+                          }}
+                          style={styles.actionBtn}
+                          aria-label={`Copy wall ${w.name} to another project`}
+                        >
+                          <Copy size={11} style={{ marginRight: 3, verticalAlign: -1 }} />Copy to...
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteWall(w.id, w.name, e)}
+                          style={styles.deleteBtn}
+                          aria-label={`Delete wall ${w.name}`}
+                        >
+                          <Trash2 size={11} style={{ marginRight: 3, verticalAlign: -1 }} />Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div style={styles.wallRight}>
-                    <span style={styles.wallDate}>{new Date(f.updatedAt).toLocaleDateString()}</span>
-                    <div style={styles.wallActions}>
-                      <button onClick={(e) => handleDeleteFloor(f.id, f.name, e)} style={styles.deleteBtn}>
-                        Delete
-                      </button>
+                  {copyingWallId === w.id && (
+                    <div style={styles.copyRow}>
+                      <span style={styles.copyLabel}>Copy to:</span>
+                      {otherProjects.length === 0 ? (
+                        <span style={styles.copyNone}>No other projects</span>
+                      ) : (
+                        otherProjects.map(tp => (
+                          <button
+                            key={tp.id}
+                            onClick={() => handleCopyWall(w, tp.id)}
+                            style={styles.copyTargetBtn}
+                          >
+                            {tp.name}
+                          </button>
+                        ))
+                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
-          </>
-        )}
+          )}
+
+          {/* Floor list */}
+          {floors.length > 0 && (
+            <>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: '#333', margin: '24px 0 8px' }}>Floors</h3>
+              <div style={styles.wallList}>
+                {floors.map(f => (
+                  <div
+                    key={f.id}
+                    style={styles.wallCard}
+                    onClick={() => navigate(`/project/${projectId}/floor/${f.id}`)}
+                  >
+                    <div style={styles.wallBody}>
+                      <div style={styles.wallName}>{f.name}</div>
+                      <div style={styles.wallMeta}>
+                        <span>{f.polygon?.length || 0} points</span>
+                        {f.openings?.length > 0 && (
+                          <span> &middot; {f.openings.length} opening{f.openings.length > 1 ? 's' : ''}</span>
+                        )}
+                        {f.recesses?.length > 0 && (
+                          <span> &middot; {f.recesses.length} recess{f.recesses.length > 1 ? 'es' : ''}</span>
+                        )}
+                        <span style={{ ...styles.wallProfile, background: '#E8D5B7' }}>Floor</span>
+                      </div>
+                    </div>
+                    <div style={styles.wallRight}>
+                      <span style={styles.wallDate}>{new Date(f.updatedAt).toLocaleDateString()}</span>
+                      <div style={styles.wallActions}>
+                        <button
+                          onClick={(e) => handleDeleteFloor(f.id, f.name, e)}
+                          style={styles.deleteBtn}
+                          aria-label={`Delete floor ${f.name}`}
+                        >
+                          <Trash2 size={11} style={{ marginRight: 3, verticalAlign: -1 }} />Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </main>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title={confirmDelete?.type === 'wall' ? 'Delete Wall' : 'Delete Floor'}
+        message={confirmDelete ? `Delete ${confirmDelete.type} "${confirmDelete.name}"? This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        onConfirm={confirmDeleteItem}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }
@@ -460,7 +500,7 @@ const styles = {
   locationLabel: {
     fontSize: 11,
     fontWeight: 600,
-    color: '#888',
+    color: NEUTRAL.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -500,8 +540,18 @@ const styles = {
   },
   emptyHint: {
     fontSize: 13,
-    color: '#999',
-    margin: 0,
+    color: NEUTRAL.textFaint,
+    margin: '0 0 16px',
+  },
+  emptyCta: {
+    padding: '10px 20px',
+    background: BRAND.primary,
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 600,
   },
 
   // Wall list
@@ -519,6 +569,7 @@ const styles = {
     border: '1px solid #e0e0e0',
     padding: '14px 20px',
     cursor: 'pointer',
+    boxShadow: SHADOW.sm,
   },
   wallBody: {
     flex: 1,
@@ -531,7 +582,7 @@ const styles = {
   },
   wallMeta: {
     fontSize: 12,
-    color: '#888',
+    color: NEUTRAL.textMuted,
     marginTop: 3,
     display: 'flex',
     gap: 4,
@@ -555,7 +606,7 @@ const styles = {
   },
   wallDate: {
     fontSize: 11,
-    color: '#999',
+    color: NEUTRAL.textFaint,
   },
   wallActions: {
     display: 'flex',
@@ -601,7 +652,7 @@ const styles = {
   },
   copyNone: {
     fontSize: 12,
-    color: '#999',
+    color: NEUTRAL.textFaint,
     fontStyle: 'italic',
   },
   copyTargetBtn: {

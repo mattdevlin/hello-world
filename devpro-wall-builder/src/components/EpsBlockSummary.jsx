@@ -267,7 +267,7 @@ const styles = {
   },
   subtitle: {
     fontSize: 12,
-    color: '#888',
+    color: '#636363',
   },
   headerRight: {
     display: 'flex',
@@ -318,14 +318,14 @@ const styles = {
   },
   cardUnit: {
     fontSize: 11,
-    color: '#999',
+    color: '#737373',
     marginTop: 2,
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
   },
   cardDetail: {
     fontSize: 11,
-    color: '#888',
+    color: '#636363',
     marginTop: 6,
   },
 
@@ -338,7 +338,7 @@ const styles = {
     fontWeight: 600,
     textTransform: 'uppercase',
     letterSpacing: '0.8px',
-    color: '#999',
+    color: '#737373',
     marginBottom: 6,
     paddingBottom: 4,
     borderBottom: '1px solid #eee',
@@ -372,7 +372,7 @@ const styles = {
   // Block info
   blockInfo: {
     fontSize: 11,
-    color: '#999',
+    color: '#737373',
     fontStyle: 'italic',
     padding: '8px 0 0',
     borderTop: '1px solid #eee',

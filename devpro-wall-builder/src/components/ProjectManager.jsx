@@ -272,7 +272,7 @@ const styles = {
     fontWeight: 600,
   },
   empty: {
-    color: '#999',
+    color: '#737373',
     fontStyle: 'italic',
     fontSize: 13,
   },
@@ -310,7 +310,7 @@ const styles = {
     width: 14,
   },
   wallCount: {
-    color: '#888',
+    color: '#636363',
     fontSize: 12,
     marginLeft: 4,
   },
@@ -379,7 +379,7 @@ const styles = {
     color: '#333',
   },
   wallMeta: {
-    color: '#888',
+    color: '#636363',
     fontSize: 11,
   },
   wallActions: {
@@ -388,7 +388,7 @@ const styles = {
     gap: 10,
   },
   wallDate: {
-    color: '#999',
+    color: '#737373',
     fontSize: 11,
   },
   copyBtn: {
@@ -427,7 +427,7 @@ const styles = {
   },
   noCopyTargets: {
     fontSize: 11,
-    color: '#999',
+    color: '#737373',
     fontStyle: 'italic',
   },
 };

@@ -14,7 +14,7 @@ export default function FloorOffcuts({ layout, floorName, projectName }) {
           <div style={styles.title}>Offcuts — {floorName}</div>
           <PrintButton sectionRef={sectionRef} label="Offcuts" projectName={projectName} wallName={floorName} />
         </div>
-        <p style={{ color: '#888', fontSize: 13, fontStyle: 'italic' }}>No significant offcuts generated.</p>
+        <p style={{ color: '#636363', fontSize: 13, fontStyle: 'italic' }}>No significant offcuts generated.</p>
       </div>
     );
   }
@@ -101,7 +101,7 @@ const styles = {
   },
   cardType: {
     fontSize: 10,
-    color: '#999',
+    color: '#737373',
     marginTop: 4,
     textTransform: 'uppercase',
   },

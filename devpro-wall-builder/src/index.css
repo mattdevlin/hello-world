@@ -15,6 +15,115 @@ body {
   width: 100%;
 }
 
+/* ── Focus indicators (WCAG 2.4.7) ── */
+*:focus-visible {
+  outline: 2px solid #2C5F8A;
+  outline-offset: 2px;
+}
+
+/* ── Button interaction states ── */
+button {
+  transition: filter 0.15s, transform 0.1s;
+}
+button:hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* ── Skip navigation link ── */
+.skip-nav {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  padding: 8px 16px;
+  background: #2C5F8A;
+  color: #fff;
+  border-radius: 0 0 6px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 10000;
+  text-decoration: none;
+}
+.skip-nav:focus {
+  top: 0;
+}
+
+/* ── Toast notifications ── */
+.toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.16);
+  animation: toast-in 0.3s ease;
+  max-width: 400px;
+}
+.toast-success {
+  background: #27ae60;
+  color: #fff;
+}
+.toast-error {
+  background: #e74c3c;
+  color: #fff;
+}
+.toast-info {
+  background: #2C5F8A;
+  color: #fff;
+}
+.toast-warning {
+  background: #e67e22;
+  color: #fff;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Skeleton loading animation ── */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Responsive layout ── */
+@media (max-width: 640px) {
+  /* Stack header buttons vertically */
+  header {
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+  }
+
+  /* Stack button groups */
+  header > div:last-child,
+  nav[aria-label="Page actions"] {
+    flex-wrap: wrap;
+  }
+
+  /* Full-width form rows on small screens */
+  form > div {
+    flex-direction: column;
+  }
+
+  /* Stack card actions below card body */
+  [style*="cursor: pointer"][style*="justifyContent"] {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
 /* ── Print watermark: hidden on screen ── */
 .print-watermark {
   display: none;

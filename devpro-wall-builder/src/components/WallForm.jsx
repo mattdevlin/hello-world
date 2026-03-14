@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import { PANEL_HEIGHTS, OPENING_TYPES, WALL_PROFILES } from '../utils/constants.js';
 
 const defaultOpening = {
@@ -88,6 +89,49 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
   };
 
   const [validationError, setValidationError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const validateField = (field, value) => {
+    const errors = { ...fieldErrors };
+    switch (field) {
+      case 'length_mm':
+        if (value <= 0) errors.length_mm = 'Must be positive';
+        else delete errors.length_mm;
+        break;
+      case 'height_mm':
+        if (value <= 0) errors.height_mm = 'Must be positive';
+        else delete errors.height_mm;
+        break;
+      case 'height_right_mm':
+        if (value <= 0) errors.height_right_mm = 'Must be positive';
+        else delete errors.height_right_mm;
+        break;
+      case 'peak_height_mm':
+        if (value <= (wall.height_mm || 0)) errors.peak_height_mm = 'Must exceed eave height';
+        else delete errors.peak_height_mm;
+        break;
+      default:
+        break;
+    }
+    setFieldErrors(errors);
+  };
+
+  const validateOpeningField = (index, field, value, opening) => {
+    const key = `opening_${index}_${field}`;
+    const errors = { ...fieldErrors };
+    if (field === 'width_mm' && value <= 0) {
+      errors[key] = 'Must be positive';
+    } else if (field === 'height_mm' && value <= 0) {
+      errors[key] = 'Must be positive';
+    } else if (field === 'position_from_left_mm' && value < 0) {
+      errors[key] = 'Cannot be negative';
+    } else if (field === 'position_from_left_mm' && value + (opening?.width_mm || 0) > wall.length_mm) {
+      errors[key] = 'Extends beyond wall';
+    } else {
+      delete errors[key];
+    }
+    setFieldErrors(errors);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -127,6 +171,18 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
 
   const profile = wall.profile || WALL_PROFILES.STANDARD;
 
+  // Ctrl+Enter to generate
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit(e);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  });
+
   return (
     <form onSubmit={handleSubmit} style={styles.form}>
       <h2 style={styles.heading}>Wall Dimensions</h2>
@@ -147,9 +203,11 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
             type="number"
             value={wall.length_mm}
             onChange={e => updateField('length_mm', parseInt(e.target.value) || 0)}
-            style={styles.input}
+            onBlur={() => validateField('length_mm', wall.length_mm)}
+            style={{ ...styles.input, ...(fieldErrors.length_mm ? styles.inputError : {}) }}
             min={300}
           />
+          {fieldErrors.length_mm && <span style={styles.fieldError}>{fieldErrors.length_mm}</span>}
         </div>
         <div style={styles.field}>
           <label style={styles.label}>Wall Profile</label>
@@ -176,9 +234,11 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
             type="number"
             value={wall.height_mm}
             onChange={e => updateField('height_mm', parseInt(e.target.value) || 0)}
-            style={styles.input}
+            onBlur={() => validateField('height_mm', wall.height_mm)}
+            style={{ ...styles.input, ...(fieldErrors.height_mm ? styles.inputError : {}) }}
             min={300}
           />
+          {fieldErrors.height_mm && <span style={styles.fieldError}>{fieldErrors.height_mm}</span>}
         </div>
 
         {profile === WALL_PROFILES.RAKED && (
@@ -255,8 +315,8 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
 
       <div style={styles.openingsHeader}>
         <h2 style={styles.heading}>Openings</h2>
-        <button type="button" onClick={addOpening} style={styles.addBtn}>
-          + Add Opening
+        <button type="button" onClick={addOpening} style={styles.addBtn} aria-label="Add opening to wall">
+          <Plus size={14} style={{ marginRight: 4, verticalAlign: -2 }} />Add Opening
         </button>
       </div>
 
@@ -268,8 +328,8 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
         <div key={op.id || i} style={styles.openingCard}>
           <div style={styles.openingCardHeader}>
             <strong>Opening {i + 1}</strong>
-            <button type="button" onClick={() => removeOpening(i)} style={styles.removeBtn}>
-              Remove
+            <button type="button" onClick={() => removeOpening(i)} style={styles.removeBtn} aria-label={`Remove opening ${i + 1}`}>
+              <Trash2 size={12} style={{ marginRight: 4, verticalAlign: -1 }} />Remove
             </button>
           </div>
           <div style={styles.row}>
@@ -304,9 +364,11 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
                 type="number"
                 value={op.width_mm}
                 onChange={e => updateOpening(i, 'width_mm', parseInt(e.target.value) || 0)}
-                style={styles.input}
+                onBlur={() => validateOpeningField(i, 'width_mm', op.width_mm, op)}
+                style={{ ...styles.input, ...(fieldErrors[`opening_${i}_width_mm`] ? styles.inputError : {}) }}
                 min={0}
               />
+              {fieldErrors[`opening_${i}_width_mm`] && <span style={styles.fieldError}>{fieldErrors[`opening_${i}_width_mm`]}</span>}
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Height (mm)</label>
@@ -314,9 +376,11 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
                 type="number"
                 value={op.height_mm}
                 onChange={e => updateOpening(i, 'height_mm', parseInt(e.target.value) || 0)}
-                style={styles.input}
+                onBlur={() => validateOpeningField(i, 'height_mm', op.height_mm, op)}
+                style={{ ...styles.input, ...(fieldErrors[`opening_${i}_height_mm`] ? styles.inputError : {}) }}
                 min={0}
               />
+              {fieldErrors[`opening_${i}_height_mm`] && <span style={styles.fieldError}>{fieldErrors[`opening_${i}_height_mm`]}</span>}
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Sill Height (mm)</label>
@@ -335,9 +399,11 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
                 type="number"
                 value={op.position_from_left_mm}
                 onChange={e => updateOpening(i, 'position_from_left_mm', parseInt(e.target.value) || 0)}
-                style={styles.input}
+                onBlur={() => validateOpeningField(i, 'position_from_left_mm', op.position_from_left_mm, op)}
+                style={{ ...styles.input, ...(fieldErrors[`opening_${i}_position_from_left_mm`] ? styles.inputError : {}) }}
                 min={0}
               />
+              {fieldErrors[`opening_${i}_position_from_left_mm`] && <span style={styles.fieldError}>{fieldErrors[`opening_${i}_position_from_left_mm`]}</span>}
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Lintel Height (mm)</label>
@@ -357,7 +423,7 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
         <p style={styles.validationError}>{validationError}</p>
       )}
 
-      <button type="submit" style={styles.submitBtn}>
+      <button type="submit" style={styles.submitBtn} title="Ctrl+Enter">
         Generate Wall Drawing
       </button>
     </form>
@@ -396,7 +462,7 @@ const styles = {
   },
   hint: {
     fontWeight: 400,
-    color: '#999',
+    color: '#737373',
     fontSize: 11,
   },
   input: {
@@ -450,9 +516,18 @@ const styles = {
     fontSize: 12,
   },
   emptyText: {
-    color: '#999',
+    color: '#737373',
     fontStyle: 'italic',
     fontSize: 14,
+  },
+  inputError: {
+    borderColor: '#e74c3c',
+  },
+  fieldError: {
+    display: 'block',
+    color: '#e74c3c',
+    fontSize: 11,
+    marginTop: 2,
   },
   validationError: {
     color: '#e74c3c',
