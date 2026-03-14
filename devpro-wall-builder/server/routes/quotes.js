@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import db from '../db.js';
 import { calculateQuotePrice } from '../services/quoteCalculator.js';
 import { nextQuoteNumber, revisionQuoteNumber } from '../services/quoteNumbering.js';
+import { generateQuotePdf } from '../services/pdfGenerator.js';
 
 const router = Router();
 
@@ -256,6 +257,30 @@ router.post('/:id/revise', (req, res, next) => {
     quote.subtotals = JSON.parse(quote.subtotals);
 
     res.status(201).json(quote);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Generate PDF for a quote
+router.get('/:id/pdf', async (req, res, next) => {
+  try {
+    const quote = db.prepare('SELECT * FROM quotes WHERE id = ?').get(req.params.id);
+    if (!quote) {
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+
+    const client = quote.client_id
+      ? db.prepare('SELECT * FROM clients WHERE id = ?').get(quote.client_id)
+      : null;
+
+    const settings = db.prepare('SELECT * FROM settings').all();
+
+    const buffer = await generateQuotePdf(quote, client, settings);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${quote.quote_number}.pdf"`);
+    res.send(buffer);
   } catch (err) {
     next(err);
   }

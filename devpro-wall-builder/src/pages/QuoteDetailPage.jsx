@@ -129,6 +129,13 @@ export default function QuoteDetailPage() {
             <button onClick={handleRevise} disabled={updating} style={styles.reviseBtn}>
               Revise
             </button>
+            <a
+              href={`/api/quotes/${quoteId}/pdf`}
+              download
+              style={styles.pdfBtn}
+            >
+              Download PDF
+            </a>
           </div>
         </div>
 
@@ -324,6 +331,18 @@ const styles = {
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 500,
+  },
+  pdfBtn: {
+    padding: '8px 16px',
+    background: BRAND.warning,
+    color: '#fff',
+    border: 'none',
+    borderRadius: RADIUS.md,
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 600,
+    textDecoration: 'none',
+    display: 'inline-block',
   },
   section: {
     marginBottom: 24,
