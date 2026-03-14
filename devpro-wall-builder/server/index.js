@@ -8,6 +8,8 @@ import { errorHandler } from './middleware/errorHandler.js';
 import pricingRoutes from './routes/pricing.js';
 import marginsRoutes from './routes/margins.js';
 import settingsRoutes from './routes/settings.js';
+import clientsRoutes from './routes/clients.js';
+import quotesRoutes from './routes/quotes.js';
 
 // Seed default data (idempotent)
 seed(db);
@@ -23,6 +25,8 @@ app.use(express.json({ limit: '1mb' }));
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/margins', marginsRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/clients', clientsRoutes);
+app.use('/api/quotes', quotesRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
