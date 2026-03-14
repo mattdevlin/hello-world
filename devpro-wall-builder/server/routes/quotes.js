@@ -20,6 +20,11 @@ router.get('/', (req, res) => {
     params.push(project_id);
   }
   if (status) {
+    if (!VALID_STATUSES.includes(status)) {
+      return res.status(400).json({
+        error: `status must be one of: ${VALID_STATUSES.join(', ')}`,
+      });
+    }
     conditions.push('status = ?');
     params.push(status);
   }
@@ -101,7 +106,8 @@ router.post('/', (req, res, next) => {
 
     // Determine validity
     const days = validityDays || parseInt(
-      db.prepare("SELECT value FROM settings WHERE key = 'default_validity_days'").get()?.value || '30'
+      db.prepare("SELECT value FROM settings WHERE key = 'default_validity_days'").get()?.value || '30',
+      10
     );
     const now = new Date();
     const validUntil = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
