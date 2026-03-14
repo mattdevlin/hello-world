@@ -8,9 +8,7 @@
 import { getProjectWalls, getProjectFloors } from './storage.js';
 import { computeWallTimberRatio } from './timberCalculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
-import { lookupSlabR } from './h1Constants.js';
-
-const DEVPRO_WALL_R = 4.14;
+import { DEVPRO_WALL_R, DEVPRO_FLOOR_R } from './h1Constants.js';
 
 /**
  * Build H1 input fields from project design data.
@@ -85,18 +83,10 @@ export function buildH1FromDesign(projectId, existing) {
   const perimeterM = round2(totalPerimeterMM / 1e3);
 
   // ── Merge with existing input ──
-  const slab = {
-    ...(existing?.slab || {}),
-    floorArea: floorAreaM2 || existing?.slab?.floorArea || 0,
-    perimeter: perimeterM || existing?.slab?.perimeter || 0,
-    floorType: existing?.slab?.floorType || 'raft_no_masonry',
-    insulationPosition: existing?.slab?.insulationPosition || 'uninsulated',
-    wallThickness: existing?.slab?.wallThickness || 162,
-  };
-
-  // Auto-lookup slab R-value
-  const apRatio = slab.perimeter > 0 ? slab.floorArea / slab.perimeter : 0;
-  const slabR = lookupSlabR(slab.floorType, slab.insulationPosition, apRatio, slab.wallThickness);
+  // DEVPRO floors are suspended (not slab-on-ground) → populate floorOther
+  const floorOtherEntries = floorAreaM2 > 0
+    ? [{ area: floorAreaM2, rValue: DEVPRO_FLOOR_R }]
+    : existing?.constructions?.floorOther || [];
 
   const input = {
     grossWallArea: grossWallAreaM2,
@@ -106,10 +96,13 @@ export function buildH1FromDesign(projectId, existing) {
       glazing: glazingEntries.length > 0 ? glazingEntries : [{ area: 0, glazingType: 'double', ug: 2.9, frameType: 'aluminiumThermal', rValue: 0.30 }],
       doorOpaque: doorEntries,
       skylight: existing?.constructions?.skylight || [],
-      floorSlab: [{ area: slab.floorArea, rValue: slabR || 0 }],
-      floorOther: existing?.constructions?.floorOther || [],
+      floorSlab: existing?.constructions?.floorSlab || [{ area: 0, rValue: 0 }],
+      floorOther: floorOtherEntries,
     },
-    slab,
+    slab: existing?.slab || {
+      perimeter: 0, floorArea: 0,
+      floorType: 'raft_no_masonry', insulationPosition: 'uninsulated', wallThickness: 162,
+    },
     heatedElements: existing?.heatedElements || { ceiling: false, wall: false, floor: false, bathroomOnly: false },
   };
 
