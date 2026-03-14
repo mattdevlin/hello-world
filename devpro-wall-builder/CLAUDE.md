@@ -19,10 +19,11 @@ DEVPRO Wall Builder — a React SPA for designing prefabricated wall panel syste
 ## Architecture
 
 ### Routing & Pages
-React Router with three routes:
+React Router with routes:
 - `/` → `ProjectsPage` — project list
 - `/project/:projectId` → `ProjectPage` — wall list + 3D viewer for a project
 - `/project/:projectId/wall/:wallId` → `WallBuilderPage` — main wall editor
+- `/admin` → `AdminPage` — admin settings (pricing, margins, company, T&Cs); requires backend API
 
 ### Core Calculation Pipeline
 `src/utils/calculator.js` — `calculateWallLayout(wall)` is the central function. Takes a wall definition object and returns a complete layout: panels, openings, footers, lintel panels, courses, end caps, deductions, and spline positions. All dimensions are in millimeters.

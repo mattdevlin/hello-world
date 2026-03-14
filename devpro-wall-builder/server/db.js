@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import initSqlJs from 'sql.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -7,13 +7,134 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_PATH = path.join(DATA_DIR, 'devpro-quotes.db');
 
-// Ensure data directory exists before opening the database
+// Ensure data directory exists
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const db = new Database(DB_PATH);
+// ── Compatibility wrapper ──────────────────────────────────────
+// Wraps sql.js to expose the same synchronous API as better-sqlite3:
+//   db.prepare(sql).run(...params)  → { changes }
+//   db.prepare(sql).get(...params)  → row object | undefined
+//   db.prepare(sql).all(...params)  → [row objects]
+//   db.exec(sql)
+//   db.transaction(fn) → wrapped fn
+//   db.pragma(string)  → (no-op for WAL; foreign_keys supported)
+//   db.close()
 
-// Enable WAL mode for better concurrent read performance
-db.pragma('journal_mode = WAL');
+function createWrapper(SQL, dbPath) {
+  let rawDb;
+  try {
+    const fileBuffer = fs.readFileSync(dbPath);
+    rawDb = new SQL.Database(fileBuffer);
+  } catch {
+    rawDb = new SQL.Database();
+  }
+
+  let inTransaction = false;
+
+  // Auto-save to disk after writes (skip during transactions — commit will persist)
+  function persist() {
+    if (inTransaction) return;
+    const data = rawDb.export();
+    fs.writeFileSync(dbPath, Buffer.from(data));
+  }
+
+  function rowsToObjects(stmt) {
+    const cols = stmt.getColumnNames();
+    const results = [];
+    while (stmt.step()) {
+      const vals = stmt.get();
+      const obj = {};
+      for (let i = 0; i < cols.length; i++) {
+        obj[cols[i]] = vals[i];
+      }
+      results.push(obj);
+    }
+    return results;
+  }
+
+  const db = {
+    prepare(sql) {
+      return {
+        run(...params) {
+          rawDb.run(sql, params);
+          const changes = rawDb.getRowsModified();
+          persist();
+          return { changes };
+        },
+        get(...params) {
+          const stmt = rawDb.prepare(sql);
+          stmt.bind(params);
+          if (stmt.step()) {
+            const cols = stmt.getColumnNames();
+            const vals = stmt.get();
+            const obj = {};
+            for (let i = 0; i < cols.length; i++) {
+              obj[cols[i]] = vals[i];
+            }
+            stmt.free();
+            return obj;
+          }
+          stmt.free();
+          return undefined;
+        },
+        all(...params) {
+          const stmt = rawDb.prepare(sql);
+          if (params.length > 0) stmt.bind(params);
+          const results = rowsToObjects(stmt);
+          stmt.free();
+          return results;
+        },
+      };
+    },
+
+    exec(sql) {
+      rawDb.exec(sql);
+      persist();
+    },
+
+    pragma(str) {
+      // sql.js doesn't support WAL (in-memory/file-based), but we can handle foreign_keys
+      if (str.includes('foreign_keys')) {
+        rawDb.run('PRAGMA foreign_keys = ON');
+      }
+      // WAL and other pragmas are silently ignored
+    },
+
+    transaction(fn) {
+      return (...args) => {
+        rawDb.run('BEGIN TRANSACTION');
+        inTransaction = true;
+        try {
+          const result = fn(...args);
+          rawDb.run('COMMIT');
+          inTransaction = false;
+          // Persist after successful commit
+          const data = rawDb.export();
+          fs.writeFileSync(dbPath, Buffer.from(data));
+          return result;
+        } catch (err) {
+          inTransaction = false;
+          try { rawDb.run('ROLLBACK'); } catch { /* already rolled back */ }
+          throw err;
+        }
+      };
+    },
+
+    close() {
+      persist();
+      rawDb.close();
+    },
+  };
+
+  return db;
+}
+
+// ── Initialize ──────────────────────────────────────────────────
+
+const SQL = await initSqlJs();
+const db = createWrapper(SQL, DB_PATH);
+
+// Enable foreign keys
 db.pragma('foreign_keys = ON');
 
 // Create tables

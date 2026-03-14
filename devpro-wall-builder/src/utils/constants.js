@@ -79,6 +79,16 @@ export const OPENING_TYPES = {
   DOUBLE_GARAGE: 'double_garage',
 };
 
+// NZS 3604 Stickframe Constants
+export const SF_STUD_WIDTH = 90;           // mm — 90x45 SG8
+export const SF_STUD_DEPTH = 45;           // mm
+export const SF_STUD_SPACING = 600;        // mm centres
+export const SF_PLATE_WIDTH = 90;          // mm — same as stud
+export const SF_PLATE_DEPTH = 45;          // mm
+export const SF_DWANG_SPACING = 810;       // mm (mid-height nogs, ~thirds of 2440)
+export const SF_DEDUCTION = 90;            // mm — corner overlap for stickframe
+export const SF_LINTEL_DEPTH = 45;         // mm — lintel member depth (thickness)
+
 // Colours for drawing
 export const COLORS = {
   PANEL: '#4A90D9',

@@ -8,9 +8,11 @@ import FramingElevation from '../components/FramingElevation.jsx';
 import EpsElevation from '../components/EpsElevation.jsx';
 import EpsCutPlans from '../components/EpsCutPlans.jsx';
 import Offcuts from '../components/Offcuts.jsx';
+import StickframeElevation from '../components/StickframeElevation.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import { calculateWallLayout } from '../utils/calculator.js';
 import { computeWallTimberRatio } from '../utils/timberCalculator.js';
+import { calculateStickframeLayout } from '../utils/stickframeCalculator.js';
 import { REFERENCE_TIMBER_FRACTION } from '../utils/h1Constants.js';
 import { getProjects, getProjectWalls, saveWall } from '../utils/storage.js';
 import { FONT_STACK, BRAND, NEUTRAL, RADIUS } from '../utils/designTokens.js';
@@ -26,6 +28,7 @@ export default function WallBuilderPage() {
   const [loadKey, setLoadKey] = useState(0);
   const [generateKey, setGenerateKey] = useState(0);
   const [timberRatio, setTimberRatio] = useState(null);
+  const [stickframeLayout, setStickframeLayout] = useState(null);
 
   useEffect(() => {
     const p = getProjects().find(p => p.id === projectId);
@@ -42,12 +45,14 @@ export default function WallBuilderPage() {
         setLayout(result);
         setWallName(wall.name);
         try { setTimberRatio(computeWallTimberRatio(wall)); } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); }
+        try { setStickframeLayout(calculateStickframeLayout(wall)); } catch (err) { console.warn('Failed to compute stickframe layout:', err); setStickframeLayout(null); }
       }
     } else {
       setWallInput(null);
       setLayout(null);
       setWallName('');
       setTimberRatio(null);
+      setStickframeLayout(null);
       setLoadKey(k => k + 1);
     }
   }, [projectId, wallId, navigate]);
@@ -59,6 +64,7 @@ export default function WallBuilderPage() {
     setWallInput(wall);
     setGenerateKey(k => k + 1);
     try { setTimberRatio(computeWallTimberRatio(wall)); } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); }
+    try { setStickframeLayout(calculateStickframeLayout(wall)); } catch (err) { console.warn('Failed to compute stickframe layout:', err); setStickframeLayout(null); }
   };
 
   const handleSave = () => {
@@ -128,6 +134,16 @@ export default function WallBuilderPage() {
               )}>
               <EpsElevation layout={layout} wallName={wallName} projectName={project.name} timberRatio={timberRatio} />
             </CollapsibleSection>
+            {stickframeLayout && (
+              <CollapsibleSection sectionKey="stickframe" title="NZS 3604 Stickframe Elevation" forceOpen={generateKey} headerRight={stickframeLayout.thermalRatio && timberRatio && (
+                  <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500 }}>
+                    <span style={{ color: '#2E7D32' }}>DEVPRO: {timberRatio.timberPercentage.toFixed(1)}% timber</span>
+                    <span style={{ color: '#E65100' }}>Stickframe: {stickframeLayout.thermalRatio.timberPercentage.toFixed(1)}% timber</span>
+                  </span>
+                )}>
+                <StickframeElevation stickframeLayout={stickframeLayout} wallName={wallName} projectName={project.name} />
+              </CollapsibleSection>
+            )}
             <CollapsibleSection sectionKey="panelPlans" title="CNC Panel Plans" defaultCollapsed>
               <PanelPlans layout={layout} wallName={wallName} projectName={project.name} />
             </CollapsibleSection>

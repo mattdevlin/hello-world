@@ -8,6 +8,7 @@ const ProjectPage = lazy(() => import('./pages/ProjectPage.jsx'));
 const WallBuilderPage = lazy(() => import('./pages/WallBuilderPage.jsx'));
 const FloorBuilderPage = lazy(() => import('./pages/FloorBuilderPage.jsx'));
 const H1Page = lazy(() => import('./pages/H1Page.jsx'));
+const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
           <Route path="/project/:projectId/wall/:wallId" element={<WallBuilderPage />} />
           <Route path="/project/:projectId/floor/:floorId" element={<FloorBuilderPage />} />
           <Route path="/project/:projectId/h1" element={<H1Page />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
