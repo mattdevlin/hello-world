@@ -1,15 +1,22 @@
 /**
- * Stickframe Wall Layout Calculator
+ * Stickframe Wall Layout Calculator — NZS 3604:2011
  *
  * Computes the full NZS 3604 timber frame layout for a wall:
  * - Bottom plate, top plate ×2
  * - End studs, regular studs at 600mm centres
- * - King studs, trimmer studs at openings
- * - Lintels, sill trimmers, head trimmers
- * - Cripple studs above lintels and below sills
+ * - Trimming studs, doubling studs at openings (NZ terminology per NZS 3604)
+ * - Lintels, sill trimmers
+ * - Jack studs above lintels and below sills
  * - Dwangs (nogs) at ~810mm vertical spacing
  *
  * Also calculates thermal bridging ratio (timber face area ÷ effective wall area).
+ *
+ * Terminology follows NZS 3604:2011 and BRANZ Build 141 (Oct/Nov 2014):
+ *   Trimming stud  — full-height stud at each side of an opening
+ *   Doubling stud  — shorter stud beside trimming stud, supports lintel
+ *   Jack stud      — short stud above lintel or below sill
+ *   Sill trimmer   — horizontal member under window sill
+ *   Dwang (nog)    — horizontal bracing between studs
  */
 
 import {
@@ -17,6 +24,8 @@ import {
   SF_PLATE_WIDTH, SF_PLATE_DEPTH, SF_DEDUCTION, SF_LINTEL_DEPTH,
   WALL_THICKNESS,
 } from './constants.js';
+
+import { getTrimmingStudSize, validateDoublingStud } from './nzs3604/walls.js';
 
 // ─────────────────────────────────────────────────────────────
 // Remap SIP deductions (162mm) to stickframe (90mm)
@@ -114,19 +123,19 @@ export function calculateStickframeLayout(wall) {
       lintelTop: wallHeight - plateH - sillH - opH,
       // Sill trimmer sits below opening (at sill level)
       sillY: wallHeight - plateH - sillH,
-      // King stud zone (for regular stud exclusion)
-      kingLeft: opX - studW,
-      kingRight: opX + opW,
+      // Trimming stud zone (for regular stud exclusion)
+      trimmingLeft: opX - studW,
+      trimmingRight: opX + opW,
     };
   });
 
   // Sort openings left to right
   openings.sort((a, b) => a.x - b.x);
 
-  // Build exclusion zones for regular studs (between king studs)
+  // Build exclusion zones for regular studs (between trimming studs)
   const exclusionZones = openings.map(op => ({
-    left: deductionLeft + op.kingLeft,
-    right: deductionLeft + op.kingRight + studW,
+    left: deductionLeft + op.trimmingLeft,
+    right: deductionLeft + op.trimmingRight + studW,
   }));
 
   // ── End studs ──
@@ -176,73 +185,83 @@ export function calculateStickframeLayout(wall) {
     }
   }
 
-  // ── Opening framing ──
+  // ── Opening framing (NZS 3604 terminology) ──
   for (const op of openings) {
     const absX = deductionLeft + op.x; // absolute x position
     const ref = op.ref || op.type;
 
-    // King studs — full height studs at opening edges
-    const kingLeftX = absX - studW;
-    const kingRightX = absX + op.width;
+    // Trimming studs — full height studs at each side of opening (NZS 3604)
+    const trimmingLeftX = absX - studW;
+    const trimmingRightX = absX + op.width;
 
-    // Only add king stud if it's not at the same position as an end stud
-    if (kingLeftX > deductionLeft + studW / 2) {
+    // Look up trimming stud sizing from NZS 3604 Table 8.5
+    const trimmingSizing = getTrimmingStudSize(op.width, SF_STUD_WIDTH, 'sot_and_nlb');
+
+    // Only add trimming stud if it's not at the same position as an end stud
+    if (trimmingLeftX > deductionLeft + studW / 2) {
       members.push({
-        type: 'king_stud',
-        x: kingLeftX,
+        type: 'trimming_stud',
+        x: trimmingLeftX,
         y: plateH * 2,
         width: studW,
         height: studHeight,
-        label: `King Stud L (${ref})`,
+        label: `Trimming Stud L (${ref})`,
         length_mm: studHeight,
+        nzs3604: trimmingSizing,
       });
     }
 
-    if (kingRightX < deductionLeft + netLength - studW * 1.5) {
+    if (trimmingRightX < deductionLeft + netLength - studW * 1.5) {
       members.push({
-        type: 'king_stud',
-        x: kingRightX,
+        type: 'trimming_stud',
+        x: trimmingRightX,
         y: plateH * 2,
         width: studW,
         height: studHeight,
-        label: `King Stud R (${ref})`,
+        label: `Trimming Stud R (${ref})`,
         length_mm: studHeight,
+        nzs3604: trimmingSizing,
       });
     }
 
-    // Trimmer studs — beside king studs, from bottom plate to lintel underside
-    const trimmerHeight = op.sill + op.height + op.lintelHeight;
-    const trimmerY = wallHeight - plateH - trimmerHeight;
+    // Doubling studs (understuds) — beside trimming studs, support lintel (NZS 3604)
+    const doublingHeight = op.sill + op.height + op.lintelHeight;
+    const doublingY = wallHeight - plateH - doublingHeight;
 
-    if (kingLeftX + studW <= absX) {
+    // Validate doubling stud height per BRANZ Build 141 rules
+    const doublingValidation = validateDoublingStud(doublingHeight, studHeight);
+
+    if (trimmingLeftX + studW <= absX) {
       members.push({
-        type: 'trimmer_stud',
-        x: kingLeftX + studW,
-        y: trimmerY,
+        type: 'doubling_stud',
+        x: trimmingLeftX + studW,
+        y: doublingY,
         width: studW,
-        height: trimmerHeight,
-        label: `Trimmer L (${ref})`,
-        length_mm: trimmerHeight,
+        height: doublingHeight,
+        label: `Doubling L (${ref})`,
+        length_mm: doublingHeight,
+        branzWarnings: doublingValidation.warnings,
       });
     }
 
-    if (kingRightX - studW >= absX + op.width) {
+    if (trimmingRightX - studW >= absX + op.width) {
       members.push({
-        type: 'trimmer_stud',
-        x: kingRightX - studW,
-        y: trimmerY,
+        type: 'doubling_stud',
+        x: trimmingRightX - studW,
+        y: doublingY,
         width: studW,
-        height: trimmerHeight,
-        label: `Trimmer R (${ref})`,
-        length_mm: trimmerHeight,
+        height: doublingHeight,
+        label: `Doubling R (${ref})`,
+        length_mm: doublingHeight,
+        branzWarnings: doublingValidation.warnings,
       });
     }
 
-    // Lintel — spans between king studs
-    const lintelSpan = op.width + studW * 2; // king to king
+    // Lintel — spans between trimming studs
+    const lintelSpan = op.width + studW * 2; // trimming to trimming
     members.push({
       type: 'lintel',
-      x: kingLeftX,
+      x: trimmingLeftX,
       y: op.lintelBottom,
       width: lintelSpan,
       height: op.lintelHeight,
@@ -258,44 +277,40 @@ export function calculateStickframeLayout(wall) {
         y: op.sillY,
         width: op.width,
         height: plateH,
-        label: `Sill (${ref})`,
+        label: `Sill Trimmer (${ref})`,
         length_mm: op.width,
       });
     }
 
-    // Head trimmer — if lintel top doesn't reach top plate
-    // (lintelBottom > plateH * 2 means there's space between lintel and top plate)
-    // Actually a head trimmer is redundant if we have a lintel — skip for now
-
-    // Cripple studs below window sill
+    // Jack studs below window sill (NZS 3604: short studs below sill)
     if (!op.isDoor && op.sill > plateH) {
-      const crippleHeight = op.sill - plateH; // from top of bottom plate to sill trimmer
-      const crippleY = wallHeight - plateH - op.sill;
+      const jackHeight = op.sill - plateH; // from top of bottom plate to sill trimmer
+      const jackY = wallHeight - plateH - op.sill;
 
       for (let cx = absX + SF_STUD_SPACING; cx < absX + op.width - studW; cx += SF_STUD_SPACING) {
         members.push({
-          type: 'cripple_stud',
+          type: 'jack_stud',
           x: cx,
-          y: crippleY + plateH,
+          y: jackY + plateH,
           width: studW,
-          height: crippleHeight,
-          label: `Cripple Below (${ref})`,
-          length_mm: crippleHeight,
+          height: jackHeight,
+          label: `Jack Stud Below (${ref})`,
+          length_mm: jackHeight,
         });
       }
     }
 
-    // Cripple studs above lintel
+    // Jack studs above lintel (NZS 3604: short studs above lintel to top plate)
     const spaceAboveLintel = op.lintelBottom - plateH * 2;
     if (spaceAboveLintel > plateH) {
       for (let cx = absX + SF_STUD_SPACING; cx < absX + op.width - studW; cx += SF_STUD_SPACING) {
         members.push({
-          type: 'cripple_stud',
+          type: 'jack_stud',
           x: cx,
           y: plateH * 2,
           width: studW,
           height: spaceAboveLintel,
-          label: `Cripple Above (${ref})`,
+          label: `Jack Stud Above (${ref})`,
           length_mm: spaceAboveLintel,
         });
       }
@@ -313,7 +328,7 @@ export function calculateStickframeLayout(wall) {
 
     // Get all vertical members sorted by x to find gaps between them
     const verticals = members
-      .filter(m => ['stud', 'end_stud', 'king_stud', 'trimmer_stud', 'cripple_stud'].includes(m.type))
+      .filter(m => ['stud', 'end_stud', 'trimming_stud', 'doubling_stud', 'jack_stud'].includes(m.type))
       .filter(m => m.y <= dwangY && m.y + m.height >= dwangY + plateH)
       .sort((a, b) => a.x - b.x);
 
@@ -384,7 +399,7 @@ function computeStickframeThermalRatio(netLength, wallHeight, members, rawOpenin
     return {
       grossWallArea: 0, openingArea: 0, effectiveWallArea: 0,
       timberFaceArea: 0, timberPercentage: 0, insulationPercentage: 100,
-      breakdown: { plates: 0, studs: 0, dwangs: 0, lintels: 0, trimmers: 0, crippleStuds: 0 },
+      breakdown: { plates: 0, studs: 0, dwangs: 0, lintels: 0, doublings: 0, jackStuds: 0 },
     };
   }
 
@@ -393,8 +408,8 @@ function computeStickframeThermalRatio(netLength, wallHeight, members, rawOpenin
     studs: 0,
     dwangs: 0,
     lintels: 0,
-    trimmers: 0,
-    crippleStuds: 0,
+    doublings: 0,
+    jackStuds: 0,
   };
 
   for (const m of members) {
@@ -409,7 +424,7 @@ function computeStickframeThermalRatio(netLength, wallHeight, members, rawOpenin
         break;
       case 'stud':
       case 'end_stud':
-      case 'king_stud':
+      case 'trimming_stud':
         breakdown.studs += faceArea;
         break;
       case 'dwang':
@@ -418,20 +433,20 @@ function computeStickframeThermalRatio(netLength, wallHeight, members, rawOpenin
       case 'lintel':
         breakdown.lintels += faceArea;
         break;
-      case 'trimmer_stud':
-        breakdown.trimmers += faceArea;
+      case 'doubling_stud':
+        breakdown.doublings += faceArea;
         break;
-      case 'cripple_stud':
-        breakdown.crippleStuds += faceArea;
+      case 'jack_stud':
+        breakdown.jackStuds += faceArea;
         break;
       case 'sill_trimmer':
-        breakdown.trimmers += faceArea;
+        breakdown.doublings += faceArea;
         break;
     }
   }
 
   const timberFaceArea = breakdown.plates + breakdown.studs + breakdown.dwangs
-    + breakdown.lintels + breakdown.trimmers + breakdown.crippleStuds;
+    + breakdown.lintels + breakdown.doublings + breakdown.jackStuds;
 
   const timberPercentage = (timberFaceArea / effectiveWallArea) * 100;
 
@@ -447,8 +462,8 @@ function computeStickframeThermalRatio(netLength, wallHeight, members, rawOpenin
       studs: Math.round(breakdown.studs),
       dwangs: Math.round(breakdown.dwangs),
       lintels: Math.round(breakdown.lintels),
-      trimmers: Math.round(breakdown.trimmers),
-      crippleStuds: Math.round(breakdown.crippleStuds),
+      doublings: Math.round(breakdown.doublings),
+      jackStuds: Math.round(breakdown.jackStuds),
     },
   };
 }
