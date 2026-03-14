@@ -412,6 +412,10 @@ export default function WallDrawing({ layout, wallName, projectName }) {
               // Use course 0 panels for measurement ticks (same x-positions across courses)
               panels.filter(p => (p.course ?? 0) === 0).forEach(p => points.add(Math.round(p.x + p.width)));
               footerPanels.forEach(f => points.add(Math.round(f.x + f.width)));
+              openings.forEach(op => {
+                points.add(Math.round(op.x));
+                points.add(Math.round(op.x + op.drawWidth));
+              });
               const sorted = [...points].sort((a, b) => a - b);
               const tickY = yBottom + 22;
               return sorted.map((pt, i) => (

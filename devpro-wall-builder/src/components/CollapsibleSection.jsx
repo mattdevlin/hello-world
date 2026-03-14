@@ -14,7 +14,7 @@ function saveCollapsedState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-export default function CollapsibleSection({ sectionKey, title, defaultCollapsed = false, forceOpen, children }) {
+export default function CollapsibleSection({ sectionKey, title, defaultCollapsed = false, forceOpen, forceCollapse, headerRight, children }) {
   const [collapsed, setCollapsed] = useState(() => {
     const saved = loadCollapsedState();
     return sectionKey in saved ? saved[sectionKey] : defaultCollapsed;
@@ -24,6 +24,10 @@ export default function CollapsibleSection({ sectionKey, title, defaultCollapsed
   useEffect(() => {
     if (forceOpen) setCollapsed(false);
   }, [forceOpen]);
+
+  useEffect(() => {
+    if (forceCollapse) setCollapsed(true);
+  }, [forceCollapse]);
 
   useEffect(() => {
     const state = loadCollapsedState();
@@ -38,6 +42,7 @@ export default function CollapsibleSection({ sectionKey, title, defaultCollapsed
       <button onClick={toggle} style={styles.header} aria-expanded={!collapsed}>
         <span style={styles.chevron} aria-hidden="true">{collapsed ? '▶' : '▼'}</span>
         <span style={styles.title}>{title}</span>
+        {headerRight && <span style={styles.headerRight}>{headerRight}</span>}
       </button>
       <div
         ref={contentRef}
@@ -79,5 +84,11 @@ const styles = {
   },
   title: {
     flex: 1,
+  },
+  headerRight: {
+    marginLeft: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
   },
 };
