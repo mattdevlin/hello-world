@@ -2193,21 +2193,277 @@ def size_roof(storey: dict, wind_zone: str, site: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# 8. CONNECTIONS (STUBS — Chunk 7)
+# 8. CONNECTIONS + NAILING (Chunk 7)
 # ---------------------------------------------------------------------------
 
 
-def generate_connections(level_designs: list, wind_zone: str) -> dict:
-    """Compile fixing schedule from nailing tables. STUB — Chunk 7."""
+def lookup_nailing(section: str, joint: str) -> dict | None:
+    """Look up nailing specification from a nailing schedule table.
+
+    Args:
+        section: Section key — "s6", "s7", "s8", "s10", or "s13".
+        joint: Joint name key within the nailing schedule.
+
+    Returns:
+        dict with hand and power nailing specs, or None if not found.
+    """
+    tables = load_tables()
+    table_key = f"nailing_schedule_{section}"
+    schedule = tables.get(table_key, {})
+
+    # S8 has a "joints" sub-key, others are flat
+    if "joints" in schedule:
+        schedule = schedule["joints"]
+
+    entry = schedule.get(joint)
+    if entry is None:
+        return None
+
+    # Some entries are cross-references (e.g. {"_see": "Table 10.1"})
+    if isinstance(entry, dict) and "_see" in entry:
+        return {"_see": entry["_see"], "ref": f"NZS 3604 {tables.get(table_key, {}).get('_ref', '')}"}
+
+    return entry
+
+
+def lookup_top_plate_fixing(
+    wind_zone: str,
+    loaded_dim_m: float,
+    truss_spacing: int = 900,
+    roof_weight: str = "light",
+) -> dict:
+    """Look up top plate fixing type from Table 8.18.
+
+    Args:
+        wind_zone: Wind zone string.
+        loaded_dim_m: Loaded dimension in metres.
+        truss_spacing: Truss/rafter spacing in mm.
+        roof_weight: "light" or "heavy".
+
+    Returns:
+        dict with keys: fixing_type, description, capacity_kN, ref
+    """
+    tables = load_tables()
+    tpf = tables.get("top_plate_fixing", {})
+
+    weight_data = tpf.get(roof_weight, tpf.get("light", {}))
+
+    # Round UP truss spacing to next table key
+    spacing_key = table_lookup(weight_data, truss_spacing)
+    if spacing_key is None:
+        return {
+            "fixing_type": "B",
+            "ref": "NZS 3604 Table 8.18",
+            "_note": f"Spacing {truss_spacing}mm exceeds table — defaulting to Type B (conservative)",
+        }
+
+    zone_data = weight_data[spacing_key].get(wind_zone, {})
+    ld_key = table_lookup(zone_data, loaded_dim_m)
+    if ld_key is None:
+        return {
+            "fixing_type": "B",
+            "ref": "NZS 3604 Table 8.18",
+            "_note": f"Loaded dim {loaded_dim_m}m exceeds table — defaulting to Type B (conservative)",
+        }
+
+    fixing_type = zone_data[ld_key]
+
+    # Look up fixing type description
+    fixing_info = tpf.get("fixing_types", {}).get(fixing_type, {})
+
     return {
-        "_stub": True,
-        "_note": "Connection schedule not yet implemented (Chunk 7)",
+        "fixing_type": fixing_type,
+        "description": fixing_info.get("description", ""),
+        "capacity_kN": fixing_info.get("capacity_kN"),
+        "ref": "NZS 3604 Table 8.18",
     }
 
 
+def generate_connections(level_designs: list, wind_zone: str) -> dict:
+    """Compile fixing schedule from all nailing tables.
+
+    Collects relevant nailing specifications for each building section:
+    subfloor (S6), floor (S7), walls (S8), roof (S10), and ceiling (S13).
+
+    Args:
+        level_designs: List of level design dicts from the engine.
+        wind_zone: Wind zone string.
+
+    Returns:
+        Complete connection/fixing schedule dict.
+    """
+    tables = load_tables()
+
+    connections = {
+        "ref": "NZS 3604 Nailing Schedules (Tables 6.6, 7.5, 8.19, 10.18, 13.3)",
+    }
+
+    # Section 6 — Subfloor nailing (Table 6.6)
+    s6 = tables.get("nailing_schedule_s6", {})
+    s6_joints = {k: v for k, v in s6.items() if not k.startswith("_")}
+    if s6_joints:
+        connections["subfloor"] = {
+            "ref": "NZS 3604 Table 6.6",
+            "joints": s6_joints,
+        }
+
+    # Section 7 — Floor nailing (Table 7.5)
+    s7 = tables.get("nailing_schedule_s7", {})
+    s7_joints = {k: v for k, v in s7.items() if not k.startswith("_")}
+    if s7_joints:
+        connections["floor"] = {
+            "ref": "NZS 3604 Table 7.5",
+            "joints": s7_joints,
+        }
+
+    # Section 8 — Wall nailing (Table 8.19)
+    s8 = tables.get("nailing_schedule_s8", {})
+    s8_joints = s8.get("joints", {})
+    s8_clean = {k: v for k, v in s8_joints.items() if not k.startswith("_")}
+    if s8_clean:
+        connections["walls"] = {
+            "ref": "NZS 3604 Table 8.19",
+            "joints": s8_clean,
+        }
+
+    # Section 10 — Roof nailing (Table 10.18)
+    s10 = tables.get("nailing_schedule_s10", {})
+    s10_joints = {k: v for k, v in s10.items() if not k.startswith("_")}
+    if s10_joints:
+        connections["roof"] = {
+            "ref": "NZS 3604 Table 10.18",
+            "joints": s10_joints,
+        }
+
+    # Section 13 — Ceiling nailing (Table 13.3)
+    s13 = tables.get("nailing_schedule_s13", {})
+    s13_joints = {k: v for k, v in s13.items() if not k.startswith("_")}
+    if s13_joints:
+        connections["ceiling"] = {
+            "ref": "NZS 3604 Table 13.3",
+            "joints": s13_joints,
+        }
+
+    # Top plate fixing (Table 8.18) — determined per level
+    tp_fixings = []
+    for level in level_designs:
+        if level.get("roof"):
+            # Use rafter loaded dim from roof design
+            rafter = level["roof"].get("rafter", {})
+            loaded_dim_m = rafter.get("max_span_m", 4.0)
+            spacing = rafter.get("spacing", 600)
+            roof_weight = "light"  # default
+            tp_fix = lookup_top_plate_fixing(
+                wind_zone, loaded_dim_m,
+                truss_spacing=spacing,
+                roof_weight=roof_weight,
+            )
+            tp_fixings.append({
+                "level": level.get("level_name", ""),
+                **tp_fix,
+            })
+    if tp_fixings:
+        connections["top_plate_fixing"] = tp_fixings
+
+    # Fixing types reference (Table 10.15)
+    fixing_types = tables.get("fixing_types", {})
+    if fixing_types:
+        connections["fixing_types_reference"] = {
+            "ref": "NZS 3604 Table 10.15",
+            "types": {k: v for k, v in fixing_types.items() if not k.startswith("_")},
+        }
+
+    return connections
+
+
 def generate_compliance_notes(design: dict) -> list:
-    """Generate per-element NZS 3604 clause references. STUB — Chunk 7."""
-    return [{"_stub": True, "_note": "Compliance notes not yet implemented"}]
+    """Generate per-element NZS 3604 clause references.
+
+    Produces a list of compliance notes linking each design element to its
+    governing NZS 3604 clause and table.
+
+    Args:
+        design: dict with keys "levels" and "bracing".
+
+    Returns:
+        List of compliance note dicts.
+    """
+    notes = []
+
+    notes.append({
+        "element": "Site classification",
+        "clause": "NZS 3604 S5.2–5.4",
+        "note": "Wind zone per Table 5.4, EQ zone per Figure 5.4",
+    })
+
+    notes.append({
+        "element": "Bracing demand",
+        "clause": "NZS 3604 S5.5–5.10",
+        "note": "Wind bracing per Tables 5.5–5.7, EQ bracing per Tables 5.8–5.10",
+    })
+
+    for level in design.get("levels", []):
+        level_name = level.get("level_name", "Level")
+
+        # Wall notes
+        for wall in level.get("walls", []):
+            wall_name = wall.get("wall_id", wall.get("wall_name", "Wall"))
+            notes.append({
+                "element": f"{level_name} — Wall {wall_name} studs",
+                "clause": "NZS 3604 S8.5, Tables 8.2/8.4",
+                "note": "Loadbearing studs per Table 8.2, NLB per Table 8.4",
+            })
+
+        # Floor notes
+        floor = level.get("floor", {})
+        if floor.get("type") == "suspended_timber":
+            notes.append({
+                "element": f"{level_name} — Floor joists",
+                "clause": "NZS 3604 S7.3, Table 7.1",
+                "note": "Floor joist sizing per Table 7.1",
+            })
+            notes.append({
+                "element": f"{level_name} — Bearers",
+                "clause": "NZS 3604 S6.6, Table 6.4",
+                "note": "Bearer sizing per Table 6.4",
+            })
+            notes.append({
+                "element": f"{level_name} — Pile footings",
+                "clause": "NZS 3604 S6.4, Table 6.1",
+                "note": "Pile footing sizing per Table 6.1",
+            })
+        elif floor.get("type") == "slab_on_ground":
+            notes.append({
+                "element": f"{level_name} — Slab on ground",
+                "clause": "NZS 3604 S7.5",
+                "note": "Prescriptive slab requirements per S7.5",
+            })
+
+        # Roof notes
+        if level.get("roof"):
+            notes.append({
+                "element": f"{level_name} — Rafters",
+                "clause": "NZS 3604 S10.3, Table 10.1",
+                "note": "Rafter sizing per Table 10.1 with zone multipliers",
+            })
+            notes.append({
+                "element": f"{level_name} — Ceiling joists",
+                "clause": "NZS 3604 S10.5, Table 10.3",
+                "note": "Ceiling joist sizing per Table 10.3",
+            })
+            notes.append({
+                "element": f"{level_name} — Truss/rafter fixing",
+                "clause": "NZS 3604 S10.8, Table 10.14",
+                "note": "Fixing per Table 10.14, types per Table 10.15",
+            })
+
+    notes.append({
+        "element": "Nailing schedules",
+        "clause": "NZS 3604 Tables 6.6, 7.5, 8.19, 10.18, 13.3",
+        "note": "All nailing per relevant section nailing schedule",
+    })
+
+    return notes
 
 
 # ---------------------------------------------------------------------------
