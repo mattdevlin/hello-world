@@ -1544,17 +1544,652 @@ def _find_cantilever_joist(
 
 
 # ---------------------------------------------------------------------------
-# 7. ROOF SIZING (STUBS — Chunk 6)
+# 7. ROOF SIZING (Chunk 6)
 # ---------------------------------------------------------------------------
 
 
-def size_roof(storey: dict, wind_zone: str, site: dict) -> dict:
-    """Size roof framing for a storey. STUB — implemented in Chunk 6."""
+# Rafter sizes in ascending cross-section area for size_lookup searches
+_RAFTER_SIZES_45 = ["90x45", "140x45", "190x45", "240x45", "290x45"]
+_RAFTER_SIZES_70 = ["140x70", "190x70", "240x70", "290x70"]
+_RAFTER_SIZES_90 = ["140x90", "190x90", "240x90", "290x90"]
+_ALL_RAFTER_SIZES = (
+    ["90x45"]
+    + ["140x45", "140x70", "140x90"]
+    + ["190x45", "190x70", "190x90"]
+    + ["240x45", "240x70", "240x90"]
+    + ["290x45", "290x70", "290x90"]
+)
+
+# Ceiling joist sizes in ascending order
+_CEILING_JOIST_SIZES = ["90x35", "90x45", "140x35", "140x45", "190x45"]
+
+# Ceiling runner sizes in ascending order
+_CEILING_RUNNER_SIZES = ["140x45", "190x45", "240x45", "290x45", "290x90"]
+
+# Underpurlin sizes in ascending order
+_UNDERPURLIN_SIZES = [
+    "90x45", "140x45", "190x45", "240x45", "290x45",
+    "90x70", "140x70", "190x70", "240x70", "290x70",
+    "190x90", "240x90", "290x90",
+]
+
+# Ridge beam sizes in ascending order
+_RIDGE_SIZES = [
+    "240x45", "290x45", "190x70", "240x70", "290x70",
+    "190x90", "240x90", "290x90",
+]
+
+
+def _member_area(size_str: str) -> int:
+    """Parse cross-section area from a size string like '190x45' → 8550."""
+    try:
+        parts = size_str.split("x")
+        return int(parts[0]) * int(parts[1])
+    except (ValueError, IndexError):
+        return 0
+
+
+def lookup_rafter(
+    wind_zone: str,
+    span_m: float,
+    spacing: int = 600,
+    roof_weight: str = "light",
+) -> dict:
+    """Look up rafter size from Table 10.1.
+
+    Table 10.1 gives EH (Extra High) zone spans. Multiply by zone factor:
+    L/M=1.3, H/VH=1.1, EH=1.0 to get actual allowable span.
+
+    Finds the smallest rafter where adjusted max_span >= required span at
+    the given spacing.
+
+    Args:
+        wind_zone: Wind zone string (L, M, H, VH, EH).
+        span_m: Required rafter span in metres.
+        spacing: Rafter spacing in mm (480, 600, 900, 1200).
+        roof_weight: "light" or "heavy" (not used for ordinary rafters).
+
+    Returns:
+        dict with keys: size, spacing, max_span_m, fixing, ref
+    """
+    tables = load_tables()
+    rafters = tables["rafters"]
+    multipliers = rafters.get("rafter_zone_multipliers", {})
+    zone_mult = multipliers.get(wind_zone, 1.0)
+
+    ordinary = rafters.get("ordinary", {})
+    spacing_key = str(spacing)
+
+    # Sort sizes by cross-section area
+    candidates = []
+    for size in sorted(ordinary.keys(), key=lambda s: _member_area(s)):
+        if size.startswith("_"):
+            continue
+        spacing_data = ordinary[size]
+        if spacing_key not in spacing_data:
+            continue
+        entry = spacing_data[spacing_key]
+        eh_span = entry.get("span", 0)
+        actual_span = eh_span * zone_mult
+        if actual_span >= span_m - 1e-9:
+            candidates.append({
+                "size": size,
+                "spacing": spacing,
+                "max_span_m": round(actual_span, 2),
+                "fixing": entry.get("fix", "E"),
+                "zone_multiplier": zone_mult,
+                "ref": "NZS 3604 Table 10.1",
+            })
+            break
+
+    if candidates:
+        return candidates[0]
+
     return {
-        "roof_form": storey.get("roof_form", "gable"),
-        "_stub": True,
-        "_note": "Roof sizing not yet implemented (Chunk 6)",
+        "size": "SED",
+        "spacing": spacing,
+        "max_span_m": None,
+        "fixing": "SED",
+        "ref": "NZS 3604 Table 10.1",
+        "_note": f"No SG8 rafter spans {span_m}m at {spacing}mm crs in zone {wind_zone}",
     }
+
+
+def lookup_ridge_beam(
+    wind_zone: str,
+    span_m: float,
+    loaded_width_m: float,
+    roof_weight: str = "light",
+) -> dict:
+    """Look up ridge beam size from Table 10.2.
+
+    Finds the smallest beam where max span >= required span at the given
+    loaded width and roof weight.
+
+    Args:
+        wind_zone: Wind zone string (not currently used — table doesn't vary by zone).
+        span_m: Required ridge beam span in metres.
+        loaded_width_m: Loaded width (rafter span each side) in metres.
+        roof_weight: "light" or "heavy".
+
+    Returns:
+        dict with keys: size, max_span_m, loaded_width_m, fixing, ref
+    """
+    tables = load_tables()
+    ridges = tables["ridge_beams"]
+    weight_data = ridges.get(roof_weight, ridges.get("light", {}))
+
+    # Round UP loaded width to next table row
+    # Need to find loaded_dim_key across all sizes
+    # First, collect all loaded dim keys from any size
+    all_dims = set()
+    for size_data in weight_data.values():
+        if isinstance(size_data, dict):
+            for k in size_data:
+                if not k.startswith("_"):
+                    all_dims.add(k)
+    sorted_dims = sorted(all_dims, key=float)
+
+    # Find the rounded-up loaded dim
+    ld_key = None
+    for d in sorted_dims:
+        if float(d) >= loaded_width_m - 1e-9:
+            ld_key = d
+            break
+    if ld_key is None:
+        return {
+            "size": "SED",
+            "max_span_m": None,
+            "loaded_width_m": loaded_width_m,
+            "fixing": "SED",
+            "ref": "NZS 3604 Table 10.2",
+            "_note": f"Loaded width {loaded_width_m}m exceeds table range",
+        }
+
+    # Find smallest size that spans
+    for size in _RIDGE_SIZES:
+        if size not in weight_data:
+            continue
+        entry = weight_data[size].get(ld_key)
+        if entry is None:
+            continue
+        max_span = entry.get("span", 0)
+        if max_span >= span_m - 1e-9:
+            return {
+                "size": size,
+                "max_span_m": max_span,
+                "loaded_width_m": float(ld_key),
+                "fixing": entry.get("fix", "H"),
+                "ref": "NZS 3604 Table 10.2",
+            }
+
+    return {
+        "size": "SED",
+        "max_span_m": None,
+        "loaded_width_m": float(ld_key),
+        "fixing": "SED",
+        "ref": "NZS 3604 Table 10.2",
+        "_note": f"No SG8 ridge beam spans {span_m}m at {ld_key}m loaded width",
+    }
+
+
+def lookup_ceiling_joist(span_m: float, spacing: int = 600) -> dict:
+    """Look up ceiling joist size from Table 10.3.
+
+    Finds the smallest ceiling joist where max_span >= required span.
+
+    Args:
+        span_m: Required span in metres.
+        spacing: Joist spacing in mm (480, 600, 900).
+
+    Returns:
+        dict with keys: size, spacing, max_span_m, ref
+    """
+    tables = load_tables()
+    cj = tables["ceiling_joists"]
+    spacing_key = str(spacing)
+
+    for size in _CEILING_JOIST_SIZES:
+        if size not in cj:
+            continue
+        max_span = cj[size].get(spacing_key)
+        if max_span is not None and max_span >= span_m - 1e-9:
+            return {
+                "size": size,
+                "spacing": spacing,
+                "max_span_m": max_span,
+                "ref": "NZS 3604 Table 10.3",
+            }
+
+    return {
+        "size": "SED",
+        "spacing": spacing,
+        "max_span_m": None,
+        "ref": "NZS 3604 Table 10.3",
+        "_note": f"No SG8 ceiling joist spans {span_m}m at {spacing}mm crs",
+    }
+
+
+def lookup_ceiling_runner(span_m: float, spacing_m: float = 2.4) -> dict:
+    """Look up ceiling runner size from Table 10.4.
+
+    Args:
+        span_m: Required span in metres.
+        spacing_m: Runner spacing in metres (1.8, 2.4, 3.0).
+
+    Returns:
+        dict with keys: size, spacing_m, max_span_m, ref
+    """
+    tables = load_tables()
+    cr = tables["ceiling_runners"]
+    spacing_key = str(spacing_m)
+
+    for size in _CEILING_RUNNER_SIZES:
+        if size not in cr:
+            continue
+        max_span = cr[size].get(spacing_key)
+        if max_span is not None and max_span >= span_m - 1e-9:
+            return {
+                "size": size,
+                "spacing_m": spacing_m,
+                "max_span_m": max_span,
+                "ref": "NZS 3604 Table 10.4",
+            }
+
+    return {
+        "size": "SED",
+        "spacing_m": spacing_m,
+        "max_span_m": None,
+        "ref": "NZS 3604 Table 10.4",
+        "_note": f"No SG8 ceiling runner spans {span_m}m at {spacing_m}m crs",
+    }
+
+
+def lookup_underpurlin(
+    span_m: float,
+    loaded_dim_m: float,
+    roof_weight: str = "light",
+) -> dict:
+    """Look up underpurlin size from Table 10.5.
+
+    Finds the smallest underpurlin where max span >= required span at the
+    given loaded dimension and roof weight.
+
+    Args:
+        span_m: Required underpurlin span in metres.
+        loaded_dim_m: Loaded dimension in metres.
+        roof_weight: "light" or "heavy".
+
+    Returns:
+        dict with keys: size, max_span_m, loaded_dim_m, fixing, ref
+    """
+    tables = load_tables()
+    up = tables["underpurlins"]
+    weight_data = up.get(roof_weight, up.get("light", {}))
+
+    # Round UP loaded dim
+    ld_key = None
+    all_dims = set()
+    for size_data in weight_data.values():
+        if isinstance(size_data, dict):
+            for k in size_data:
+                if not k.startswith("_"):
+                    all_dims.add(k)
+    for d in sorted(all_dims, key=float):
+        if float(d) >= loaded_dim_m - 1e-9:
+            ld_key = d
+            break
+
+    if ld_key is None:
+        return {
+            "size": "SED",
+            "max_span_m": None,
+            "loaded_dim_m": loaded_dim_m,
+            "fixing": "SED",
+            "ref": "NZS 3604 Table 10.5",
+            "_note": f"Loaded dim {loaded_dim_m}m exceeds table range",
+        }
+
+    # Sort by area to find smallest adequate member
+    sorted_sizes = sorted(
+        [s for s in weight_data if not s.startswith("_")],
+        key=_member_area,
+    )
+
+    for size in sorted_sizes:
+        entry = weight_data[size].get(ld_key)
+        if entry is None:
+            continue
+        max_span = entry.get("span", 0)
+        if max_span >= span_m - 1e-9:
+            return {
+                "size": size,
+                "max_span_m": max_span,
+                "loaded_dim_m": float(ld_key),
+                "fixing": entry.get("fix", "L"),
+                "ref": "NZS 3604 Table 10.5",
+            }
+
+    return {
+        "size": "SED",
+        "max_span_m": None,
+        "loaded_dim_m": float(ld_key),
+        "fixing": "SED",
+        "ref": "NZS 3604 Table 10.5",
+        "_note": f"No SG8 underpurlin spans {span_m}m at {ld_key}m loaded dim",
+    }
+
+
+def lookup_strutting_beam(
+    span_m: float,
+    loaded_dim_m: float,
+    strut_spacing_m: float,
+    roof_weight: str = "light",
+) -> dict:
+    """Look up strutting beam size from Table 10.7.
+
+    Args:
+        span_m: Required beam span in metres.
+        loaded_dim_m: Loaded dimension in metres.
+        strut_spacing_m: Strut spacing in metres.
+        roof_weight: "light" or "heavy".
+
+    Returns:
+        dict with keys: size, max_span_m, fixing, ref
+    """
+    tables = load_tables()
+    sb = tables.get("strutting_beams", {})
+    weight_data = sb.get(roof_weight, sb.get("light", {}))
+
+    # Round UP loaded dim
+    all_dims = set()
+    for size_data in weight_data.values():
+        if isinstance(size_data, dict):
+            for k in size_data:
+                if not k.startswith("_"):
+                    all_dims.add(k)
+    ld_key = None
+    for d in sorted(all_dims, key=float):
+        if float(d) >= loaded_dim_m - 1e-9:
+            ld_key = d
+            break
+
+    if ld_key is None:
+        return {
+            "size": "SED",
+            "max_span_m": None,
+            "fixing": "SED",
+            "ref": "NZS 3604 Table 10.7",
+            "_note": f"Loaded dim {loaded_dim_m}m exceeds table range",
+        }
+
+    # Round UP strut spacing
+    sorted_sizes = sorted(
+        [s for s in weight_data if not s.startswith("_")],
+        key=_member_area,
+    )
+
+    for size in sorted_sizes:
+        dim_data = weight_data[size].get(ld_key)
+        if not isinstance(dim_data, dict):
+            continue
+        strut_key = table_lookup(dim_data, strut_spacing_m)
+        if strut_key is None:
+            continue
+        entry = dim_data[strut_key]
+        if isinstance(entry, dict):
+            max_span = entry.get("span", 0)
+            if max_span >= span_m - 1e-9:
+                return {
+                    "size": size,
+                    "max_span_m": max_span,
+                    "fixing": entry.get("fixing", "F"),
+                    "ref": "NZS 3604 Table 10.7",
+                }
+
+    return {
+        "size": "SED",
+        "max_span_m": None,
+        "fixing": "SED",
+        "ref": "NZS 3604 Table 10.7",
+        "_note": f"No SG8 strutting beam for {span_m}m span, {ld_key}m loaded dim",
+    }
+
+
+def lookup_purlins(rafter_spacing: int, wind_zone: str) -> dict:
+    """Look up purlin specification from Tables 10.10 (flat) and 10.11 (edge).
+
+    Returns the most economical purlin option for the given rafter spacing
+    and wind zone.
+
+    Args:
+        rafter_spacing: Rafter spacing in mm.
+        wind_zone: Wind zone string.
+
+    Returns:
+        dict with flat and edge purlin options.
+    """
+    tables = load_tables()
+    result = {"ref": "NZS 3604 Tables 10.10/10.11"}
+
+    # Table 10.10 — flat purlins
+    pf = tables.get("purlins_flat", {})
+    flat_options = []
+    for size, size_data in pf.items():
+        if size.startswith("_"):
+            continue
+        # Find rafter spacing key (round UP)
+        rafter_key = table_lookup(size_data, rafter_spacing)
+        if rafter_key is None:
+            continue
+        zone_data = size_data[rafter_key].get(wind_zone)
+        if zone_data is not None:
+            flat_options.append({
+                "size": size,
+                "orientation": "flat",
+                "max_purlin_spacing_mm": zone_data.get("spacing"),
+                "fixing": zone_data.get("fixing"),
+                "max_rafter_spacing_mm": int(rafter_key),
+            })
+
+    result["flat"] = flat_options if flat_options else None
+
+    # Table 10.11 — edge purlins (independent of rafter spacing)
+    pe = tables.get("purlins_edge", {})
+    edge_options = []
+    for size in sorted(pe.keys(), key=_member_area):
+        if size.startswith("_"):
+            continue
+        size_data = pe[size]
+        # Show all spacing options for this size
+        for sp_key in sorted(size_data.keys(), key=lambda x: int(x)):
+            entry = size_data[sp_key]
+            edge_options.append({
+                "size": size,
+                "orientation": "edge",
+                "purlin_spacing_mm": int(sp_key),
+                "max_span_m": entry.get("span"),
+                "fixing": entry.get("fixing"),
+            })
+
+    result["edge"] = edge_options if edge_options else None
+
+    return result
+
+
+def lookup_truss_fixing(
+    wind_zone: str,
+    spacing: int,
+    loaded_dim_m: float,
+    roof_weight: str = "light",
+) -> dict:
+    """Look up truss/rafter fixing from Table 10.14.
+
+    Args:
+        wind_zone: Wind zone string.
+        spacing: Truss/rafter spacing in mm.
+        loaded_dim_m: Loaded dimension (half rafter span) in metres.
+        roof_weight: "light" or "heavy".
+
+    Returns:
+        dict with keys: fixing_type, ref
+    """
+    tables = load_tables()
+    tf = tables.get("truss_fixing", {})
+
+    # Build the weight_spacing key: e.g. "light_900", "heavy_1200"
+    # Table has keys like light_900, light_1200, heavy_900
+    # Find the closest spacing key >= actual spacing
+    possible_spacings = []
+    for key in tf:
+        if key.startswith(f"{roof_weight}_"):
+            try:
+                sp = int(key.split("_")[1])
+                possible_spacings.append((sp, key))
+            except (ValueError, IndexError):
+                continue
+
+    possible_spacings.sort()
+    ws_key = None
+    for sp, key in possible_spacings:
+        if sp >= spacing - 1:
+            ws_key = key
+            break
+    if ws_key is None and possible_spacings:
+        ws_key = possible_spacings[-1][1]  # use largest if all are smaller
+
+    if ws_key is None:
+        return {
+            "fixing_type": "SED",
+            "ref": "NZS 3604 Table 10.14",
+            "_note": f"No truss fixing data for {roof_weight} at {spacing}mm",
+        }
+
+    zone_data = tf[ws_key].get(wind_zone, {})
+    # Round UP loaded dim
+    ld_key = table_lookup(zone_data, loaded_dim_m)
+    if ld_key is None:
+        return {
+            "fixing_type": "SED",
+            "ref": "NZS 3604 Table 10.14",
+            "_note": f"Loaded dim {loaded_dim_m}m exceeds table range in zone {wind_zone}",
+        }
+
+    fixing = zone_data[ld_key]
+    return {
+        "fixing_type": fixing,
+        "ref": "NZS 3604 Table 10.14",
+    }
+
+
+def lookup_roof_bracing(roof_weight: str = "light") -> dict:
+    """Look up roof bracing requirements from Tables 10.16/10.17.
+
+    Args:
+        roof_weight: "light" or "heavy".
+
+    Returns:
+        dict with bracing system requirements and diagonal brace specs.
+    """
+    tables = load_tables()
+    systems = tables.get("roof_bracing_systems", {})
+    diagonals = tables.get("roof_space_diagonal_braces", {})
+
+    weight_req = systems.get(roof_weight, systems.get("light", {}))
+
+    return {
+        "system": weight_req,
+        "diagonal_braces": diagonals,
+        "ref": "NZS 3604 Tables 10.16/10.17",
+    }
+
+
+def size_roof(storey: dict, wind_zone: str, site: dict) -> dict:
+    """Size roof framing for a storey.
+
+    Determines rafter, ridge beam, ceiling joist, underpurlin, purlin,
+    truss fixing, and roof bracing specifications.
+
+    Args:
+        storey: dict with keys:
+            - roof_form: "gable", "hip", etc.
+            - roof_pitch: degrees (default 22.5)
+            - rafter_span_m: rafter span in metres (default 4.0)
+            - rafter_spacing: rafter spacing in mm (default 600)
+            - ridge_span_m: ridge beam span in metres (optional)
+            - ceiling_span_m: ceiling joist span in metres (optional)
+            - ceiling_spacing: ceiling joist spacing in mm (default 600)
+            - underpurlin_span_m: underpurlin span in metres (optional)
+            - plan_width_mm: building plan width in mm (used for ceiling span default)
+        wind_zone: Wind zone string.
+        site: Site dict with roof_weight ("light" or "heavy").
+
+    Returns:
+        Complete roof design dict.
+    """
+    roof_weight = site.get("roof_weight", "light")
+    pitch = storey.get("roof_pitch", 22.5)
+    rafter_span_m = storey.get("rafter_span_m", 4.0)
+    rafter_spacing = storey.get("rafter_spacing", 600)
+
+    # Rafter — Table 10.1
+    rafter = lookup_rafter(wind_zone, rafter_span_m, rafter_spacing, roof_weight)
+
+    # Ridge beam — Table 10.2 (only if ridge_span_m specified)
+    ridge_span_m = storey.get("ridge_span_m")
+    ridge = None
+    if ridge_span_m:
+        ridge = lookup_ridge_beam(
+            wind_zone, ridge_span_m,
+            loaded_width_m=rafter_span_m,
+            roof_weight=roof_weight,
+        )
+
+    # Ceiling joist — Table 10.3
+    ceiling_span_m = storey.get(
+        "ceiling_span_m",
+        storey.get("plan_width_mm", 8000) / 1000,
+    )
+    ceiling_spacing = storey.get("ceiling_spacing", 600)
+    ceiling_joist = lookup_ceiling_joist(ceiling_span_m, ceiling_spacing)
+
+    # Underpurlin — Table 10.5 (if span specified)
+    underpurlin = None
+    up_span_m = storey.get("underpurlin_span_m")
+    if up_span_m:
+        up_loaded_dim = rafter_span_m / 2  # approximate
+        underpurlin = lookup_underpurlin(up_span_m, up_loaded_dim, roof_weight)
+
+    # Purlins — Tables 10.10/10.11
+    purlins = lookup_purlins(rafter_spacing, wind_zone)
+
+    # Truss/rafter fixing — Table 10.14
+    loaded_dim_m = rafter_span_m  # full rafter span is the loaded dimension
+    fixing = lookup_truss_fixing(wind_zone, rafter_spacing, loaded_dim_m, roof_weight)
+
+    # Roof bracing — Tables 10.16/10.17
+    bracing = lookup_roof_bracing(roof_weight)
+
+    result = {
+        "roof_form": storey.get("roof_form", "gable"),
+        "pitch": pitch,
+        "rafter": rafter,
+        "ceiling_joist": ceiling_joist,
+        "purlins": purlins,
+        "truss_fixing": fixing,
+        "roof_bracing": bracing,
+        "ref": "NZS 3604 Section 10",
+    }
+
+    if ridge:
+        result["ridge_beam"] = ridge
+    else:
+        result["ridge_beam"] = {"size": "ridge board only", "ref": "NZS 3604 S10.6"}
+
+    if underpurlin:
+        result["underpurlin"] = underpurlin
+
+    return result
 
 
 # ---------------------------------------------------------------------------
