@@ -156,6 +156,12 @@ export default function ProjectPage() {
           <div style={styles.headerButtons}>
             <ExportProjectButton projectName={project.name} walls={walls} floors={floors} />
             <button
+              onClick={() => navigate(`/project/${projectId}/quotes`)}
+              style={styles.quotesBtn}
+            >
+              Quotes
+            </button>
+            <button
               onClick={() => navigate(`/project/${projectId}/h1`)}
               style={styles.h1Btn}
             >
@@ -420,6 +426,18 @@ const styles = {
   newFloorBtn: {
     padding: '10px 20px',
     background: BRAND.floor,
+    color: '#fff',
+    border: 'none',
+    borderRadius: RADIUS.md,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+  quotesBtn: {
+    padding: '10px 20px',
+    background: BRAND.warning,
     color: '#fff',
     border: 'none',
     borderRadius: RADIUS.md,

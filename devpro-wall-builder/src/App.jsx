@@ -9,6 +9,9 @@ const WallBuilderPage = lazy(() => import('./pages/WallBuilderPage.jsx'));
 const FloorBuilderPage = lazy(() => import('./pages/FloorBuilderPage.jsx'));
 const H1Page = lazy(() => import('./pages/H1Page.jsx'));
 const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
+const ProjectQuotesPage = lazy(() => import('./pages/ProjectQuotesPage.jsx'));
+const NewQuotePage = lazy(() => import('./pages/NewQuotePage.jsx'));
+const QuoteDetailPage = lazy(() => import('./pages/QuoteDetailPage.jsx'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 
 function App() {
@@ -22,6 +25,9 @@ function App() {
           <Route path="/project/:projectId/wall/:wallId" element={<WallBuilderPage />} />
           <Route path="/project/:projectId/floor/:floorId" element={<FloorBuilderPage />} />
           <Route path="/project/:projectId/h1" element={<H1Page />} />
+          <Route path="/project/:projectId/quotes" element={<ProjectQuotesPage />} />
+          <Route path="/project/:projectId/quotes/new" element={<NewQuotePage />} />
+          <Route path="/project/:projectId/quotes/:quoteId" element={<QuoteDetailPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
