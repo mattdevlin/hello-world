@@ -1024,5 +1024,516 @@
         "power": {"nail": "60x2.8", "qty": 2, "location": null}
       }
     }
+  },
+
+  "plywood_flooring": {
+    "_ref": "Table 7.4",
+    "_lookup": "joist_spacing_mm → min_plywood_thickness_mm",
+    "_note": "Structural plywood flooring for up to 2 kPa floor loads",
+    "400": 15,
+    "450": 15,
+    "600": 19
+  },
+
+  "underpurlin_struts": {
+    "_ref": "Table 10.6",
+    "_lookup": "size → max_length_m (SG8 only)",
+    "_note": "Members 90mm thick may be substituted with built-up members per 2.4.4.7",
+    "90x45": 1.60,
+    "90x70": 3.45
+  },
+
+  "outriggers": {
+    "_ref": "Table 10.9",
+    "_lookup": "size_orientation → cantilever_mm → {max_spacing_mm, boundary_rafter}",
+    "_note": "All joints fixed with min 2/90x3.15 nails",
+    "70x45_edge": {"600": {"max_spacing": 900, "boundary_rafter": "70x45"}, "750": {"max_spacing": 600, "boundary_rafter": "70x45"}},
+    "90x45_edge": {"600": {"max_spacing": 1200, "boundary_rafter": "90x45"}, "750": {"max_spacing": 600, "boundary_rafter": "90x45"}},
+    "45x90_flat": {"600": {"max_spacing": 600, "boundary_rafter": "90x45"}, "750": {"max_spacing": 400, "boundary_rafter": "90x45"}}
+  },
+
+  "ceiling_battens": {
+    "_ref": "Table 13.1",
+    "_lookup": "batten_spacing_mm → max_purlin_span_mm → batten_size",
+    "400": {"600": "45x19", "900": "70x35", "1200": "70x35"},
+    "600": {"600": "70x19", "900": "70x35", "1200": "70x35"}
+  },
+
+  "fixing_types": {
+    "_ref": "Table 2.2",
+    "_lookup": "type → {description, capacity_kN, see_tables}",
+    "_note": "Capacities are associated with fixing type, not fasteners. See individual selection tables for appropriate fixing type.",
+    "A": {"description": "2/90x3.15 end nails", "capacity_kN": 0.7, "see_tables": ["8.18"]},
+    "B": {"description": "2/90x3.15 end nails + 2 wire dogs", "capacity_kN": 4.7},
+    "C": {"description": "2/90x3.15 end nails + strap fixing (figure 8.12)", "capacity_kN": 8.5},
+    "D": {"description": "4/90x3.15 end nails + 2 strap fixing (double stud)", "capacity_kN": 16.0},
+    "E": {"description": "2/90x3.15 skew nails + 2 wire dogs", "capacity_kN": 4.7, "see_tables": ["10.1","10.7","10.11","10.14","10.15"]},
+    "F": {"description": "2/90x3.15 skew nails + strap fixing (figure 10.6)", "capacity_kN": 7.0},
+    "G": {"description": "10/90x3.15 nails (5 each side)", "capacity_kN": 4.7, "see_tables": ["10.2"]},
+    "H": {"description": "1/M12 bolt", "capacity_kN": 8.5},
+    "I": {"description": "2/M12 bolts", "capacity_kN": 16.0},
+    "J": {"description": "2/M16 bolts", "capacity_kN": 24.0},
+    "K": {"description": "6/90x3.15 nails", "capacity_kN": 3.0, "see_tables": ["10.5"]},
+    "L": {"description": "2/M12 bolts", "capacity_kN": 9.8},
+    "M": {"description": "2/M16 bolts", "capacity_kN": 13.0},
+    "N": {"description": "6/100x4.0 HDG nails (hand driven)", "capacity_kN": 4.7, "see_tables": ["10.8"]},
+    "O": {"description": "2/M12 bolts (figure 9.3C)", "capacity_kN": 6.8},
+    "P": {"description": "2 HDG flat straps (figure 9.3B)", "capacity_kN": 13.7},
+    "Q": {"description": "2 HDG tee straps (figure 9.3A)", "capacity_kN": 25.5},
+    "R": {"description": "1/90x3.15 nail", "capacity_kN": 0.55, "see_tables": ["10.10","10.12"]},
+    "S": {"description": "2/90x3.15 nails", "capacity_kN": 0.8},
+    "T": {"description": "1/10g self-drilling screw 80mm", "capacity_kN": 2.4},
+    "U": {"description": "1/14g self-drilling Type 17 screw 100mm", "capacity_kN": 5.5}
+  },
+
+  "nailing_schedule_s6": {
+    "_ref": "Table 6.6",
+    "_lookup": "joint → {hand: {nail, qty, location}, power: {nail, qty, location}}",
+    "bearer_to_jack_stud": {
+      "hand": {"nail": "100x3.75", "qty": 2, "location": "skewed"},
+      "power": {"nail": "90x3.15", "qty": 2, "location": "skewed"}
+    },
+    "bearer_end_to_cut_between_plates": {
+      "hand": {"nail": "100x3.75", "qty": 4, "location": "skewed"},
+      "power": {"nail": "90x3.15", "qty": 4, "location": "skewed"}
+    },
+    "bearer_to_top_plate_of_wall": {
+      "hand": {"nail": "100x3.75", "qty": 4, "location": "skewed"},
+      "power": {"nail": "90x3.15", "qty": 6, "location": "skewed"}
+    },
+    "stud_or_jack_stud_to_plate": {
+      "hand": {"nail": "100x3.75 or 75x3.15", "qty": "2 end-nailed or 4 skewed"},
+      "power": {"nail": "90x3.15", "qty": 3, "location": "end-nailed"}
+    }
+  },
+
+  "nailing_schedule_s7": {
+    "_ref": "Table 7.5",
+    "_lookup": "joint → {hand: {nail, qty, location}, power: {nail, qty, location}}",
+    "boundary_joist_to_end_of_joist": {
+      "hand": {"nail": "100x3.75", "qty": 2, "location": "end-nailed"},
+      "power": {"nail": "90x3.15", "qty": 2, "location": "end-nailed"}
+    },
+    "curtailed_joist_to_trimmer_max_3m": {
+      "hand": {"nail": "100x3.75", "qty": 3, "location": "end-nailed"},
+      "power": {"nail": "90x3.15", "qty": 5, "location": "end-nailed"}
+    },
+    "curtailed_joist_to_trimmer_half_housed": {
+      "hand": {"nail": "100x3.75", "qty": 2, "location": "end-nailed"},
+      "power": {"nail": "90x3.15", "qty": 3, "location": "end-nailed"}
+    },
+    "flitched_joint_in_joist": {
+      "hand": {"nail": "100x3.75", "qty": 4, "location": "each end"},
+      "power": {"nail": "90x3.15", "qty": 6, "location": "each end"}
+    },
+    "herringbone_strutting_to_joist": {
+      "hand": {"nail": "60x2.8", "qty": 2, "location": "skewed"},
+      "power": {"nail": "60x2.8", "qty": 2, "location": "skewed"}
+    },
+    "joist_to_plate_on_foundation_wall": {
+      "hand": {"nail": "100x3.75", "qty": "12 skewed per 1.5m"},
+      "power": {"nail": "90x3.15", "qty": "18 skewed per 1.5m"}
+    },
+    "joist_to_plate_or_bearer": {
+      "hand": {"nail": "100x3.75", "qty": 2, "location": "skewed"},
+      "power": {"nail": "90x3.15", "qty": 3, "location": "skewed"}
+    },
+    "lapped_joint_in_joist": {
+      "hand": {"nail": "100x3.75", "qty": 2, "location": "each side"},
+      "power": {"nail": "90x3.15", "qty": 3, "location": "each side"}
+    },
+    "solid_blocking_to_plate_bearer_stringer": {
+      "hand": {"nail": "100x3.75", "qty": 4, "location": "skewed"},
+      "power": {"nail": "90x3.15", "qty": 6, "location": "skewed"}
+    },
+    "solid_blocking_to_joist": {
+      "hand": {"nail": "100x3.75 or 75x3.15", "qty": "2 end-nailed or 4 skewed"},
+      "power": {"nail": "90x3.15", "qty": 2, "location": "end-nailed"}
+    },
+    "sheet_decking_at_edges": {
+      "hand": {"nail": "60x3.06 ring-shank galv or 60x2.8", "qty": "150mm centres"},
+      "power": {"nail": "60x2.8 ring-shank galv", "qty": "150mm centres"}
+    },
+    "sheet_decking_intermediate": {
+      "hand": {"nail": "60x3.06 ring-shank galv or 60x2.8", "qty": "300mm centres"},
+      "power": {"nail": "60x2.8 ring-shank galv", "qty": "300mm centres"}
+    },
+    "strip_flooring_75mm_to_joist": {
+      "hand": {"nail": "2.5x finished thickness", "qty": 1},
+      "power": null
+    },
+    "strip_flooring_100mm_to_joist": {
+      "hand": {"nail": "2.5x finished thickness", "qty": 2},
+      "power": null
+    }
+  },
+
+  "nailing_schedule_s10": {
+    "_ref": "Table 10.18",
+    "_lookup": "joint → {hand: {nail, qty, location}, power: {nail, qty, location}}",
+    "_note": "Many joints reference fixing types from other tables (10.1, 10.5, 10.7, 10.10, 10.11, 10.14, 10.15)",
+    "rafter_to_ridge_or_top_plate": {"_see": "Table 10.1"},
+    "truss_to_external_wall_top_plate": {"_see": "Tables 10.14 and 10.15"},
+    "truss_to_internal_wall_top_plate": {
+      "hand": {"nail": "100x3.75", "qty": 2},
+      "power": {"nail": "90x3.15", "qty": 2}
+    },
+    "ceiling_batten_to_bracing_top_plate": {
+      "hand": {"nail": "75x3.15", "qty": "2 at 400mm centres"},
+      "power": {"nail": "90x3.15", "qty": "2 at 400mm centres"}
+    },
+    "collar_tie_to_rafter": {
+      "hand": {"nail": "75x3.15", "qty": 4},
+      "power": {"nail": "75x3.06", "qty": 4}
+    },
+    "flitches_to_ridge_and_roof_members": {
+      "hand": {"nail": "60x2.8", "qty": "3 each side both joints"},
+      "power": {"nail": "60x2.8", "qty": "3 each side both joints"}
+    },
+    "hip_rafter_to_top_plate": {"_see": "Table 10.1"},
+    "underpurlin_strut_to_underpurlin_or_plate": {
+      "hand": {"nail": "100x3.75", "qty": 2, "_note": "plus fixing types per Table 10.5"},
+      "power": {"nail": "90x3.15", "qty": 3, "_note": "plus fixing types per Table 10.5"}
+    },
+    "strutting_beam_to_top_plate": {"_see": "Table 10.7"},
+    "roof_brace_90x19": {
+      "hand": {"nail": "75x3.15", "qty": 3},
+      "power": {"nail": "75x3.15", "qty": 3}
+    },
+    "roof_brace_70x45_runner": {
+      "hand": {"nail": "100x3.75", "qty": 2},
+      "power": {"nail": "90x3.15", "qty": 3}
+    },
+    "roof_brace_90x45": {
+      "hand": {"nail": "100x3.75", "qty": 3},
+      "power": {"nail": "90x3.15", "qty": 5}
+    },
+    "roof_brace_steel_strip_ends": {
+      "hand": {"nail": "60x3.15", "qty": 3},
+      "power": null
+    },
+    "roof_brace_steel_strip_other": {
+      "hand": {"nail": "60x3.15", "qty": 2},
+      "power": null
+    },
+    "blocking_between_rafters_90x45": {
+      "hand": {"nail": "100x3.75", "qty": 2, "location": "end-nailed"},
+      "power": {"nail": "90x3.15", "qty": 2, "location": "end-nailed"}
+    },
+    "outrigger_to_gable_top_plate": {"_see": "Tables 10.10 and 10.11"},
+    "outrigger_to_rafter": {
+      "hand": {"nail": "100x3.75 or 75x3.15", "qty": "2 end-nailed or 4 skewed"},
+      "power": {"nail": "90x3.15", "qty": 3, "location": "end-nailed"}
+    },
+    "flying_rafter_to_outrigger": {
+      "hand": {"nail": "100x3.75", "qty": 2},
+      "power": {"nail": "90x3.15", "qty": 3}
+    },
+    "outrigger_blocking_to_top_plate": {
+      "hand": {"nail": "100x3.75", "qty": 4, "location": "skewed"},
+      "power": {"nail": "90x3.15", "qty": 4, "location": "skewed"}
+    },
+    "purlin_or_batten_to_rafter": {"_see": "Tables 10.10 and 10.11"},
+    "board_sarking_75mm_to_rafter": {
+      "hand": {"nail": "2.5x finished thickness", "qty": 1},
+      "power": null
+    },
+    "board_sarking_over_75mm_to_rafter": {
+      "hand": {"nail": "2.5x finished thickness", "qty": 2},
+      "power": null
+    },
+    "sheet_sarking_at_edges": {
+      "hand": {"nail": "30x2.5 FH", "qty": "150mm centres"},
+      "power": null
+    },
+    "sheet_sarking_intermediate": {
+      "hand": {"nail": "30x2.5 FH", "qty": "300mm centres"},
+      "power": null
+    },
+    "purlins_through_sarking": {"_see": "Table 10.15"}
+  },
+
+  "nailing_schedule_s13": {
+    "_ref": "Table 13.3",
+    "_lookup": "joint → {hand: {nail, qty, location}, power: {nail, qty, location}}",
+    "ceiling_batten_to_top_plate": {
+      "hand": {"nail": "75x3.15", "qty": 1},
+      "power": {"nail": "75x3.06", "qty": 1}
+    },
+    "ceiling_joist_to_top_plate": {
+      "hand": {"nail": "100x3.75", "qty": 2, "location": "skewed"},
+      "power": {"nail": "90x3.15", "qty": 3, "location": "skewed"}
+    },
+    "ceiling_joist_to_rafter": {
+      "hand": {"nail": "100x3.75", "qty": 3},
+      "power": {"nail": "90x3.15", "qty": 4}
+    },
+    "lapped_joint_in_ceiling_joist": {
+      "hand": {"nail": "100x3.75", "qty": 2, "location": "each side"},
+      "power": {"nail": "90x3.15", "qty": 4, "location": "each side"}
+    },
+    "flitched_joint_in_ceiling_joist": {
+      "hand": {"nail": "100x3.75", "qty": 4, "location": "each end"},
+      "power": {"nail": "90x3.15", "qty": 6, "location": "each end"}
+    },
+    "ceiling_runner_to_top_plate_packer": {
+      "hand": {"nail": "100x3.75", "qty": 2, "location": "skewed"},
+      "power": {"nail": "90x3.15", "qty": 2, "location": "skewed"}
+    },
+    "ceiling_runner_to_ceiling_joist": {
+      "hand": {"nail": "100x3.75", "qty": 2, "location": "skewed"},
+      "power": {"nail": "90x3.15", "qty": 4, "location": "skewed"}
+    },
+    "hanger_to_runner_or_joist": {
+      "hand": {"nail": "100x3.75", "qty": 2},
+      "power": {"nail": "90x3.15", "qty": 3}
+    },
+    "ceiling_batten_45x19_to_joist": {
+      "hand": {"nail": "60x2.8 or 57x11.1x1.8 staple", "qty": 1},
+      "power": {"nail": "60x2.8", "qty": 1}
+    },
+    "ceiling_batten_70x35_to_joist": {
+      "hand": {"nail": "75x3.15", "qty": 2},
+      "power": {"nail": "75x3.06", "qty": 2}
+    },
+    "dragon_tie_90x35_to_top_plate": {
+      "hand": {"nail": "100x3.75", "qty": 3},
+      "power": {"nail": "90x3.15", "qty": 5}
+    },
+    "dragon_tie_90x35_to_joist_truss_rafter": {
+      "hand": {"nail": "100x3.75", "qty": 2},
+      "power": {"nail": "90x3.15", "qty": 2}
+    },
+    "blocking_piece_to_top_plate_truss_joist_rafter": {
+      "hand": {"nail": "100x3.75", "qty": 4},
+      "power": {"nail": "90x3.15", "qty": 6}
+    }
+  },
+
+  "jack_studs": {
+    "_ref": "Table 6.3",
+    "_lookup": "storeys → bearer_span_m → stud_size → max_height for loaded_dim (m)",
+    "_note": "SG8, up to 2kPa floor load. No built-up member substitution allowed.",
+    "1_storey": {
+      "1.30": {"90x70": {"2.0": 2.0, "3.5": 2.0, "5.0": 1.9}, "90x90": {"2.0": 3.0, "3.5": 2.9, "5.0": 2.7}},
+      "1.65": {"90x70": {"2.0": 1.8, "3.5": 1.7, "5.0": 1.6}, "90x90": {"2.0": 2.7, "3.5": 2.6, "5.0": 2.4}},
+      "2.00": {"90x70": {"2.0": 1.6, "3.5": 1.6, "5.0": 1.5}, "90x90": {"2.0": 2.4, "3.5": 2.3, "5.0": 2.2}}
+    },
+    "2_storey": {
+      "1.30": {"90x70": {"2.0": 1.8, "3.5": 1.6, "5.0": 1.5}, "90x90": {"2.0": 2.7, "3.5": 2.4, "5.0": 2.2}},
+      "1.65": {"90x70": {"2.0": 1.6, "3.5": 1.4, "5.0": 1.3}, "90x90": {"2.0": 2.4, "3.5": 2.2, "5.0": 2.0}},
+      "2.00": {"90x70": {"2.0": 1.4, "3.5": 1.2, "5.0": 1.0}, "90x90": {"2.0": 2.2, "3.5": 1.9, "5.0": 1.7}}
+    },
+    "3_storey": {
+      "1.30": {"90x70": {"2.0": 1.6, "3.5": 1.4, "5.0": 1.2}, "90x90": {"2.0": 2.4, "3.5": 2.1, "5.0": 1.9}},
+      "1.65": {"90x70": {"2.0": 1.4, "3.5": 1.2, "5.0": 0.9}, "90x90": {"2.0": 2.1, "3.5": 1.9, "5.0": 1.6}},
+      "2.00": {"90x70": {"2.0": 1.2, "3.5": 0.9, "5.0": null}, "90x90": {"2.0": 1.9, "3.5": 1.6, "5.0": 1.3}}
+    }
+  },
+
+  "purlins_flat": {
+    "_ref": "Table 10.10",
+    "_lookup": "size → max_rafter_span_mm → wind_zone → {spacing_mm, fixing}",
+    "_note": "Values show maximum permissible spacing per combo (most economical option). Closer spacings with lighter fixings also permitted. All fixing types determined for higher uplift loads at roof periphery.",
+    "70x45": {
+      "900": {"L": {"spacing": 1800, "fixing": "T"}, "M": {"spacing": 1800, "fixing": "U"}, "H": {"spacing": 1400, "fixing": "U"}, "VH": {"spacing": 1050, "fixing": "U"}, "EH": {"spacing": 900, "fixing": "U"}},
+      "1200": {"L": {"spacing": 1300, "fixing": "T"}, "M": {"spacing": 1150, "fixing": "T"}, "H": {"spacing": 800, "fixing": "T"}, "VH": {"spacing": 600, "fixing": "T"}, "EH": {"spacing": 500, "fixing": "T"}}
+    },
+    "90x45": {
+      "1200": {"L": {"spacing": 1700, "fixing": "T"}, "M": {"spacing": 1450, "fixing": "U"}, "H": {"spacing": 1000, "fixing": "U"}, "VH": {"spacing": 750, "fixing": "U"}, "EH": {"spacing": 650, "fixing": "U"}}
+    }
+  },
+
+  "purlins_edge": {
+    "_ref": "Table 10.11",
+    "_lookup": "size → spacing_mm → {span_m, fixing}",
+    "_note": "All fixing types determined for higher uplift loads at roof periphery.",
+    "140x45": {"600": {"span": 2.6, "fixing": "E"}, "900": {"span": 2.2, "fixing": "E"}, "1200": {"span": 2.0, "fixing": "F"}, "1800": {"span": 1.7, "fixing": "E"}},
+    "190x45": {"600": {"span": 3.5, "fixing": "E"}, "900": {"span": 3.1, "fixing": "F"}, "1200": {"span": 2.8, "fixing": "F"}, "1800": {"span": 2.4, "fixing": "F"}},
+    "240x45": {"600": {"span": 4.4, "fixing": "F"}, "900": {"span": 3.9, "fixing": "F"}, "1200": {"span": 3.5, "fixing": "F"}, "1800": {"span": 3.0, "fixing": "SED"}},
+    "290x45": {"600": {"span": 5.4, "fixing": "E"}, "900": {"span": 4.7, "fixing": "F"}, "1200": {"span": 4.1, "fixing": "SED"}, "1800": {"span": 3.4, "fixing": "SED"}}
+  },
+
+  "tile_battens": {
+    "_ref": "Table 10.12",
+    "_lookup": "cladding_weight → size → max_span_mm → wind_zone → {spacing_mm, fixing}",
+    "light": {
+      "50x40": {"900": {"L": {"spacing": 370, "fixing": "R"}, "M": {"spacing": 370, "fixing": "R"}, "H": {"spacing": 370, "fixing": "S"}, "VH": {"spacing": 370, "fixing": "S"}, "EH": {"spacing": 370, "fixing": "T"}}},
+      "50x50": {"1200": {"L": {"spacing": 370, "fixing": "R"}, "M": {"spacing": 370, "fixing": "S"}, "H": {"spacing": 370, "fixing": "T"}, "VH": {"spacing": 370, "fixing": "T"}, "EH": {"spacing": 370, "fixing": "T"}}}
+    },
+    "heavy": {
+      "50x25": {"480": {"L": {"spacing": 370, "fixing": "R"}, "M": {"spacing": 370, "fixing": "R"}, "H": {"spacing": 370, "fixing": "R"}, "VH": {"spacing": 370, "fixing": "R"}, "EH": {"spacing": 370, "fixing": "R"}}},
+      "50x40": {"600": {"L": {"spacing": 370, "fixing": "R"}, "M": {"spacing": 370, "fixing": "R"}, "H": {"spacing": 370, "fixing": "R"}, "VH": {"spacing": 370, "fixing": "R"}, "EH": {"spacing": 370, "fixing": "R"}}},
+      "50x50": {"900": {"L": {"spacing": 370, "fixing": "R"}, "M": {"spacing": 370, "fixing": "R"}, "H": {"spacing": 370, "fixing": "R"}, "VH": {"spacing": 370, "fixing": "R"}, "EH": {"spacing": 370, "fixing": "R"}}}
+    }
+  },
+
+  "driven_pile_spacing": {
+    "_ref": "Table 6.2",
+    "_lookup": "floor_load → scenario → joist_span_m → {set25_m, set50_m, set100_m} (max pile spacing)",
+    "_note": "Set = set per blow of pile in mm. null means combination not permitted. Span is average of joist spans on either side of bearer.",
+    "1.5kPa": {
+      "floors_only": {
+        "1.6": {"25": 2.00, "50": 2.00, "100": 2.00},
+        "2.0": {"25": 2.00, "50": 2.00, "100": 1.60},
+        "2.4": {"25": 2.00, "50": 2.00, "100": 1.35},
+        "2.8": {"25": 2.00, "50": 2.00, "100": 1.15},
+        "3.2": {"25": 2.00, "50": 2.00, "100": 1.00},
+        "3.6": {"25": 2.00, "50": 1.80, "100": 0.90},
+        "4.0": {"25": 2.00, "50": 1.60, "100": null},
+        "4.4": {"25": 2.00, "50": 1.45, "100": null},
+        "4.8": {"25": 2.00, "50": 1.35, "100": null},
+        "5.2": {"25": 1.85, "50": 1.25, "100": null},
+        "5.6": {"25": 1.75, "50": 1.15, "100": null}
+      },
+      "floors_and_walls": {
+        "_columns": "joist_span → {wall_dim_light, wall_dim_heavy, 1storey: {set25,set50,set100}, 2storey: {set25,set50}}",
+        "1.2": {"wall_dim_light": 2.4, "wall_dim_heavy": 1.2, "1storey": {"25": 2.00, "50": 2.00, "100": 1.60}, "2storey": {"25": 2.00, "50": 2.00}},
+        "1.6": {"wall_dim_light": 3.2, "wall_dim_heavy": 1.6, "1storey": {"25": 2.00, "50": 2.00, "100": 1.20}, "2storey": {"25": 2.00, "50": 1.70}},
+        "2.0": {"wall_dim_light": 4.0, "wall_dim_heavy": 2.0, "1storey": {"25": 2.00, "50": 2.00, "100": 0.95}, "2storey": {"25": 2.00, "50": 1.40}},
+        "2.4": {"wall_dim_light": 4.8, "wall_dim_heavy": 2.4, "1storey": {"25": 2.00, "50": 1.60, "100": null}, "2storey": {"25": 1.70, "50": 1.15}},
+        "2.8": {"wall_dim_light": 5.6, "wall_dim_heavy": 2.8, "1storey": {"25": 2.00, "50": 1.40, "100": null}, "2storey": {"25": 1.45, "50": 1.00}},
+        "3.2": {"wall_dim_light": 6.0, "wall_dim_heavy": 3.2, "1storey": {"25": 1.80, "50": 1.20, "100": null}, "2storey": {"25": 1.30, "50": 0.85}},
+        "3.6": {"wall_dim_light": 6.0, "wall_dim_heavy": 3.6, "1storey": {"25": 1.60, "50": 1.10, "100": null}, "2storey": {"25": 1.15, "50": null}},
+        "4.0": {"wall_dim_light": 6.0, "wall_dim_heavy": 4.0, "1storey": {"25": 1.45, "50": 0.95, "100": null}, "2storey": {"25": 1.05, "50": null}},
+        "4.4": {"wall_dim_light": 6.0, "wall_dim_heavy": 4.4, "1storey": {"25": 1.30, "50": 0.90, "100": null}, "2storey": {"25": 0.95, "50": null}},
+        "4.8": {"wall_dim_light": 6.0, "wall_dim_heavy": 4.8, "1storey": {"25": 1.20, "50": null, "100": null}, "2storey": {"25": 0.85, "50": null}},
+        "5.2": {"wall_dim_light": 6.0, "wall_dim_heavy": 5.1, "1storey": {"25": 1.10, "50": null, "100": null}, "2storey": {"25": null, "50": null}},
+        "5.6": {"wall_dim_light": 6.0, "wall_dim_heavy": 5.6, "1storey": {"25": 1.00, "50": null, "100": null}, "2storey": {"25": null, "50": null}}
+      }
+    },
+    "2kPa": {
+      "floors_only": {
+        "1.6": {"25": 2.00, "50": 2.00, "100": 1.75},
+        "2.0": {"25": 2.00, "50": 2.00, "100": 1.40},
+        "2.4": {"25": 2.00, "50": 2.00, "100": 1.15},
+        "2.8": {"25": 2.00, "50": 2.00, "100": 1.00},
+        "3.2": {"25": 2.00, "50": 1.73, "100": null},
+        "3.6": {"25": 2.00, "50": 1.55, "100": null},
+        "4.0": {"25": 2.00, "50": 1.40, "100": null},
+        "4.4": {"25": 1.90, "50": 1.25, "100": null},
+        "4.8": {"25": 1.75, "50": 1.15, "100": null},
+        "5.2": {"25": 1.60, "50": 1.05, "100": null}
+      },
+      "floors_and_walls": {
+        "_columns": "joist_span → {wall_dim_light, wall_dim_heavy, 1storey: {set25,set50,set100}, 2storey: {set25,set50}}",
+        "1.2": {"wall_dim_light": 3.2, "wall_dim_heavy": 1.6, "1storey": {"25": 2.00, "50": 2.00, "100": 1.35}, "2storey": {"25": 2.00, "50": 2.00}},
+        "1.6": {"wall_dim_light": 4.3, "wall_dim_heavy": 2.2, "1storey": {"25": 2.00, "50": 2.00, "100": 1.00}, "2storey": {"25": 2.00, "50": 1.45}},
+        "2.0": {"wall_dim_light": 6.0, "wall_dim_heavy": 2.7, "1storey": {"25": 2.00, "50": 1.65, "100": 0.80}, "2storey": {"25": 1.75, "50": 1.20}},
+        "2.4": {"wall_dim_light": 6.0, "wall_dim_heavy": 3.2, "1storey": {"25": 2.00, "50": 1.35, "100": null}, "2storey": {"25": 1.50, "50": 1.00}},
+        "2.8": {"wall_dim_light": 6.0, "wall_dim_heavy": 3.8, "1storey": {"25": 1.75, "50": 1.15, "100": null}, "2storey": {"25": 1.25, "50": null}},
+        "3.2": {"wall_dim_light": 6.0, "wall_dim_heavy": 4.3, "1storey": {"25": 1.55, "50": 1.05, "100": null}, "2storey": {"25": null, "50": null}},
+        "3.6": {"wall_dim_light": 6.0, "wall_dim_heavy": 4.8, "1storey": {"25": 1.35, "50": 0.90, "100": null}, "2storey": {"25": null, "50": null}},
+        "4.0": {"wall_dim_light": 6.0, "wall_dim_heavy": 5.4, "1storey": {"25": 1.25, "50": null, "100": null}, "2storey": {"25": null, "50": null}},
+        "4.4": {"wall_dim_light": 6.0, "wall_dim_heavy": 5.9, "1storey": {"25": 1.10, "50": null, "100": null}, "2storey": {"25": null, "50": null}},
+        "4.8": {"wall_dim_light": 6.0, "wall_dim_heavy": 6.0, "1storey": {"25": 1.00, "50": null, "100": null}, "2storey": {"25": null, "50": null}},
+        "5.2": {"wall_dim_light": 6.0, "wall_dim_heavy": 6.0, "1storey": {"25": 0.95, "50": null, "100": null}, "2storey": {"25": null, "50": null}}
+      }
+    }
+  },
+
+  "strutting_beams": {
+    "_ref": "Table 10.7",
+    "_lookup": "roof_weight → size → loaded_dim_m → strut_spacing_m → {span_m, fixing}",
+    "_note": "SED = Specific Engineering Design required. Fixing for continuous spans shall have double capacity. Members 90mm thick may use built-up per 2.4.4.7.",
+    "light": {
+      "140x90": {
+        "1.5": {"1.2": {"span": 2.5, "fixing": "F"}, "1.5": {"span": 2.2, "fixing": "F"}, "1.8": {"span": 2.0, "fixing": "F"}},
+        "2.1": {"1.2": {"span": 2.1, "fixing": "F"}, "1.5": {"span": 1.7, "fixing": "F"}, "1.8": null},
+        "2.7": {"1.2": {"span": 1.7, "fixing": "F"}, "1.5": null, "1.8": null}
+      },
+      "190x90": {
+        "1.5": {"1.2": {"span": 4.0, "fixing": "SED"}, "1.5": {"span": 3.5, "fixing": "SED"}, "1.8": {"span": 3.2, "fixing": "SED"}},
+        "2.1": {"1.2": {"span": 3.3, "fixing": "SED"}, "1.5": {"span": 3.0, "fixing": "SED"}, "1.8": {"span": 2.6, "fixing": "SED"}},
+        "2.7": {"1.2": {"span": 2.9, "fixing": "SED"}, "1.5": {"span": 2.5, "fixing": "SED"}, "1.8": {"span": 2.0, "fixing": "SED"}}
+      }
+    },
+    "heavy": {
+      "140x90": {
+        "1.5": {"1.2": {"span": 2.1, "fixing": "E"}, "1.5": {"span": 1.9, "fixing": "E"}, "1.8": {"span": 1.7, "fixing": "F"}},
+        "2.1": {"1.2": {"span": 1.8, "fixing": "E"}, "1.5": {"span": 1.5, "fixing": "F"}, "1.8": null},
+        "2.7": {"1.2": {"span": 1.5, "fixing": "F"}, "1.5": null, "1.8": null}
+      },
+      "190x90": {
+        "1.5": {"1.2": {"span": 3.4, "fixing": "F"}, "1.5": {"span": 3.0, "fixing": "F"}, "1.8": {"span": 2.7, "fixing": "SED"}},
+        "2.1": {"1.2": {"span": 2.8, "fixing": "SED"}, "1.5": {"span": 2.5, "fixing": "SED"}, "1.8": {"span": 2.3, "fixing": "SED"}},
+        "2.7": {"1.2": {"span": 2.5, "fixing": "SED"}, "1.5": {"span": 2.2, "fixing": "SED"}, "1.8": {"span": 1.8, "fixing": "SED"}}
+      }
+    }
+  },
+
+  "verandah_beams": {
+    "_ref": "Table 10.8",
+    "_lookup": "roof_weight → size → loaded_dim_m → {span_m, fixing}",
+    "_note": "Includes provision for rafters cantilevering max 750mm beyond beam. Continuous spans require double fixing capacity. Members 70/90mm thick may use built-up per 2.4.4.7.",
+    "light": {
+      "140x45": {"0.9": {"span": 1.8, "fixing": "N"}, "1.4": {"span": 1.6, "fixing": "N"}, "1.8": {"span": 1.5, "fixing": "N"}, "2.1": {"span": 1.4, "fixing": "N"}},
+      "190x45": {"0.9": {"span": 2.1, "fixing": "N"}, "1.4": {"span": 2.0, "fixing": "N"}, "1.8": {"span": 1.8, "fixing": "O"}, "2.1": {"span": 1.8, "fixing": "O"}},
+      "240x45": {"0.9": {"span": 2.4, "fixing": "N"}, "1.4": {"span": 2.2, "fixing": "O"}, "1.8": {"span": 2.1, "fixing": "O"}, "2.1": {"span": 2.0, "fixing": "O"}},
+      "290x45": {"0.9": {"span": 2.5, "fixing": "O"}, "1.4": {"span": 2.3, "fixing": "O"}, "1.8": {"span": 2.2, "fixing": "O"}, "2.1": {"span": 2.1, "fixing": "O"}},
+      "140x70": {"0.9": {"span": 2.1, "fixing": "N"}, "1.4": {"span": 1.9, "fixing": "N"}, "1.8": {"span": 1.8, "fixing": "O"}, "2.1": {"span": 1.8, "fixing": "O"}},
+      "190x70": {"0.9": {"span": 2.8, "fixing": "O"}, "1.4": {"span": 2.6, "fixing": "O"}, "1.8": {"span": 2.5, "fixing": "O"}, "2.1": {"span": 2.4, "fixing": "P"}},
+      "220x70": {"0.9": {"span": 3.3, "fixing": "O"}, "1.4": {"span": 3.0, "fixing": "P"}, "1.8": {"span": 2.9, "fixing": "P"}, "2.1": {"span": 2.7, "fixing": "P"}},
+      "240x70": {"0.9": {"span": 3.5, "fixing": "O"}, "1.4": {"span": 3.2, "fixing": "P"}, "1.8": {"span": 3.0, "fixing": "P"}, "2.1": {"span": 2.9, "fixing": "P"}},
+      "290x70": {"0.9": {"span": 3.9, "fixing": "P"}, "1.4": {"span": 3.6, "fixing": "P"}, "1.8": {"span": 3.4, "fixing": "P"}, "2.1": {"span": 3.3, "fixing": "P"}},
+      "140x90": {"0.9": {"span": 2.2, "fixing": "N"}, "1.4": {"span": 2.1, "fixing": "O"}, "1.8": {"span": 2.0, "fixing": "O"}, "2.1": {"span": 1.9, "fixing": "O"}},
+      "190x90": {"0.9": {"span": 3.1, "fixing": "O"}, "1.4": {"span": 2.8, "fixing": "O"}, "1.8": {"span": 2.7, "fixing": "P"}, "2.1": {"span": 2.6, "fixing": "P"}},
+      "240x90": {"0.9": {"span": 3.9, "fixing": "P"}, "1.4": {"span": 3.6, "fixing": "P"}, "1.8": {"span": 3.4, "fixing": "P"}, "2.1": {"span": 3.3, "fixing": "P"}},
+      "290x90": {"0.9": {"span": 5.9, "fixing": "P"}, "1.4": {"span": 5.5, "fixing": "P"}, "1.8": {"span": 5.2, "fixing": "Q"}, "2.1": {"span": 5.1, "fixing": "Q"}}
+    },
+    "heavy": {
+      "140x45": {"0.9": {"span": 1.5, "fixing": "N"}, "1.4": {"span": 1.4, "fixing": "N"}, "1.8": {"span": 1.3, "fixing": "N"}, "2.1": {"span": 1.2, "fixing": "N"}},
+      "190x45": {"0.9": {"span": 2.1, "fixing": "N"}, "1.4": {"span": 1.9, "fixing": "N"}, "1.8": {"span": 1.7, "fixing": "N"}, "2.1": {"span": 1.7, "fixing": "N"}},
+      "240x45": {"0.9": {"span": 2.3, "fixing": "N"}, "1.4": {"span": 2.1, "fixing": "N"}, "1.8": {"span": 2.0, "fixing": "O"}, "2.1": {"span": 1.9, "fixing": "O"}},
+      "290x45": {"0.9": {"span": 2.5, "fixing": "N"}, "1.4": {"span": 2.3, "fixing": "N"}, "1.8": {"span": 2.1, "fixing": "O"}, "2.1": {"span": 2.1, "fixing": "O"}},
+      "140x70": {"0.9": {"span": 1.8, "fixing": "N"}, "1.4": {"span": 1.7, "fixing": "N"}, "1.8": {"span": 1.6, "fixing": "N"}, "2.1": {"span": 1.5, "fixing": "N"}},
+      "190x70": {"0.9": {"span": 2.4, "fixing": "N"}, "1.4": {"span": 2.3, "fixing": "N"}, "1.8": {"span": 2.1, "fixing": "O"}, "2.1": {"span": 2.1, "fixing": "O"}},
+      "220x70": {"0.9": {"span": 2.8, "fixing": "N"}, "1.4": {"span": 2.6, "fixing": "O"}, "1.8": {"span": 2.5, "fixing": "O"}, "2.1": {"span": 2.4, "fixing": "O"}},
+      "240x70": {"0.9": {"span": 3.1, "fixing": "O"}, "1.4": {"span": 2.9, "fixing": "O"}, "1.8": {"span": 2.7, "fixing": "O"}, "2.1": {"span": 2.6, "fixing": "P"}},
+      "290x70": {"0.9": {"span": 3.8, "fixing": "O"}, "1.4": {"span": 3.5, "fixing": "P"}, "1.8": {"span": 3.3, "fixing": "P"}, "2.1": {"span": 3.1, "fixing": "P"}},
+      "140x90": {"0.9": {"span": 1.9, "fixing": "N"}, "1.4": {"span": 1.8, "fixing": "N"}, "1.8": {"span": 1.7, "fixing": "N"}, "2.1": {"span": 1.7, "fixing": "N"}},
+      "190x90": {"0.9": {"span": 2.7, "fixing": "N"}, "1.4": {"span": 2.5, "fixing": "O"}, "1.8": {"span": 2.3, "fixing": "O"}, "2.1": {"span": 2.3, "fixing": "O"}},
+      "240x90": {"0.9": {"span": 3.4, "fixing": "O"}, "1.4": {"span": 3.1, "fixing": "O"}, "1.8": {"span": 3.0, "fixing": "P"}, "2.1": {"span": 2.9, "fixing": "P"}},
+      "290x90": {"0.9": {"span": 5.2, "fixing": "P"}, "1.4": {"span": 4.8, "fixing": "P"}, "1.8": {"span": 4.6, "fixing": "P"}, "2.1": {"span": 4.4, "fixing": "P"}}
+    }
+  },
+
+  "cantilever_joists": {
+    "_ref": "Table 7.2",
+    "_lookup": "joist_size → spacing_mm → load_case → max_cantilever_mm",
+    "_note": "SG8, up to 2kPa. 90/140 depth insufficient where cantilevered balustrades used. Load cases: light_Xm = light roof of X span, heavy_Xm = heavy roof of X span, 2kPa = 2kPa floor load only, balcony = balcony floor+balustrade only.",
+    "90x45": {
+      "600": {"light_4m": 450, "light_8m": 400, "light_12m": 100, "heavy_4m": 150, "heavy_8m": 150, "heavy_12m": 50, "2kPa": 50, "balcony": 100},
+      "450": {"light_4m": 50, "light_8m": 50, "light_12m": 50, "heavy_4m": 100, "heavy_8m": 100, "heavy_12m": 100, "2kPa": 50, "balcony": 50},
+      "400": {"light_4m": 50, "light_8m": 50, "light_12m": 50, "heavy_4m": 50, "heavy_8m": 50, "heavy_12m": 50, "2kPa": 50, "balcony": 50}
+    },
+    "140x45": {
+      "_extraction_note": "Some values may have column alignment issues from PDF extraction",
+      "600": {"light_4m": 550, "light_8m": 650, "light_12m": 700, "heavy_4m": 300, "heavy_8m": 300, "heavy_12m": 350, "2kPa": 100, "balcony": 150},
+      "450": {"light_4m": 150, "light_8m": 200, "light_12m": 250, "heavy_4m": 150, "heavy_8m": 250, "heavy_12m": 250, "2kPa": 250, "balcony": 150},
+      "400": {"light_4m": 150, "light_8m": 200, "light_12m": 100, "heavy_4m": 150, "heavy_8m": 150, "heavy_12m": 100, "2kPa": 150, "balcony": 150}
+    },
+    "190x45": {
+      "_extraction_note": "Values may have column alignment issues from PDF extraction — verify against standard before use",
+      "600": {"light_4m": 550, "light_8m": 600, "light_12m": 600, "heavy_4m": 300, "heavy_8m": 400, "heavy_12m": 450, "2kPa": 200, "balcony": 250},
+      "450": {"light_4m": 300, "light_8m": 450, "light_12m": 450, "heavy_4m": 500, "heavy_8m": 300, "heavy_12m": 350, "2kPa": 350, "balcony": 250},
+      "400": {"light_4m": 250, "light_8m": 250, "light_12m": 250, "heavy_4m": 1300, "heavy_8m": 1500, "heavy_12m": 1600, "2kPa": null, "balcony": null}
+    },
+    "240x45": {
+      "_extraction_note": "Values may have column alignment issues from PDF extraction — verify against standard before use",
+      "600": {"light_4m": 800, "light_8m": 900, "light_12m": 900, "heavy_4m": 450, "heavy_8m": 600, "heavy_12m": 700, "2kPa": 300, "balcony": 400},
+      "450": {"light_4m": 450, "light_8m": 650, "light_12m": 700, "heavy_4m": 750, "heavy_8m": 500, "heavy_12m": 500, "2kPa": 550, "balcony": 350},
+      "400": {"light_4m": 400, "light_8m": 450, "light_12m": null, "heavy_4m": 1650, "heavy_8m": 1900, "heavy_12m": 2050, "2kPa": null, "balcony": null}
+    },
+    "290x45": {
+      "_extraction_note": "Values may have column alignment issues from PDF extraction — verify against standard before use",
+      "600": {"light_4m": 1150, "light_8m": 1200, "light_12m": 1250, "heavy_4m": 700, "heavy_8m": 900, "heavy_12m": 1000, "2kPa": 450, "balcony": 600},
+      "450": {"light_4m": 700, "light_8m": 950, "light_12m": 1000, "heavy_4m": 1050, "heavy_8m": 700, "heavy_12m": 750, "2kPa": 750, "balcony": 550},
+      "400": {"light_4m": 600, "light_8m": 600, "light_12m": null, "heavy_4m": 2000, "heavy_8m": 2350, "heavy_12m": 2500, "2kPa": null, "balcony": null}
+    }
+  },
+
+  "_TODO_section_9": {
+    "_note": "Tables 9.1 (post uplift) and 9.2 (post connections) need manual entry — Section 9 was not in the PDF extracts"
   }
 }
