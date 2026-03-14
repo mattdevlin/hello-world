@@ -14,8 +14,20 @@ import { calculateWallLayout } from '../utils/calculator.js';
 import { computeWallTimberRatio } from '../utils/timberCalculator.js';
 import { calculateStickframeLayout } from '../utils/stickframeCalculator.js';
 import { REFERENCE_TIMBER_FRACTION } from '../utils/h1Constants.js';
-import { getProjects, getProjectWalls, saveWall } from '../utils/storage.js';
+import { getProjects, getProjectWalls, saveWall, getProjectH1 } from '../utils/storage.js';
+import { checkH1Compliance } from '../utils/h1Calculator.js';
 import { FONT_STACK, BRAND, NEUTRAL, RADIUS } from '../utils/designTokens.js';
+
+function computeWallHeatLoss(projectId, tr) {
+  try {
+    const h1Input = getProjectH1(projectId);
+    if (!h1Input) return null;
+    const result = checkH1Compliance(h1Input);
+    if (result.error || !result.breakdown?.wall?.weightedR) return null;
+    const wallAreaM2 = tr.effectiveWallArea / 1e6;
+    return wallAreaM2 / result.breakdown.wall.weightedR;
+  } catch { return null; }
+}
 
 export default function WallBuilderPage() {
   const { projectId, wallId } = useParams();
@@ -29,6 +41,8 @@ export default function WallBuilderPage() {
   const [generateKey, setGenerateKey] = useState(0);
   const [timberRatio, setTimberRatio] = useState(null);
   const [stickframeLayout, setStickframeLayout] = useState(null);
+  const [saveKey, setSaveKey] = useState(0);
+  const [wallHeatLoss, setWallHeatLoss] = useState(null);
 
   useEffect(() => {
     const p = getProjects().find(p => p.id === projectId);
@@ -44,7 +58,11 @@ export default function WallBuilderPage() {
         const result = calculateWallLayout(wall);
         setLayout(result);
         setWallName(wall.name);
-        try { setTimberRatio(computeWallTimberRatio(wall)); } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); }
+        try {
+          const tr = computeWallTimberRatio(wall);
+          setTimberRatio(tr);
+          setWallHeatLoss(computeWallHeatLoss(projectId, tr));
+        } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); setWallHeatLoss(null); }
         try { setStickframeLayout(calculateStickframeLayout(wall)); } catch (err) { console.warn('Failed to compute stickframe layout:', err); setStickframeLayout(null); }
       }
     } else {
@@ -53,6 +71,7 @@ export default function WallBuilderPage() {
       setWallName('');
       setTimberRatio(null);
       setStickframeLayout(null);
+      setWallHeatLoss(null);
       setLoadKey(k => k + 1);
     }
   }, [projectId, wallId, navigate]);
@@ -63,7 +82,11 @@ export default function WallBuilderPage() {
     setWallName(wall.name);
     setWallInput(wall);
     setGenerateKey(k => k + 1);
-    try { setTimberRatio(computeWallTimberRatio(wall)); } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); }
+    try {
+      const tr = computeWallTimberRatio(wall);
+      setTimberRatio(tr);
+      setWallHeatLoss(computeWallHeatLoss(projectId, tr));
+    } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); setWallHeatLoss(null); }
     try { setStickframeLayout(calculateStickframeLayout(wall)); } catch (err) { console.warn('Failed to compute stickframe layout:', err); setStickframeLayout(null); }
   };
 
@@ -71,6 +94,7 @@ export default function WallBuilderPage() {
     if (!wallInput || !projectId) return;
     const saved = saveWall(projectId, wallInput);
     setWallInput(saved);
+    setSaveKey(k => k + 1);
     // If this was a new wall, update the URL to reflect the saved ID
     if (!wallId || wallId === 'new') {
       navigate(`/project/${projectId}/wall/${saved.id}`, { replace: true });
@@ -106,16 +130,23 @@ export default function WallBuilderPage() {
       </header>
 
       <main style={styles.main}>
-        <WallForm
-          key={loadKey}
-          onCalculate={handleCalculate}
-          onChange={setWallInput}
-          initialWall={wallInput}
-        />
+        <CollapsibleSection sectionKey="wallDimensions" title="Wall Dimensions" forceOpen={generateKey} forceCollapse={saveKey}>
+          <WallForm
+            key={loadKey}
+            onCalculate={handleCalculate}
+            onChange={setWallInput}
+            initialWall={wallInput}
+          />
+        </CollapsibleSection>
 
         {layout && (
           <>
-            <CollapsibleSection sectionKey="wallDrawing" title="External Elevation" forceOpen={generateKey}>
+            <CollapsibleSection sectionKey="wallDrawing" title="External Elevation" forceOpen={generateKey}
+              headerRight={wallHeatLoss != null && (
+                <span style={{ fontSize: 12, fontWeight: 500, color: '#555' }}>
+                  {wallHeatLoss.toFixed(1)} W/K
+                </span>
+              )}>
               <WallDrawing layout={layout} wallName={wallName} projectName={project.name} />
             </CollapsibleSection>
             <CollapsibleSection sectionKey="framing" title="Framing Elevation" forceOpen={generateKey} headerRight={timberRatio && (

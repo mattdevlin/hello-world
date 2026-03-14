@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { COLORS, WINDOW_OVERHANG, BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, PANEL_PITCH, SPLINE_WIDTH, HSPLINE_CLEARANCE, EPS_GAP, buildHSplineSegments } from '../utils/constants.js';
 import PrintButton from './PrintButton.jsx';
 import ExportDxfButton from './ExportDxfButton.jsx';
@@ -34,7 +34,6 @@ const LABEL_COLOR = '#555';
 
 export default function FramingElevation({ layout, wallName, projectName, timberRatio }) {
   const sectionRef = useRef(null);
-  const [showTimberInfo, setShowTimberInfo] = useState(true);
   if (!layout) return null;
 
   const { grossLength, height, maxHeight, panels, openings, footerPanels, lintelPanels, deductionLeft, deductionRight, isRaked, heightAt, courses, isMultiCourse } = layout;
@@ -80,12 +79,6 @@ export default function FramingElevation({ layout, wallName, projectName, timber
   return (
     <div ref={sectionRef} data-print-section style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #ddd' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 12px 0', gap: 4 }}>
-        {timberRatio && (
-          <label className="no-print" style={{ fontSize: 12, color: '#666', cursor: 'pointer', marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <input type="checkbox" checked={showTimberInfo} onChange={e => setShowTimberInfo(e.target.checked)} />
-            Show timber %
-          </label>
-        )}
         <PrintButton sectionRef={sectionRef} label="Framing" projectName={projectName} wallName={wallName} />
         <ExportDxfButton layout={layout} wallName={wallName} projectName={projectName} planType="framing" />
       </div>
@@ -678,6 +671,10 @@ export default function FramingElevation({ layout, wallName, projectName, timber
                 }
               });
               footerPanels.forEach(f => points.add(Math.round(f.x + f.width)));
+              openings.forEach(op => {
+                points.add(Math.round(op.x));
+                points.add(Math.round(op.x + op.drawWidth));
+              });
 
               const sorted = [...points].sort((a, b) => a - b);
               const tickY = s(yBottom) + 22;
@@ -892,7 +889,7 @@ export default function FramingElevation({ layout, wallName, projectName, timber
 
         </g>
       </svg>
-      {showTimberInfo && timberRatio && (
+      {timberRatio && (
         <div style={timberInfoStyles.panel}>
           <div style={timberInfoStyles.header}>
             <span style={timberInfoStyles.title}>Thermal Bridging — Timber Fraction</span>

@@ -47,7 +47,7 @@ export function calculateStickframeLayout(wall) {
   }
 
   const plateH = SF_PLATE_DEPTH;   // 45mm
-  const studW = SF_STUD_WIDTH;     // 90mm
+  const studW = SF_STUD_DEPTH;     // 45mm — studs show edge-on in elevation
 
   // Heights
   const studHeight = wallHeight - 3 * plateH; // between bottom plate and top plate 1

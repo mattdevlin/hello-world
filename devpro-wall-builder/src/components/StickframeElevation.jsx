@@ -156,10 +156,7 @@ export default function StickframeElevation({ stickframeLayout, wallName, projec
           )}
 
           {/* ── Opening voids ── */}
-          {(stickframeLayout.members || [])
-            .filter(m => m.type === 'sill_trimmer' || m.type === 'lintel')
-            // Group by opening ref to draw voids — we'll use opening data from wall instead
-          }
+          {/* Opening framing is drawn via the member rects below */}
 
           {/* ── Members ── */}
           {sortedMembers.map((m, i) => {
