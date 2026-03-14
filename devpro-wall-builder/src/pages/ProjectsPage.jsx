@@ -71,9 +71,14 @@ export default function ProjectsPage() {
             <h1 style={styles.title}>DEVPRO Wall Builder</h1>
             <p style={styles.subtitle}>SIP panel layout tool</p>
           </div>
-          <button onClick={() => fileRef.current?.click()} style={styles.importBtn}>
-            Import .devpro
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => navigate('/admin')} style={styles.importBtn}>
+              Admin
+            </button>
+            <button onClick={() => fileRef.current?.click()} style={styles.importBtn}>
+              Import .devpro
+            </button>
+          </div>
           <input ref={fileRef} type="file" accept=".devpro" onChange={handleImport} style={{ display: 'none' }} />
         </div>
 
