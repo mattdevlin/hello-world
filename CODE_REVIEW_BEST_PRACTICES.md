@@ -1,269 +1,314 @@
 # Code Review: Industry Best Practices Audit
 
 **Repository:** devpro-wall-builder
-**Scope:** Full-stack application (React SPA + Express/SQLite backend)
+**Stack:** React 19 SPA (Vite 7, React Router 7, react-three-fiber, Vitest)
 **Date:** 2026-03-14
 
 ---
 
 ## Executive Summary
 
-The DevPro Wall Builder is a well-structured application with clean separation of concerns, solid test coverage on core calculations, and good foundational patterns. This review identifies areas where the codebase diverges from industry best practices, organized by severity and category.
+The DEVPRO Wall Builder is a React SPA for designing prefabricated wall panel systems. It calculates panel layouts, generates SVG/DXF elevations, optimizes material usage (EPS, magboard, timber), and estimates glue consumption. Data is persisted in localStorage.
 
-**Overall Grade: B+** — Strong fundamentals with actionable improvements needed around security, dependency hygiene, error handling, and operational readiness.
+The codebase demonstrates strong engineering fundamentals: good separation of concerns, solid test coverage on core calculations, well-documented constants, and thoughtful use of lazy loading and error boundaries. This review identifies areas where the codebase diverges from industry best practices.
 
----
-
-## 1. SECURITY
-
-### 1.1 CORS is wide open (HIGH)
-**File:** `server/index.js:21`
-`app.use(cors())` allows requests from any origin. In production, this should be restricted to known frontend origins.
-
-**Fix:** Configure allowed origins explicitly:
-```js
-app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:5174' }));
-```
-
-### 1.2 No rate limiting (MEDIUM)
-No rate limiting on any API endpoints. The quote creation endpoint (`POST /api/quotes`) generates sequential quote numbers and writes to the database — vulnerable to abuse.
-
-**Fix:** Add `express-rate-limit` middleware, at minimum on write endpoints.
-
-### 1.3 No input sanitization on text fields (MEDIUM)
-**Files:** `server/routes/clients.js`, `server/routes/quotes.js`
-User-supplied strings (`name`, `company`, `notes`, `projectAddress`) are stored directly. While SQLite parameterized queries prevent SQL injection, these values could contain XSS payloads if rendered in a future admin UI without escaping.
-
-**Recommendation:** Sanitize or validate string length/content at the API boundary.
-
-### 1.4 Missing `parseInt` radix (LOW)
-**File:** `server/routes/quotes.js:103`
-`parseInt(...)` without a radix parameter. Always use `parseInt(value, 10)` to avoid unexpected octal parsing.
+**Overall Grade: B+** -- Strong fundamentals with actionable improvements needed around input validation, code duplication, error handling, testing gaps, and operational readiness.
 
 ---
 
-## 2. DEPENDENCY MANAGEMENT
+## 1. ARCHITECTURE & PROJECT STRUCTURE
 
-### 2.1 Misplaced dependencies in server package.json (HIGH)
-**File:** `server/package.json`
-`react`, `@react-pdf/renderer`, and `@hubspot/api-client` are listed in the **server** dependencies. React packages belong exclusively in the client. `@hubspot/api-client` is unused.
+### 1.1 Lazy loading and code splitting (POSITIVE)
+**File:** `src/App.jsx`
+All page components use `React.lazy()` with a `Suspense` fallback. This is best practice for route-based code splitting with Vite.
 
-**Impact:** Bloated server `node_modules`, slower installs, confusing dependency graph, potential supply chain risk from unnecessary packages.
+### 1.2 Error boundary at the right level (POSITIVE)
+**File:** `src/components/ErrorBoundary.jsx`
+A top-level `ErrorBoundary` wraps the app, and a second one wraps the 3D viewer (`ProjectPage.jsx:214`). This layered approach prevents a Three.js crash from taking down the whole app.
 
-**Fix:** Remove `react`, `@react-pdf/renderer`, and `@hubspot/api-client` from `server/package.json`.
-
-### 2.2 Loose version pinning (MEDIUM)
-Both `package.json` files use caret ranges (`^5`, `^19`, etc.) with major-version-only specifiers. While acceptable for development, this can lead to unexpected breaking changes.
-
-**Best practice:** Pin to minor versions at minimum (e.g., `^5.1.0` instead of `^5`) and use a lockfile in CI. Consider `npm ci` over `npm install` in production builds.
-
-### 2.3 No lockfile committed for server (LOW)
-The server directory has its own `package.json` but no visible `package-lock.json`. Without a lockfile, builds are non-reproducible.
-
----
-
-## 3. ERROR HANDLING & RESILIENCE
-
-### 3.1 Generic error handler hides details (MEDIUM)
-**File:** `server/middleware/errorHandler.js`
-All 500 errors return `"Internal server error"` with no correlation ID. In production, this makes debugging difficult.
-
-**Best practice:** Generate a unique error ID, log it with the stack trace, and return it to the client so support can correlate reports.
-
-### 3.2 No request validation middleware (MEDIUM)
-Each route handler validates its own input inline. This leads to inconsistent validation patterns and duplication.
-
-**Best practice:** Use a schema validation library (e.g., `zod`, `joi`, or `express-validator`) as middleware. Define schemas once, validate consistently.
-
-### 3.3 JSON parse errors not handled in GET /:id (LOW)
-**File:** `server/routes/quotes.js:44-47`
-`JSON.parse(row.material_quantities || '{}')` will throw on corrupt data. Wrap in try/catch or validate stored data integrity.
-
-### 3.4 Shutdown timeout missing (LOW)
-**File:** `server/index.js:43-49`
-`server.close()` waits indefinitely for connections to drain. Add a forced shutdown timeout:
-```js
-setTimeout(() => process.exit(1), 10000);
-```
-
----
-
-## 4. DATABASE & DATA LAYER
-
-### 4.1 No database migrations system (MEDIUM)
-**File:** `server/db.js`
-Schema is defined inline with `CREATE TABLE IF NOT EXISTS`. This works for initial setup but doesn't support schema evolution (adding columns, renaming fields, changing types).
-
-**Best practice:** Use a migration tool (e.g., `knex` migrations, `better-sqlite3-helper`, or simple numbered SQL files) to version schema changes.
-
-### 4.2 No indexes on frequently queried columns (MEDIUM)
-**File:** `server/db.js`
-`quotes` table is queried by `project_id`, `status`, `client_id`, and `parent_quote_id` — none are indexed. As data grows, query performance will degrade.
-
-**Fix:** Add indexes:
-```sql
-CREATE INDEX IF NOT EXISTS idx_quotes_project_id ON quotes(project_id);
-CREATE INDEX IF NOT EXISTS idx_quotes_status ON quotes(status);
-CREATE INDEX IF NOT EXISTS idx_quotes_client_id ON quotes(client_id);
-```
-
-### 4.3 Timestamps stored as strings (LOW)
-All timestamps use `datetime('now')` returning ISO strings. While functional, integer Unix timestamps or SQLite's built-in date types would be more efficient for range queries and sorting.
-
-### 4.4 No backup strategy (LOW)
-SQLite with WAL mode is good, but there's no documented backup strategy. For production, add periodic `.backup()` calls or WAL checkpointing.
-
----
-
-## 5. API DESIGN
-
-### 5.1 Inconsistent response shapes (MEDIUM)
-- `GET /api/quotes` returns raw rows (JSON fields as strings)
-- `GET /api/quotes/:id` parses JSON fields before returning
-- `DELETE` endpoints return `{ deleted: true }` instead of `204 No Content`
-
-**Best practice:** Normalize all response shapes. Parse JSON fields consistently. Use proper HTTP status codes (204 for deletes).
-
-### 5.2 No API versioning (LOW)
-All routes are under `/api/`. When breaking changes are needed, there's no versioning strategy.
-
-**Best practice:** Use `/api/v1/` prefix from the start.
-
-### 5.3 No pagination on list endpoints (LOW)
-**Files:** `server/routes/quotes.js:12`, `server/routes/clients.js:7`
-`SELECT * FROM quotes` and `SELECT * FROM clients` return all rows. Fine for small datasets but will cause performance issues at scale.
-
-### 5.4 Status filter not validated (LOW)
-**File:** `server/routes/quotes.js:23`
-`GET /api/quotes?status=invalid` silently returns empty results instead of a 400. The `VALID_STATUSES` array exists but isn't used for GET validation.
-
----
-
-## 6. FRONTEND ARCHITECTURE
-
-### 6.1 localStorage as primary storage (MEDIUM)
+### 1.3 localStorage as primary data store (MEDIUM)
 **File:** `src/utils/storage.js`
-All project data (walls, floors, connections, H1 compliance) lives in `localStorage`. This is a significant data loss risk:
+All project data (walls, floors, connections, placements) lives in `localStorage`. This is a significant data loss risk for a professional construction tool:
 - ~5MB browser limit
 - Cleared on cache/data clear
 - No sync across devices
-- No backup mechanism beyond manual export
+- No backup beyond manual `.devpro` export
 
-**Recommendation:** For a production tool used in construction, data should persist server-side. The quote backend exists — extend it to store project data, or add IndexedDB with periodic cloud sync.
+**Recommendation:** For production use, consider IndexedDB (larger quota, structured data) with periodic cloud sync, or a backend persistence layer.
 
-### 6.2 No state management library (LOW)
-The app passes data through props and `localStorage`. For the current scale this is acceptable, but as the app grows, consider React Context for shared state (project data, user preferences) to avoid prop drilling.
+### 1.4 No state management beyond props and local state (LOW)
+The app passes data through props and reads from `localStorage` on mount. For the current scale this works, but deeper pages like `WallBuilderPage` manage 7 `useState` hooks with interrelated logic. If the app grows, consider `useReducer` or React Context for shared project state.
 
-### 6.3 ErrorBoundary uses hash navigation (LOW)
-**File:** `src/components/ErrorBoundary.jsx:27`
-`window.location.hash = '#/'` — the app uses `HashRouter`, so this works, but it's a fragile coupling. Use React Router's `useNavigate` or pass a callback prop instead.
+### 1.5 Inline style objects at module scope (LOW)
+**Files:** All page and component files
+Styles are defined as plain JS objects at the bottom of each file. While functional, this approach:
+- Cannot express pseudo-classes (`:hover`, `:focus`, `:active`)
+- Cannot use media queries for responsive design
+- Duplicates common patterns across files (button styles appear in 5+ files)
 
-### 6.4 Large component files (LOW)
-Several components exceed 40KB (`FramingElevation.jsx`, `EpsElevation.jsx`, `ModelViewer3D.jsx`). While not a hard rule violation, files this large are difficult to review, test, and maintain.
+**Recommendation:** Consolidate shared styles via the existing `designTokens.js` pattern, or adopt CSS modules / a lightweight CSS-in-JS solution.
 
-**Best practice:** Extract reusable drawing primitives, helper functions, and sub-components into smaller modules.
+### 1.6 `designTokens.js` is incomplete (LOW)
+**File:** `src/utils/designTokens.js`
+Only 3 pages (`WallBuilderPage`, `ProjectPage`, and some components) use the shared tokens. `ProjectsPage.jsx` still hardcodes `#f0f2f5`, `#2C5F8A`, etc. directly. This creates a split where some files use tokens and others don't.
 
----
-
-## 7. TESTING
-
-### 7.1 No integration/E2E tests (MEDIUM)
-Test coverage is strong on pure utility functions (`calculator.js`, `quoteCalculator.js`, `h1Calculator.js`) but there are:
-- No API integration tests (testing actual HTTP requests against the Express server)
-- No E2E tests (Playwright/Cypress) for the React frontend
-- No component tests (React Testing Library)
-
-**Best practice:** Add at minimum API integration tests for the quote CRUD lifecycle.
-
-### 7.2 Duplicate test configuration (LOW)
-**Files:** `vite.config.js:10-17`, `server/vitest.config.js`
-Both files configure Vitest. Clarify which config governs which test suite to avoid confusion. Consider a workspace-level vitest configuration.
-
-### 7.3 No CI/CD pipeline (MEDIUM)
-No `.github/workflows/`, no `Jenkinsfile`, no CI configuration. Tests, lint, and build are not enforced automatically.
-
-**Best practice:** Add a GitHub Actions workflow that runs `npm run lint`, `npm test`, and `npm run build` on every PR.
+**Fix:** Migrate remaining hardcoded colors to use the shared tokens.
 
 ---
 
-## 8. CODE QUALITY & PATTERNS
+## 2. INPUT VALIDATION & ERROR HANDLING
 
-### 8.1 Repeated pricing/margin loading pattern (MEDIUM)
-**File:** `server/routes/quotes.js`
-The same pricing + margin loading code appears in both `POST /` (lines 84-94) and `POST /:id/revise` (lines 198-208) — identical blocks.
+### 2.1 calculator.js -- inconsistent error reporting (HIGH)
+**File:** `src/utils/calculator.js`
+- Returns `{ error: "..." }` on invalid dimensions (lines ~145-150)
+- But throws on invalid wall profile type
+- Downstream consumers (WallBuilderPage, epsOptimizer, etc.) do not consistently check for the error return
 
-**Fix:** Extract into a shared helper:
+**Best practice:** Choose one pattern (return error objects OR throw) and apply it consistently. Consumers should always check.
+
+### 2.2 No division-by-zero guard in h1Calculator (HIGH)
+**File:** `src/utils/h1Calculator.js`
+`computeWeightedR()` computes `sum(area / rValue)`. If any `rValue` is 0, this produces `Infinity`, silently corrupting the compliance result. For a building code compliance calculator, this is a critical correctness risk.
+
+**Fix:** Validate `rValue > 0` before calculation, or throw a descriptive error.
+
+### 2.3 WallForm validates but calculators don't (MEDIUM)
+**File:** `src/components/WallForm.jsx:92-126`
+The form validates wall dimensions and opening positions before calling `onCalculate`. This is good. However, the underlying `calculateWallLayout()`, `computeWallTimber()`, `epsOptimizer`, etc. perform little to no input validation. If these functions are ever called from outside the form (e.g., import, batch processing), invalid data flows through unchecked.
+
+**Best practice:** Validate at system boundaries (UI form is good) AND at the calculation entry point. The "trust internal code" principle applies within a function, not across module boundaries.
+
+### 2.4 Silent failures in storage.js (MEDIUM)
+**File:** `src/utils/storage.js`
+`readJson()` returns `null` on parse errors with no logging. Operations like `deleteWall` perform multi-step mutations (remove wall, update connections, update placements) without transaction-like guarantees. A failure mid-sequence leaves data inconsistent.
+
+**Recommendation:** Add `console.warn` on parse failures. Consider a single `saveProject()` function that writes the entire project atomically.
+
+### 2.5 `updateProjectDetails` allows overwriting protected fields (MEDIUM)
+**File:** `src/utils/storage.js`
+`Object.assign(p, fields)` allows callers to overwrite any field including `id` and `createdAt`.
+
+**Fix:** Whitelist allowed fields:
 ```js
-function loadPricingAndMargins(db) {
-  const pricing = Object.fromEntries(
-    db.prepare('SELECT * FROM pricing').all().map(r => [r.category, r])
-  );
-  const margins = Object.fromEntries(
-    db.prepare('SELECT * FROM margins').all().map(r => [r.key, r.value])
-  );
-  return { pricing, margins };
-}
+const ALLOWED_FIELDS = ['name', 'address', 'territorialAuthority'];
+const safe = Object.fromEntries(
+  Object.entries(fields).filter(([k]) => ALLOWED_FIELDS.includes(k))
+);
+Object.assign(p, safe);
 ```
 
-### 8.2 `updateProjectDetails` uses unsafe `Object.assign` (LOW)
-**File:** `src/utils/storage.js:90`
-`Object.assign(p, fields)` allows callers to overwrite any project field including `id` and `createdAt`. Whitelist allowed fields or use a pick function.
+### 2.6 projectExporter.js is browser-only with no guards (LOW)
+**File:** `src/utils/projectExporter.js`
+Uses `document.createElement('a')` to trigger downloads. Will crash if run in SSR or Node.js test environments. Guard with `typeof document !== 'undefined'`.
 
-### 8.3 `PANEL_HEIGHTS` includes non-stocked value (LOW)
+### 2.7 Empty `catch` blocks swallow errors (LOW)
+**File:** `src/pages/WallBuilderPage.jsx:44,61`
+```js
+try { setTimberRatio(computeWallTimberRatio(wall)); } catch { setTimberRatio(null); }
+```
+This silently swallows calculation errors. At minimum, log the error for debugging.
+
+---
+
+## 3. CODE QUALITY & MAINTAINABILITY
+
+### 3.1 `calculateWallLayout()` is 529 lines (HIGH)
+**File:** `src/utils/calculator.js:144-673`
+This function handles panel placement, opening layout, L-cuts, footers, lintels, end caps, multi-course splitting, deductions, and spline positioning -- all in a single function. This violates the Single Responsibility Principle and makes the function very difficult to test in isolation, review, or debug.
+
+**Recommendation:** Extract named sub-functions:
+- `placePanelsInSpan()` -- panel filling logic
+- `layoutOpenings()` -- opening/lintel/footer placement
+- `applyDeductions()` -- corner deduction handling
+- `assignCourses()` -- multi-course splitting
+- `computeSplines()` -- spline segment calculation
+
+### 3.2 Duplicated bin-packing algorithm (HIGH)
+**Files:** `src/utils/epsOptimizer.js`, `src/utils/magboardOptimizer.js`
+Both files contain nearly identical `shelfPack()` functions (~60 lines each). This is a clear DRY violation.
+
+**Fix:** Extract `shelfPack()` into a shared `src/utils/binPacking.js` module.
+
+### 3.3 Duplicated EPS segment exclusion logic (MEDIUM)
+**Files:** `src/utils/epsOptimizer.js`, `src/utils/glueCalculator.js`
+Both files independently compute EPS segments by excluding opening zones. The logic is identical.
+
+**Fix:** Export `getEpsSegments()` from a shared module or from `constants.js` (which already exports `buildHSplineSegments`).
+
+### 3.4 String literals instead of constants for wall profiles (MEDIUM)
+**File:** `src/utils/timberCalculator.js:261-263`
+Uses `=== 'raked'` and `=== 'gable'` string comparisons instead of the imported `WALL_PROFILES` constants. This creates a fragile coupling -- if the profile string values ever change, this code would silently break.
+
+**Fix:** Import and use `WALL_PROFILES.RAKED` / `WALL_PROFILES.GABLE`.
+
+### 3.5 `PANEL_HEIGHTS` includes non-stocked value (MEDIUM)
 **File:** `src/utils/constants.js:27`
-`PANEL_HEIGHTS = [2440, 2745, 3050]` includes 2440mm, but `STOCK_SHEET_HEIGHTS = [2745, 3050]` and the CLAUDE.md explicitly warns "2440mm is NOT stocked." This contradiction could confuse future developers.
+```js
+export const PANEL_HEIGHTS = [2440, 2745, 3050];
+```
+But `STOCK_SHEET_HEIGHTS = [2745, 3050]` and CLAUDE.md explicitly warns: "2440mm is NOT stocked." This contradiction could mislead future developers into using 2440mm in layout logic.
+
+**Fix:** Add a comment to `PANEL_HEIGHTS` clarifying this is the set of nominal heights (not stock), or remove 2440 if it's truly not used.
+
+### 3.6 Magic numbers in geometry code (LOW)
+**File:** `src/utils/polygonUtils.js`
+Epsilon value `1e-10` appears in multiple places without a named constant. Similarly, `src/utils/glueCalculator.js` redefines `SPLINE_WIDTH = 146` locally instead of importing it from `constants.js`.
+
+### 3.7 Large component files (LOW)
+Several visualization components exceed 500+ lines: `FramingElevation.jsx`, `EpsElevation.jsx`, `ModelViewer3D.jsx`, `WallDrawing.jsx`. Extract reusable SVG/Three.js primitives into smaller sub-components.
 
 ---
 
-## 9. OPERATIONAL READINESS
+## 4. TESTING
 
-### 9.1 No environment-specific configuration (MEDIUM)
-**File:** `server/.env.example`
-Only `PORT` and `HUBSPOT_ACCESS_TOKEN` are configured via environment. Database path, CORS origins, log level, and other operational settings are hardcoded.
+### 4.1 Strong unit test coverage on core logic (POSITIVE)
+The calculation engine has excellent test coverage:
+- `calculator.test.js` (884 lines, ~45 test cases) -- single/multi-course, raked, gable, openings
+- `h1Calculator.test.js` (306 lines) -- thermal compliance across climate zones
+- `timberCalculator.test.js` (404 lines) -- plate splitting, timber ratios
+- `magboardOptimizer.test.js` (400 lines) -- sheet extraction and optimization
+- `wallSnap.test.js` (462 lines) -- 3D positioning and connection validation
 
-### 9.2 No structured logging (MEDIUM)
-**File:** `server/index.js`, `server/middleware/errorHandler.js`
-Uses `console.log` and `console.error` throughout. In production, structured logging (JSON format with timestamps, request IDs, log levels) is essential for observability.
+### 4.2 Standalone integration tests are valuable (POSITIVE)
+Root-level `test-*.mjs` files test real-world scenarios (gable peaks, per-panel sheet heights, multi-course rendering). These serve as excellent regression tests for complex geometric edge cases.
 
-**Best practice:** Use `pino` or `winston` with structured output.
+### 4.3 No negative/invalid input tests (MEDIUM)
+**Files:** All `*.test.js`
+Tests assume valid input. There are no tests for:
+- Negative dimensions, NaN values, zero-length walls
+- Missing required properties
+- Openings that overlap each other
+- Walls smaller than a single panel
 
-### 9.3 No health check depth (LOW)
-**File:** `server/index.js:32-34`
-`GET /api/health` returns `{ status: 'ok' }` without checking database connectivity. A meaningful health check should verify the DB is accessible.
+**Best practice:** Add a `describe('invalid input')` block to each test file covering boundary conditions and error cases.
 
-### 9.4 No `.dockerignore` or `Dockerfile` (LOW)
-No containerization setup. For deployment, a Dockerfile with multi-stage build would standardize the environment.
+### 4.4 No component tests (MEDIUM)
+No React Testing Library or similar component tests. The visualization components (`WallDrawing`, `FramingElevation`, `EpsElevation`) contain significant rendering logic that is untested.
+
+**Recommendation:** At minimum, test that components render without crashing given valid layout data (smoke tests).
+
+### 4.5 No E2E tests (MEDIUM)
+No Playwright or Cypress tests. The full user flow (create project -> add wall -> generate drawing -> export DXF) is only tested manually.
+
+### 4.6 DXF export tests are shallow (LOW)
+**File:** `src/utils/projectExporter.test.js`
+Tests only check that DXF output is a non-empty string. No validation of DXF structure or content correctness.
+
+### 4.7 No CI/CD pipeline (MEDIUM)
+No `.github/workflows/`, no CI configuration. Tests and lint are not enforced on pull requests.
+
+**Fix:** Add a GitHub Actions workflow:
+```yaml
+on: [push, pull_request]
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+```
 
 ---
 
-## 10. DOCUMENTATION
+## 5. SECURITY & CONFIGURATION
 
-### 10.1 CLAUDE.md is excellent (POSITIVE)
-The `CLAUDE.md` file is comprehensive, well-organized, and includes lessons learned / anti-patterns. This is above industry standard for project documentation.
+### 5.1 No XSS risk in current architecture (POSITIVE)
+React's JSX escaping prevents XSS by default. The app uses no `dangerouslySetInnerHTML`. DXF export generates text files, not HTML. localStorage is origin-scoped and not accessible cross-origin.
 
-### 10.2 No API documentation (MEDIUM)
-No OpenAPI/Swagger spec, no Postman collection, no documented API contracts. As the frontend-backend integration grows, API documentation becomes critical.
+### 5.2 `.gitignore` covers essentials (POSITIVE)
+Ignores `node_modules/`, `.env`, `.env.local`, editor files, and OS files. This is good.
 
-### 10.3 No contributing guide (LOW)
-No `CONTRIBUTING.md` with setup instructions, code style guidelines, or PR process.
+### 5.3 Unencrypted project data in localStorage (LOW)
+All project data (dimensions, addresses, territorial authorities) is stored in plaintext in localStorage. Any JavaScript running on the same origin can read it. For a professional tool handling property data, consider encrypting sensitive fields.
+
+### 5.4 No Content Security Policy (LOW)
+**File:** `index.html`
+No CSP meta tag. For a Vite SPA, adding a strict CSP would prevent accidental script injection:
+```html
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+```
+
+### 5.5 `crypto.randomUUID()` for IDs (POSITIVE)
+**File:** `src/components/WallForm.jsx:51`
+Uses the browser's `crypto.randomUUID()` for generating unique IDs -- good practice, no homegrown UUID generation.
+
+---
+
+## 6. PERFORMANCE
+
+### 6.1 Lazy loading with route-based splitting (POSITIVE)
+All pages use `React.lazy()` + `Suspense`. Three.js and heavy visualization code is only loaded when needed.
+
+### 6.2 Calculation runs synchronously on main thread (LOW)
+**File:** `src/pages/WallBuilderPage.jsx:56`
+`calculateWallLayout()` is called synchronously in the click handler. For complex walls (many openings, multi-course gable), this could block the UI. Consider using a Web Worker for heavy calculations.
+
+### 6.3 No memoization of expensive renders (LOW)
+Visualization components (`WallDrawing`, `FramingElevation`, `EpsElevation`) re-render when any parent state changes. Since these generate complex SVGs, wrapping them in `React.memo()` with a layout-comparison function would prevent unnecessary re-renders.
+
+### 6.4 `getProjects()` called multiple times per render cycle (LOW)
+**File:** `src/pages/ProjectPage.jsx:60,119`
+`getProjects()` parses JSON from localStorage on every call. In `ProjectPage`, it's called in `refresh()` and again for `otherProjects` -- two localStorage reads + JSON parses for the same data.
+
+---
+
+## 7. DOCUMENTATION
+
+### 7.1 CLAUDE.md is excellent (POSITIVE)
+Comprehensive, well-organized, includes architecture overview, commands, key conventions, and lessons learned / anti-patterns. This is above industry standard.
+
+### 7.2 Constants are well-documented (POSITIVE)
+**File:** `src/utils/constants.js`
+Every constant has a comment explaining its physical meaning and units. This is critical for a domain-specific engineering tool.
+
+### 7.3 JSDoc on core functions (POSITIVE)
+`calculator.js`, `constants.js`, and `h1Calculator.js` use JSDoc comments with `@param` and `@returns`. Not all files follow this pattern, but the most critical ones do.
+
+### 7.4 No API/data model documentation (LOW)
+The wall, floor, and project data shapes are implicit (defined by usage in `storage.js` and `WallForm.jsx`). A TypeScript migration or at least a `types.js` with JSDoc `@typedef` declarations would make the data contracts explicit.
+
+---
+
+## 8. DEPENDENCY MANAGEMENT
+
+### 8.1 Modern, well-chosen dependencies (POSITIVE)
+- React 19, Vite 7, Vitest 4 -- all current
+- react-three-fiber for 3D (appropriate for the use case)
+- dxf-writer for CAD export (lightweight, purpose-built)
+- jszip for archive generation
+- No unnecessary dependencies
+
+### 8.2 TypeScript types installed but not used (LOW)
+**File:** `package.json:27-28`
+`@types/react` and `@types/react-dom` are in devDependencies, but the project uses `.jsx` not `.tsx`. These are harmless but unnecessary without TypeScript.
+
+### 8.3 Consider TypeScript migration (LOW)
+For a calculation-heavy engineering tool, TypeScript would catch unit mismatches, property access errors, and data shape violations at compile time. The wall/floor/opening data models would particularly benefit from type definitions.
 
 ---
 
 ## Summary: Priority Action Items
 
-| Priority | Issue | Effort |
-|----------|-------|--------|
-| **P0** | Remove misplaced deps from server `package.json` | 5 min |
-| **P0** | Restrict CORS to known origins | 10 min |
-| **P1** | Add rate limiting on write endpoints | 30 min |
-| **P1** | Add database indexes on foreign keys | 10 min |
-| **P1** | Add CI/CD pipeline (GitHub Actions) | 1 hr |
-| **P1** | Add API integration tests | 2 hr |
-| **P1** | Normalize API response shapes | 1 hr |
-| **P2** | Implement schema validation middleware (zod/joi) | 2 hr |
-| **P2** | Add structured logging | 1 hr |
-| **P2** | Database migration system | 2 hr |
-| **P2** | API versioning + OpenAPI docs | 2 hr |
-| **P3** | Pagination on list endpoints | 1 hr |
-| **P3** | Extract large components into smaller modules | Ongoing |
-| **P3** | Data persistence strategy (beyond localStorage) | Large |
+| Priority | Issue | Section | Effort |
+|----------|-------|---------|--------|
+| **P0** | Guard against division by zero in `computeWeightedR()` | 2.2 | 15 min |
+| **P0** | Make `calculateWallLayout()` error handling consistent | 2.1 | 30 min |
+| **P1** | Extract duplicate `shelfPack()` to shared module | 3.2 | 30 min |
+| **P1** | Extract duplicate EPS segment logic | 3.3 | 30 min |
+| **P1** | Add invalid-input test cases to all test files | 4.3 | 2 hr |
+| **P1** | Add CI/CD pipeline (GitHub Actions) | 4.7 | 1 hr |
+| **P1** | Whitelist fields in `updateProjectDetails` | 2.5 | 15 min |
+| **P1** | Replace string literals with `WALL_PROFILES` constants | 3.4 | 15 min |
+| **P2** | Break `calculateWallLayout()` into smaller functions | 3.1 | 4 hr |
+| **P2** | Add component smoke tests | 4.4 | 2 hr |
+| **P2** | Log errors instead of silently catching | 2.7 | 30 min |
+| **P2** | Migrate remaining hardcoded colors to design tokens | 1.6 | 1 hr |
+| **P2** | Clarify `PANEL_HEIGHTS` vs `STOCK_SHEET_HEIGHTS` | 3.5 | 10 min |
+| **P3** | Consider IndexedDB or backend for data persistence | 1.3 | Large |
+| **P3** | Add `React.memo()` to visualization components | 6.3 | 1 hr |
+| **P3** | TypeScript migration | 8.3 | Large |
+| **P3** | Extract large components into smaller modules | 3.7 | Ongoing |
