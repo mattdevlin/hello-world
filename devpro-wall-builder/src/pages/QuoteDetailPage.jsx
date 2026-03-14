@@ -28,7 +28,19 @@ export default function QuoteDetailPage() {
       return;
     }
     setProject(p);
-    loadQuote();
+
+    async function fetchQuote() {
+      setLoading(true);
+      try {
+        const data = await api.get(`/quotes/${quoteId}`);
+        setQuote(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchQuote();
   }, [projectId, quoteId, navigate]);
 
   async function loadQuote() {
