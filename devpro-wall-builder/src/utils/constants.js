@@ -23,7 +23,7 @@ export const MIN_FLOOR_PANEL_WIDTH = 498;          // mm (332mm EPS + 2×83mm re
 export const FLOOR_EPS_RECESS = 83;                // mm EPS inset from panel edge
 export const FLOOR_PENETRATION_CLEARANCE = 45;     // mm clearance from penetration edge to panel boundary
 
-// Panel heights available
+// Panel heights available (nominal heights for UI selection — 2440 is NOT stocked, see STOCK_SHEET_HEIGHTS)
 export const PANEL_HEIGHTS = [2440, 2745, 3050]; // mm
 
 // Stock sheet heights for CNC cutting (2440mm not stocked — use 2745 or 3050)
@@ -78,6 +78,16 @@ export const OPENING_TYPES = {
   SINGLE_GARAGE: 'single_garage',
   DOUBLE_GARAGE: 'double_garage',
 };
+
+// NZS 3604 Stickframe Constants
+export const SF_STUD_WIDTH = 90;           // mm — 90x45 SG8
+export const SF_STUD_DEPTH = 45;           // mm
+export const SF_STUD_SPACING = 600;        // mm centres
+export const SF_PLATE_WIDTH = 90;          // mm — same as stud
+export const SF_PLATE_DEPTH = 45;          // mm
+export const SF_DWANG_SPACING = 810;       // mm (mid-height nogs, ~thirds of 2440)
+export const SF_DEDUCTION = 90;            // mm — corner overlap for stickframe
+export const SF_LINTEL_DEPTH = 45;         // mm — lintel member depth (thickness)
 
 // Colours for drawing
 export const COLORS = {

@@ -148,6 +148,7 @@ export const DEFAULT_R_UNKNOWN_WINDOW = 0.15;
 
 export const REFERENCE_GLAZING_RATIO = 0.30;
 export const MAX_GLAZING_RATIO = 0.40;
+export const REFERENCE_TIMBER_FRACTION = 0.18; // NZS 3604 standard timber framing fraction for walls
 
 
 // ── Window R-value Lookup Table ──

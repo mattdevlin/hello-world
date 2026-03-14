@@ -8,10 +8,14 @@ import FramingElevation from '../components/FramingElevation.jsx';
 import EpsElevation from '../components/EpsElevation.jsx';
 import EpsCutPlans from '../components/EpsCutPlans.jsx';
 import Offcuts from '../components/Offcuts.jsx';
+import StickframeElevation from '../components/StickframeElevation.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import { calculateWallLayout } from '../utils/calculator.js';
 import { computeWallTimberRatio } from '../utils/timberCalculator.js';
+import { calculateStickframeLayout } from '../utils/stickframeCalculator.js';
+import { REFERENCE_TIMBER_FRACTION } from '../utils/h1Constants.js';
 import { getProjects, getProjectWalls, saveWall } from '../utils/storage.js';
+import { FONT_STACK, BRAND, NEUTRAL, RADIUS } from '../utils/designTokens.js';
 
 export default function WallBuilderPage() {
   const { projectId, wallId } = useParams();
@@ -24,6 +28,7 @@ export default function WallBuilderPage() {
   const [loadKey, setLoadKey] = useState(0);
   const [generateKey, setGenerateKey] = useState(0);
   const [timberRatio, setTimberRatio] = useState(null);
+  const [stickframeLayout, setStickframeLayout] = useState(null);
 
   useEffect(() => {
     const p = getProjects().find(p => p.id === projectId);
@@ -39,13 +44,15 @@ export default function WallBuilderPage() {
         const result = calculateWallLayout(wall);
         setLayout(result);
         setWallName(wall.name);
-        try { setTimberRatio(computeWallTimberRatio(wall)); } catch { setTimberRatio(null); }
+        try { setTimberRatio(computeWallTimberRatio(wall)); } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); }
+        try { setStickframeLayout(calculateStickframeLayout(wall)); } catch (err) { console.warn('Failed to compute stickframe layout:', err); setStickframeLayout(null); }
       }
     } else {
       setWallInput(null);
       setLayout(null);
       setWallName('');
       setTimberRatio(null);
+      setStickframeLayout(null);
       setLoadKey(k => k + 1);
     }
   }, [projectId, wallId, navigate]);
@@ -56,7 +63,8 @@ export default function WallBuilderPage() {
     setWallName(wall.name);
     setWallInput(wall);
     setGenerateKey(k => k + 1);
-    try { setTimberRatio(computeWallTimberRatio(wall)); } catch { setTimberRatio(null); }
+    try { setTimberRatio(computeWallTimberRatio(wall)); } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); }
+    try { setStickframeLayout(calculateStickframeLayout(wall)); } catch (err) { console.warn('Failed to compute stickframe layout:', err); setStickframeLayout(null); }
   };
 
   const handleSave = () => {
@@ -110,12 +118,32 @@ export default function WallBuilderPage() {
             <CollapsibleSection sectionKey="wallDrawing" title="External Elevation" forceOpen={generateKey}>
               <WallDrawing layout={layout} wallName={wallName} projectName={project.name} />
             </CollapsibleSection>
-            <CollapsibleSection sectionKey="framing" title="Framing Elevation" forceOpen={generateKey}>
+            <CollapsibleSection sectionKey="framing" title="Framing Elevation" forceOpen={generateKey} headerRight={timberRatio && (
+                <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500 }}>
+                  <span style={{ color: timberRatio.timberPercentage < REFERENCE_TIMBER_FRACTION * 100 ? '#2E7D32' : '#E65100' }}>DEVPRO: {timberRatio.timberPercentage.toFixed(1)}% timber</span>
+                  <span style={{ color: REFERENCE_TIMBER_FRACTION * 100 > timberRatio.timberPercentage ? '#E65100' : '#2E7D32' }}>NZBC: {(REFERENCE_TIMBER_FRACTION * 100).toFixed(0)}% timber</span>
+                </span>
+              )}>
               <FramingElevation layout={layout} wallName={wallName} projectName={project.name} timberRatio={timberRatio} />
             </CollapsibleSection>
-            <CollapsibleSection sectionKey="eps" title="EPS Elevation" defaultCollapsed forceOpen={generateKey}>
+            <CollapsibleSection sectionKey="eps" title="EPS Elevation" defaultCollapsed forceOpen={generateKey} headerRight={timberRatio && (
+                <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500 }}>
+                  <span style={{ color: timberRatio.insulationPercentage > (1 - REFERENCE_TIMBER_FRACTION) * 100 ? '#2E7D32' : '#E65100' }}>DEVPRO: {timberRatio.insulationPercentage.toFixed(1)}% insulation</span>
+                  <span style={{ color: (1 - REFERENCE_TIMBER_FRACTION) * 100 < timberRatio.insulationPercentage ? '#E65100' : '#2E7D32' }}>NZBC: {((1 - REFERENCE_TIMBER_FRACTION) * 100).toFixed(0)}% insulation</span>
+                </span>
+              )}>
               <EpsElevation layout={layout} wallName={wallName} projectName={project.name} timberRatio={timberRatio} />
             </CollapsibleSection>
+            {stickframeLayout && (
+              <CollapsibleSection sectionKey="stickframe" title="NZS 3604 Stickframe Elevation" forceOpen={generateKey} headerRight={stickframeLayout.thermalRatio && timberRatio && (
+                  <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500 }}>
+                    <span style={{ color: '#2E7D32' }}>DEVPRO: {timberRatio.timberPercentage.toFixed(1)}% timber</span>
+                    <span style={{ color: '#E65100' }}>Stickframe: {stickframeLayout.thermalRatio.timberPercentage.toFixed(1)}% timber</span>
+                  </span>
+                )}>
+                <StickframeElevation stickframeLayout={stickframeLayout} wallName={wallName} projectName={project.name} />
+              </CollapsibleSection>
+            )}
             <CollapsibleSection sectionKey="panelPlans" title="CNC Panel Plans" defaultCollapsed>
               <PanelPlans layout={layout} wallName={wallName} projectName={project.name} />
             </CollapsibleSection>
@@ -138,11 +166,11 @@ export default function WallBuilderPage() {
 const styles = {
   page: {
     minHeight: '100vh',
-    background: '#f0f2f5',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    background: NEUTRAL.background,
+    fontFamily: FONT_STACK,
   },
   header: {
-    background: '#2C5F8A',
+    background: BRAND.primary,
     padding: '12px 32px',
     color: '#fff',
   },
@@ -163,7 +191,7 @@ const styles = {
     background: 'rgba(255,255,255,0.12)',
     color: '#fff',
     border: '1px solid rgba(255,255,255,0.2)',
-    borderRadius: 4,
+    borderRadius: RADIUS.sm,
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 500,
@@ -179,20 +207,20 @@ const styles = {
   },
   newBtn: {
     padding: '8px 20px',
-    background: '#e67e22',
+    background: BRAND.warning,
     color: '#fff',
     border: 'none',
-    borderRadius: 4,
+    borderRadius: RADIUS.sm,
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 600,
   },
   saveBtn: {
     padding: '8px 20px',
-    background: '#27ae60',
+    background: BRAND.success,
     color: '#fff',
     border: 'none',
-    borderRadius: 4,
+    borderRadius: RADIUS.sm,
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 600,
