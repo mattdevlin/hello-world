@@ -88,7 +88,7 @@ export function renameProject(id, name) {
   }
 }
 
-const ALLOWED_PROJECT_FIELDS = ['name', 'address', 'territorialAuthority'];
+const ALLOWED_PROJECT_FIELDS = ['name', 'address', 'territorialAuthority', 'siteParams'];
 
 export function updateProjectDetails(id, fields) {
   const projects = getProjects();
