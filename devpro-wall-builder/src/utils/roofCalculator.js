@@ -16,7 +16,7 @@
 import {
   PANEL_PITCH, PANEL_WIDTH, PANEL_GAP, MIN_PANEL,
   MAX_SHEET_HEIGHT, SPLINE_WIDTH,
-  ROOF_TYPES, ROOF_PANEL_DIRECTIONS,
+  ROOF_TYPES, ROOF_PANEL_DIRECTIONS, RIDGE_ORIENTATIONS,
   ROOF_THICKNESS_OPTIONS,
   DEFAULT_EAVE_OVERHANG, DEFAULT_GABLE_OVERHANG,
   MAGBOARD, WALL_THICKNESS, PLY_SHEET_HEIGHT,
@@ -74,16 +74,24 @@ export function computeRoofPlanes(roof) {
     gableOverhang_mm = DEFAULT_GABLE_OVERHANG,
   } = roof;
 
+  // For gable: if ridge runs along width, swap so U axis = ridge
+  let effectiveLength = length_mm;
+  let effectiveWidth = width_mm;
+  if (type === ROOF_TYPES.GABLE && roof.ridgeOrientation === RIDGE_ORIENTATIONS.ALONG_WIDTH) {
+    effectiveLength = width_mm;
+    effectiveWidth = length_mm;
+  }
+
   const pitchRad = (pitch_deg * Math.PI) / 180;
   const cosPitch = Math.cos(pitchRad);
-  const uTotal = length_mm + 2 * gableOverhang_mm;
+  const uTotal = effectiveLength + 2 * gableOverhang_mm;
 
   const planes = [];
 
   if (type === ROOF_TYPES.GABLE) {
     // Two sloping planes, ridge at center (+ offset)
-    const halfWidthLeft = width_mm / 2 + ridgeOffset_mm;
-    const halfWidthRight = width_mm / 2 - ridgeOffset_mm;
+    const halfWidthLeft = effectiveWidth / 2 + ridgeOffset_mm;
+    const halfWidthRight = effectiveWidth / 2 - ridgeOffset_mm;
 
     const slopeLengthLeft = cosPitch > 0 ? (halfWidthLeft + eaveOverhang_mm) / cosPitch : halfWidthLeft + eaveOverhang_mm;
     const slopeLengthRight = cosPitch > 0 ? (halfWidthRight + eaveOverhang_mm) / cosPitch : halfWidthRight + eaveOverhang_mm;
@@ -417,10 +425,12 @@ export function calculateRoofLayout(roof, projectWalls = []) {
   const { highEave: eaveOverhangHigh_mm, lowEave: eaveOverhangLow_mm } = resolveEaveOverhangs(roof);
 
   // Compute planes
+  const ridgeOrientation = roof.ridgeOrientation || RIDGE_ORIENTATIONS.ALONG_LENGTH;
   const resolvedRoof = {
     type, length_mm, width_mm, pitch_deg, ridgeOffset_mm,
     highEdge, eaveOverhang_mm, gableOverhang_mm,
     eaveOverhangHigh_mm, eaveOverhangLow_mm,
+    ridgeOrientation,
   };
   const planes = computeRoofPlanes(resolvedRoof);
 
@@ -456,14 +466,22 @@ export function calculateRoofLayout(roof, projectWalls = []) {
   const totalPlanArea = planes.reduce((sum, p) => sum + p.uLength * p.vLength, 0);
   const totalPanelArea = allPanels.reduce((sum, p) => sum + p.width * p.length, 0);
 
+  // Effective dimensions after ridge orientation swap
+  let effectiveLength = length_mm;
+  let effectiveWidth = width_mm;
+  if (type === ROOF_TYPES.GABLE && ridgeOrientation === RIDGE_ORIENTATIONS.ALONG_WIDTH) {
+    effectiveLength = width_mm;
+    effectiveWidth = length_mm;
+  }
+
   // ── Internal roof area for H1 compliance ──
   // This is the ceiling area bounded by the inside face of the walls,
   // excluding overhangs. Wall thickness (162mm) is deducted from all sides
   // of the building footprint. For pitched roofs the slope area of this
   // internal footprint is used (heat flows through the sloped surface).
   const wallThk = WALL_THICKNESS; // 162mm
-  const internalLength = Math.max(0, length_mm - 2 * wallThk);
-  const internalWidth = Math.max(0, width_mm - 2 * wallThk);
+  const internalLength = Math.max(0, effectiveLength - 2 * wallThk);
+  const internalWidth = Math.max(0, effectiveWidth - 2 * wallThk);
   const pitchRad = (pitch_deg * Math.PI) / 180;
   const cosPitch = Math.cos(pitchRad) || 1;
 
@@ -485,20 +503,21 @@ export function calculateRoofLayout(roof, projectWalls = []) {
   }
 
   // Ridge length (for gable)
-  const ridgeLength = type === ROOF_TYPES.GABLE ? length_mm + 2 * gableOverhang_mm : 0;
+  const ridgeLength = type === ROOF_TYPES.GABLE ? effectiveLength + 2 * gableOverhang_mm : 0;
 
   // Ridge height
   let ridgeHeight = 0;
   if (type === ROOF_TYPES.GABLE) {
-    ridgeHeight = (width_mm / 2 + ridgeOffset_mm) * Math.tan(pitchRad);
+    ridgeHeight = (effectiveWidth / 2 + ridgeOffset_mm) * Math.tan(pitchRad);
   } else if (type === ROOF_TYPES.SKILLION) {
     ridgeHeight = width_mm * Math.tan(pitchRad);
   }
 
   return {
     type,
-    length_mm,
-    width_mm,
+    length_mm: effectiveLength,
+    width_mm: effectiveWidth,
+    ridgeOrientation,
     pitch_deg,
     ridgeOffset_mm,
     highEdge,

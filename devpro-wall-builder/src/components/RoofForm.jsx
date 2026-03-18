@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   ROOF_TYPES, ROOF_PANEL_DIRECTIONS, ROOF_THICKNESS_OPTIONS,
-  DEFAULT_EAVE_OVERHANG, DEFAULT_GABLE_OVERHANG,
+  DEFAULT_EAVE_OVERHANG, DEFAULT_GABLE_OVERHANG, RIDGE_ORIENTATIONS,
 } from '../utils/constants.js';
 import { boundingBox } from '../utils/polygonUtils.js';
 import { BRAND, NEUTRAL } from '../utils/designTokens.js';
@@ -47,6 +47,7 @@ function buildDefaultRoof(detectedType, projectWalls, projectFloors) {
     pitch_deg: isFlat ? 0 : 20,
     ridgeOffset_mm: 0,
     highEdge: 'left',
+    ridgeOrientation: RIDGE_ORIENTATIONS.ALONG_LENGTH,
     panelDirection: ROOF_PANEL_DIRECTIONS.ALONG_RIDGE,
     thickness: 'roof',
     eaveOverhang_mm: DEFAULT_EAVE_OVERHANG,
@@ -147,11 +148,25 @@ export default function RoofForm({ onCalculate, onChange, initialRoof, detectedT
       {/* Dimensions */}
       <div style={styles.row}>
         <div style={styles.field}>
-          <label style={styles.label}>Length (along ridge) mm</label>
+          <label style={styles.label}>
+            Length mm
+            {roof.type === 'gable' && (
+              <span style={styles.hint}>
+                {' '}({roof.ridgeOrientation === RIDGE_ORIENTATIONS.ALONG_WIDTH ? 'eave-to-eave' : 'along ridge'})
+              </span>
+            )}
+          </label>
           <CalcInput value={roof.length_mm} onChange={v => updateField('length_mm', v)} style={styles.input} />
         </div>
         <div style={styles.field}>
-          <label style={styles.label}>Width (eave-to-eave) mm</label>
+          <label style={styles.label}>
+            Width mm
+            {roof.type === 'gable' && (
+              <span style={styles.hint}>
+                {' '}({roof.ridgeOrientation === RIDGE_ORIENTATIONS.ALONG_WIDTH ? 'along ridge' : 'eave-to-eave'})
+              </span>
+            )}
+          </label>
           <CalcInput value={roof.width_mm} onChange={v => updateField('width_mm', v)} style={styles.input} />
         </div>
       </div>
@@ -172,10 +187,23 @@ export default function RoofForm({ onCalculate, onChange, initialRoof, detectedT
             />
           </div>
           {roof.type === 'gable' && (
-            <div style={styles.field}>
-              <label style={styles.label}>Ridge Offset mm (0 = symmetric)</label>
-              <CalcInput value={roof.ridgeOffset_mm} onChange={v => updateField('ridgeOffset_mm', v)} style={styles.input} />
-            </div>
+            <>
+              <div style={styles.field}>
+                <label style={styles.label}>Ridge Orientation</label>
+                <select
+                  value={roof.ridgeOrientation || RIDGE_ORIENTATIONS.ALONG_LENGTH}
+                  onChange={e => updateField('ridgeOrientation', e.target.value)}
+                  style={styles.input}
+                >
+                  <option value={RIDGE_ORIENTATIONS.ALONG_LENGTH}>Along Length ({roof.length_mm}mm)</option>
+                  <option value={RIDGE_ORIENTATIONS.ALONG_WIDTH}>Along Width ({roof.width_mm}mm)</option>
+                </select>
+              </div>
+              <div style={styles.field}>
+                <label style={styles.label}>Ridge Offset mm (0 = symmetric)</label>
+                <CalcInput value={roof.ridgeOffset_mm} onChange={v => updateField('ridgeOffset_mm', v)} style={styles.input} />
+              </div>
+            </>
           )}
           {roof.type === 'skillion' && (
             <div style={styles.field}>

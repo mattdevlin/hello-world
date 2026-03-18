@@ -48,6 +48,12 @@ export const ROOF_PANEL_DIRECTIONS = {
   EAVE_TO_RIDGE: 'eave_to_ridge',
 };
 
+// Ridge orientation (gable roofs)
+export const RIDGE_ORIENTATIONS = {
+  ALONG_LENGTH: 'along_length',
+  ALONG_WIDTH: 'along_width',
+};
+
 // Roof thickness options (total thickness including magboard skins)
 // Long spline (vertical):  10mm mag + 12mm ply + EPS + 10mm mag, total = thickness - 2mm clearance
 // Short spline (horizontal): 10mm mag + EPS + 10mm mag, total = thickness - 2mm clearance
