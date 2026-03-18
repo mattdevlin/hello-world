@@ -25,12 +25,15 @@ export const FLOOR_PENETRATION_CLEARANCE = 45;     // mm clearance from penetrat
 
 // Roof panel system
 export const ROOF_EPS_DEPTH = 222;                 // mm (242 - 2×10mm magboard)
-export const ROOF_SPLINE_DEPTH = 220;              // mm
-export const ROOF_SPLINE_EPS_DEPTH = 200;          // mm
 export const ROOF_PANEL_SLABS_PER_BLOCK = 2;       // 222×2 = 444mm from 630
-export const ROOF_SPLINE_SLABS_PER_BLOCK = 2;      // 220×2 = 440mm from 630
 export const DEFAULT_EAVE_OVERHANG = 450;           // mm
 export const DEFAULT_GABLE_OVERHANG = 300;          // mm
+
+// Roof/ceiling spline composition
+export const ROOF_SPLINE_PLY = 12;                 // mm ply layer in long splines
+export const ROOF_SPLINE_CLEARANCE = 2;            // mm clearance deduction
+export const PLY_SHEET_WIDTH = 1200;               // mm
+export const PLY_SHEET_HEIGHT = 2400;              // mm
 
 // Roof types
 export const ROOF_TYPES = {
@@ -46,10 +49,12 @@ export const ROOF_PANEL_DIRECTIONS = {
 };
 
 // Roof thickness options (total thickness including magboard skins)
+// Long spline (vertical):  10mm mag + 12mm ply + EPS + 10mm mag, total = thickness - 2mm clearance
+// Short spline (horizontal): 10mm mag + EPS + 10mm mag, total = thickness - 2mm clearance
 export const ROOF_THICKNESS_OPTIONS = {
-  wall: { total: 162, eps: 142, label: 'Wall (162mm)' },
-  floor: { total: 192, eps: 172, label: 'Floor (192mm)' },
-  roof: { total: 242, eps: 222, label: 'Roof (242mm)' },
+  wall:  { total: 162, eps: 142, label: 'Wall (162mm)',  longSplineEps: 130, shortSplineEps: 140, splineTotal: 160, longSplineSlabsPerBlock: 4, shortSplineSlabsPerBlock: 4 },
+  floor: { total: 192, eps: 172, label: 'Floor (192mm)', longSplineEps: 160, shortSplineEps: 170, splineTotal: 190, longSplineSlabsPerBlock: 3, shortSplineSlabsPerBlock: 3 },
+  roof:  { total: 242, eps: 222, label: 'Roof (242mm)',  longSplineEps: 208, shortSplineEps: 220, splineTotal: 240, longSplineSlabsPerBlock: 3, shortSplineSlabsPerBlock: 2 },
 };
 
 // Panel heights available (nominal heights for UI selection — 2440 is NOT stocked, see STOCK_SHEET_HEIGHTS)
@@ -81,6 +86,7 @@ export const TOP_PLATE_STAGGER = 600;        // mm join offset between top plate
 
 // Splines
 export const SPLINE_WIDTH = 146;           // mm
+export const WALL_SPLINE_EPS_DEPTH = 120;  // mm
 export const HSPLINE_CLEARANCE = 10;       // mm clearance from spline edges
 
 // Cassette

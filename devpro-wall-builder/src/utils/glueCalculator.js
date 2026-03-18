@@ -9,7 +9,7 @@
  * to the magboard skins.
  */
 
-import { PANEL_GAP, BOTTOM_PLATE, TOP_PLATE, SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP } from './constants.js';
+import { PANEL_GAP, BOTTOM_PLATE, TOP_PLATE, SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP, WALL_SPLINE_EPS_DEPTH } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
 import { calculateRoofLayout } from './roofCalculator.js';
@@ -17,7 +17,7 @@ import { getEpsSegments } from './binPacking.js';
 
 const SPLINE_WIDTH = 146;
 const PANEL_EPS_DEPTH = 142;
-const SPLINE_EPS_DEPTH = 120;
+const SPLINE_EPS_DEPTH = WALL_SPLINE_EPS_DEPTH;
 
 const GLUE_RATE_KG_M2 = 0.4;      // 400 g/m²
 const GLUE_SPECIFIC_GRAVITY = 1.1; // kg/L
