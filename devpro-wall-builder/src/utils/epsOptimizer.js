@@ -366,6 +366,8 @@ export function computeProjectEpsBlocksWithFloors(walls, floors) {
     // Floor additions
     floorPanelPieces,
     floorSplinePieces,
+    floorPanelSlabs,
+    floorSplineSlabs,
     floorPanelSlabCount: floorPanelSlabs.length,
     floorSplineSlabCount: floorSplineSlabs.length,
     floorPanelBlocks,
@@ -484,6 +486,8 @@ export function computeProjectEpsBlocksWithRoofs(walls, floors, roofs) {
     ...baseResult,
     roofPanelPieces,
     roofSplinePieces,
+    roofPanelSlabs,
+    roofSplineSlabs,
     roofPanelSlabCount: roofPanelSlabs.length,
     roofSplineSlabCount: roofSplineSlabs.length,
     roofPanelBlocks,

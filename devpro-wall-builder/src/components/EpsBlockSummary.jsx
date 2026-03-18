@@ -1,10 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { computeProjectEpsBlocks, computeProjectEpsBlocksWithFloors, computeProjectEpsBlocksWithRoofs, EPS_BLOCK, PANEL_SLABS_PER_BLOCK, SPLINE_SLABS_PER_BLOCK } from '../utils/epsOptimizer.js';
 import { FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH } from '../utils/constants.js';
 import { exportWallEpsCsv, exportAllWallsEpsCsv } from '../utils/epsSpreadsheetExport.js';
 
+const EpsBlockViewer3D = lazy(() => import('./EpsBlockViewer3D.jsx'));
+
 export default function EpsBlockSummary({ walls, floors, roofs, projectName }) {
   const [expanded, setExpanded] = useState(false);
+  const [show3D, setShow3D] = useState(false);
 
   const result = useMemo(() => {
     if ((!walls || walls.length === 0) && (!floors || floors.length === 0) && (!roofs || roofs.length === 0)) return null;
@@ -206,12 +209,32 @@ export default function EpsBlockSummary({ walls, floors, roofs, projectName }) {
             </div>
           )}
 
-          {/* Download all */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          {/* Download all + 3D toggle */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
+            <button
+              onClick={() => setShow3D(v => !v)}
+              style={{ ...styles.downloadAllBtn, background: show3D ? '#2C5F8A' : '#555' }}
+            >
+              {show3D ? 'Hide 3D View' : '3D View'}
+            </button>
             <button onClick={() => exportAllWallsEpsCsv(walls, projectName)} style={styles.downloadAllBtn}>
               Download all EPS cuts
             </button>
           </div>
+
+          {/* 3D Block Viewer */}
+          {show3D && (
+            <Suspense fallback={<div style={{ height: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>Loading 3D viewer...</div>}>
+              <EpsBlockViewer3D
+                panelSlabs={result.panelSlabs}
+                splineSlabs={result.splineSlabs}
+                floorPanelSlabs={result.floorPanelSlabs}
+                floorSplineSlabs={result.floorSplineSlabs}
+                roofPanelSlabs={result.roofPanelSlabs}
+                roofSplineSlabs={result.roofSplineSlabs}
+              />
+            </Suspense>
+          )}
 
           {/* Block info */}
           <div style={styles.blockInfo}>
