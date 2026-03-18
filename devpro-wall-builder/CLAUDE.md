@@ -39,6 +39,7 @@ Multi-course walls: when wall height exceeds max stock sheet height (3050mm), `c
 - `epsOptimizer.js` — bin-packs EPS cut pieces into 4900×1220mm slabs (guillotine cuts). Tracks panel EPS (142mm thick, 4 slabs/block) and spline EPS (120mm thick, 5 slabs/block) separately.
 - `magboardOptimizer.js` — optimizes magboard sheet usage. Full panels consume whole sheets (2 per panel, front+back). Smaller pieces (lintels, footers, splines) are bin-packed onto shared sheets.
 - `glueCalculator.js` — computes PU glue consumption across all walls (400 g/m², 200L drums).
+- `splineOptimizer.js` — extracts spline pieces from wall/floor/roof layouts and bin-packs them into 2400×1200mm composite "spline panels" (8 × 146mm strips per panel). Key functions: `extractWallSplinePieces()`, `extractFloorSplinePieces()`, `extractRoofSplinePieces()`, `groupSplinePanels()`.
 
 ### Visualization Components
 - `WallDrawing.jsx` — main SVG elevation view of a single wall
@@ -47,6 +48,7 @@ Multi-course walls: when wall height exceeds max stock sheet height (3050mm), `c
 - `PanelPlans.jsx` — per-panel cut plans
 - `EpsCutPlans.jsx` — EPS cutting layouts
 - `Offcuts.jsx` — offcut/waste tracking
+- `SplinePanels.jsx` — shared spline panel manufacturing drawings (wall, floor, roof)
 - `ModelViewer3D.jsx` — Three.js 3D viewer (react-three-fiber)
 
 ### DXF Export
@@ -55,7 +57,7 @@ Each elevation type has a corresponding DXF generator in `src/utils/`:
 - `dxfExporter.js` — shared utilities. All DXF output is 1:1 scale in mm. Y-axis is flipped from SVG (DXF: 0=bottom, SVG: 0=top).
 
 ### Storage
-`src/utils/storage.js` — localStorage-based persistence. Projects and walls are stored with keys like `devpro-project-{id}`.
+`src/utils/storage.js` — API-based persistence backed by SQLite (via Express server). All CRUD operations go through `/api/projects/...` endpoints defined in `server/routes/projects.js`. Legacy localStorage data is migrated on first load.
 
 ## Key Conventions
 
@@ -64,7 +66,12 @@ Each elevation type has a corresponding DXF generator in `src/utils/`:
 - Root-level `test-*.mjs` files are standalone integration/smoke tests that import calculator functions directly and run with `node`.
 - Unit tests use Vitest and live alongside source files as `*.test.js`.
 
+## Reference Documents
+
+- thermal_bridging.md — NZ timber framing fraction research (BRANZ, MBIE, Beacon Pathway). Read this when working on R-value calculations, thermal performance comparisons, or SIPs vs timber framing content.
+
 ## Lessons Learned & Anti-Patterns
 - **Stock Constraints:** Claude previously suggested 2440mm sheets. **Correction:** We ONLY stock 2745mm and 3050mm. Reject any logic using 2440mm.
 - **Y-Axis Flip:** When writing DXF export logic, remember: DXF 0 is bottom, SVG 0 is top. Claude often forgets to flip the Y-coordinates.
 - **Spline Tolerance:** Always maintain the 5mm gap in panel pitch (1205mm). Do not calculate panels as flush 1200mm units.
+- **Async Props & useState:** `useState(prop)` only uses the prop on first render. When a component mounts before async data loads (e.g. API fetch), the initial value will be stale. Always add a `useEffect` to sync state when the prop arrives later. This caused H1 form inputs to not persist across navigation.
