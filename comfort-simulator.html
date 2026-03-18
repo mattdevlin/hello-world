@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DEVPRO Summer Comfort Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1114; --card: #181b20; --border: #2a2e35;
+    --accent: #4dd0a5; --warn: #e8794a; --hot: #e85a5a;
+    --text: #e4e6ea; --dim: #8a8f9a; --muted: #5a5f6a;
+    --houseA: #e8794a; --houseB: #4dd0a5; --outdoor: #5a5f6a;
+    --font: 'DM Sans', sans-serif; --mono: 'DM Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; padding: 24px 16px; }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .mono { font-family: var(--mono); }
+  .label { font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid2sm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .field label { display: block; font-family: var(--mono); font-size: 10px; color: var(--dim); margin-bottom: 3px; letter-spacing: 0.5px; }
+  .field input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; color: var(--text); font-family: var(--mono); font-size: 13px; }
+  .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px #4dd0a522; }
+  .toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .toggle-group { display: flex; gap: 4px; background: var(--card); border-radius: 8px; padding: 4px; border: 1px solid var(--border); }
+  .toggle-btn { font-family: var(--mono); font-size: 12px; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; transition: all .2s; background: transparent; color: var(--dim); font-weight: 400; }
+  .toggle-btn.active { background: #4dd0a522; color: var(--accent); font-weight: 600; }
+  .stat-row { display: flex; justify-content: space-between; margin-top: 5px; }
+  .stat-label { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .stat-val { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+  .legend { display: flex; gap: 20px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .bar-track { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width .4s ease; }
+  .sleep-blocks { display: flex; gap: 3px; margin-bottom: 14px; }
+  .sleep-block { flex: 1; text-align: center; }
+  .sleep-dot { height: 6px; border-radius: 3px; margin-bottom: 4px; }
+  .sleep-hr { font-family: var(--mono); font-size: 8px; color: var(--muted); }
+  .badge { position: absolute; top: -1px; right: 16px; background: var(--accent); color: var(--bg); font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 0 0 6px 6px; letter-spacing: 1px; text-transform: uppercase; }
+  .insight { margin-top: 14px; padding: 12px 16px; background: #4dd0a50a; border: 1px solid #4dd0a522; border-radius: 8px; font-size: 12px; color: var(--dim); line-height: 1.7; }
+  .panel-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .panel-badge { width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .panel-name { font-weight: 600; font-size: 14px; background: transparent; border: none; color: var(--text); font-family: var(--font); padding: 0; width: 100%; }
+  .panel-name:focus { outline: none; }
+  .erv-section { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 2px; }
+  .erv-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .switch { width: 34px; height: 18px; border-radius: 9px; padding: 2px; transition: background .2s; position: relative; }
+  .switch-knob { width: 14px; height: 14px; border-radius: 7px; transition: all .2s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .animate { animation: fadeIn .35s ease; }
+  .method { font-family: var(--mono); font-size: 12px; color: var(--dim); line-height: 1.7; padding: 14px 18px; }
+  .method strong { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// SIMULATION ENGINE — ISO 13790 5R1C
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const H_IS = 3.45, H_MS = 9.1, LAM_AT = 4.5, AIR_HC = 0.33;
+const CM_LIGHT = 110000, CM_MEDIUM = 165000;
+
+const WEATHER = {
+  temperature: [19.5,19,18.5,18,17.5,17,17.5,19,21,23,24.5,26,27,27.5,28,27.5,27,26,24.5,23,22,21,20.5,20],
+  relativeHumidity: [82,84,85,87,88,88,86,80,72,65,60,56,53,52,50,52,55,60,66,72,75,78,80,81],
+  solarGHI: [0,0,0,0,0,0,50,180,380,560,700,790,820,790,700,560,380,180,50,0,0,0,0,0],
+  meanOutdoorTemp: 22.0,
+};
+
+const PRESETS = {
+  typical: { name:'Typical NZ House', floorArea:120, ceilingHeight:2.7, opaqueUA:100, windowArea:30, windowU:5.8, thermalMassClass:'light', ach50:6, nFactor:20, ervEnabled:false, ervAch:0, ervEfficiency:0, solarAperture:6.0, occupants:3, internalGainsBase:200 },
+  devpro:  { name:'DEVPRO SIP House', floorArea:120, ceilingHeight:2.7, opaqueUA:35,  windowArea:30, windowU:1.8, thermalMassClass:'light', ach50:1, nFactor:20, ervEnabled:true,  ervAch:0.5, ervEfficiency:0.80, solarAperture:3.5, occupants:3, internalGainsBase:200 },
+};
+
+function deriveParams(pr) {
+  const vol = pr.floorArea * pr.ceilingHeight, At = LAM_AT * pr.floorArea, Am = 2.5 * pr.floorArea;
+  const Cm = (pr.thermalMassClass === 'medium' ? CM_MEDIUM : CM_LIGHT) * pr.floorArea;
+  const Htrw = pr.windowU * pr.windowArea, Htrem = pr.opaqueUA;
+  const Htrms = H_MS * Am, Htris = H_IS * At;
+  const ACHnat = pr.ach50 / pr.nFactor, Hveinf = AIR_HC * ACHnat * vol;
+  const HveErvN = pr.ervEnabled ? AIR_HC * pr.ervAch * vol * (1 - pr.ervEfficiency) : 0;
+  const HveErvB = pr.ervEnabled ? AIR_HC * pr.ervAch * vol : 0;
+  return { vol, At, Am, Cm, Htrw, Htrem, Htrms, Htris, Hveinf, HveErvN, HveErvB, ACHnat, solarAperture:pr.solarAperture, occupants:pr.occupants, base:pr.internalGainsBase, ervAch:pr.ervAch||0 };
+}
+
+function intGains(h, occ, base) {
+  const occF = (h>=9&&h<17)?0.3:1, appF = (h>=23||h<6)?0.3:(h>=6&&h<9)?0.8:1;
+  return occ*70*occF + base*appF;
+}
+
+function solve(Tmp, p, Te, Ts, Hve, H1, H2, H3, pia, pst, pm, phc) {
+  const piaT=pia+0.5*phc, pstT=pst+0.5*phc;
+  const pmtot = pm + p.Htrem*Te + H3*(pstT + p.Htrw*Te + H1*(Ts + piaT/Hve))/H2;
+  const Cdt = p.Cm/3600;
+  const Tmn = (Tmp*(Cdt-0.5*(H3+p.Htrem))+pmtot)/(Cdt+0.5*(H3+p.Htrem));
+  const Tm = (Tmn+Tmp)/2;
+  const Tsurf = (p.Htrms*Tm + pstT + p.Htrw*Te + H1*(Ts+piaT/Hve))/(p.Htrms+p.Htrw+H1);
+  const Tair = (p.Htris*Tsurf + Hve*Ts + piaT)/(p.Htris+Hve);
+  return { Tair, Tsurf, Tmn };
+}
+
+function simHour(Tmp, p, Te, sol, h, opts, Tap) {
+  const pi = intGains(h, p.occupants, p.base), ps = sol*p.solarAperture;
+  const pia = 0.5*pi, stC = Math.max(0, 1-p.Am/p.At-p.Htrw/(9.1*p.At));
+  const pst = stC*(0.5*pi+ps), pm = (p.Am/p.At)*(0.5*pi+ps);
+  const est = Tap!==null?Tap:Tmp, fc = Te<est;
+  const Hve = Math.max(p.Hveinf+(fc?p.HveErvB:p.HveErvN), 0.001);
+  const H1=1/(1/Hve+1/p.Htris), H2=H1+p.Htrw, H3=1/(1/H2+1/p.Htrms);
+  const r = solve(Tmp,p,Te,Te,Hve,H1,H2,H3,pia,pst,pm,0);
+  let cool=0;
+  if(opts.ac && r.Tair>opts.sp) {
+    let lo=0,hi=10000;
+    for(let i=0;i<30;i++){const m=(lo+hi)/2;const t=solve(Tmp,p,Te,Te,Hve,H1,H2,H3,pia,pst,pm,-m);if(t.Tair>opts.sp)lo=m;else hi=m;}
+    cool=(lo+hi)/2; const c=solve(Tmp,p,Te,Te,Hve,H1,H2,H3,pia,pst,pm,-cool);
+    return{...c,cool};
+  }
+  return{...r,cool};
+}
+
+function satVP(T){return 610.78*Math.exp(17.27*T/(T+237.3));}
+function rh2w(rh,T){const ps=satVP(T),pv=rh/100*ps;return 622*pv/(101325-pv);}
+function w2rh(w,T){const pv=w*101325/(622+w);return Math.min(100,Math.max(0,pv/satVP(T)*100));}
+function updHum(wi,Te,rhe,ach,vol,occ,h){
+  const wo=rh2w(rhe,Te),sl=h>=23||h<6,mp=(sl?30:50)*((h>=9&&h<17)?0.3:1)*occ;
+  return Math.max(0,wi+ach*(wo-wi)+mp/(1.2*vol));
+}
+
+function simulate(preset, opts={ac:false,sp:24}) {
+  const p=deriveParams(preset), w=WEATHER, res=[];
+  let Tm=w.temperature[0], Tap=w.temperature[0], wi=rh2w(w.relativeHumidity[0],w.temperature[0]);
+  const ach=p.ACHnat+(preset.ervAch||0);
+  for(let h=0;h<24;h++){const s=simHour(Tm,p,w.temperature[h],w.solarGHI[h],h,opts,Tap);Tm=s.Tmn;Tap=s.Tair;wi=updHum(wi,w.temperature[h],w.relativeHumidity[h],ach,p.vol,p.occupants,h);}
+  for(let h=0;h<24;h++){
+    const Te=w.temperature[h], s=simHour(Tm,p,Te,w.solarGHI[h],h,opts,Tap);
+    wi=updHum(wi,Te,w.relativeHumidity[h],ach,p.vol,p.occupants,h);
+    res.push({h,Te,Ta:s.Tair,Tm:s.Tmn,RHe:w.relativeHumidity[h],RHi:w2rh(wi,s.Tair),sol:w.solarGHI[h],cool:s.cool});
+    Tm=s.Tmn;Tap=s.Tair;
+  }
+  return res;
+}
+
+function comfortBand(Tmean){const c=0.31*Tmean+17.8;return{n:c,l80:c-3.5,u80:c+3.5,l90:c-2.5,u90:c+2.5};}
+
+function sleepEval(res,band){
+  const hrs=[22,23,0,1,2,3,4,5], d=hrs.map(h=>res[h]);
+  const ts=d.map(x=>x.Ta), rhs=d.map(x=>x.RHi);
+  const hc=d.filter(x=>x.Ta>=band.l80&&x.Ta<=band.u80&&x.RHi>=40&&x.RHi<=70).length;
+  return {
+    total:8, comfy:hc, peak:Math.max(...ts), min:Math.min(...ts),
+    avg:ts.reduce((a,b)=>a+b)/8, avgRH:rhs.reduce((a,b)=>a+b)/8,
+    nightWh:d.reduce((s,x)=>s+x.cool,0), avgCool:d.reduce((s,x)=>s+x.cool,0)/8,
+    dayWh:res.reduce((s,x)=>s+x.cool,0), peakCool:Math.max(...res.map(x=>x.cool)),
+    peakDay:Math.max(...res.map(x=>x.Ta)),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let state = {
+  ac: false, sp: 24,
+  a: {...PRESETS.typical},
+  b: {...PRESETS.devpro},
+};
+
+function fmt(v,dp=1){return v.toLocaleString('en-NZ',{minimumFractionDigits:dp,maximumFractionDigits:dp});}
+
+function render() {
+  const band = comfortBand(WEATHER.meanOutdoorTemp);
+  const opts = {ac:state.ac, sp:state.sp};
+  const rA = simulate(state.a, opts), rB = simulate(state.b, opts);
+  const sA = sleepEval(rA, band), sB = sleepEval(rB, band);
+
+  document.getElementById('app').innerHTML = `
+    ${renderHeader()}
+    ${renderToggle()}
+    <div class="grid2" style="margin-bottom:24px">
+      ${renderPanel('A', state.a, 'a')}
+      ${renderPanel('B', state.b, 'b')}
+    </div>
+    ${renderTempChart(rA, rB, band)}
+    ${renderHumChart(rA, rB)}
+    ${renderSleepCards(sA, sB, band)}
+    ${state.ac ? renderACEnergy(sA, sB) : ''}
+    ${renderMethod()}
+  `;
+  bindEvents();
+}
+
+function renderHeader() {
+  return `<div style="margin-bottom:24px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--accent)"></div>
+      <span class="mono" style="font-size:11px;color:var(--dim);letter-spacing:2px">DEVPRO</span>
+    </div>
+    <h1 style="font-size:26px;font-weight:700;line-height:1.2">Summer Comfort Simulator</h1>
+    <p style="color:var(--dim);font-size:13px;margin-top:6px;line-height:1.5">
+      24-hour thermal simulation of an Auckland summer day. Models indoor temperature and humidity
+      using the ISO 13790 5R1C method. Can you sleep comfortably without air conditioning?
+    </p>
+  </div>`;
+}
+
+function renderToggle() {
+  return `<div class="toggle-row">
+    <div class="toggle-group">
+      <button class="toggle-btn ${!state.ac?'active':''}" onclick="state.ac=false;render()">Passive Only</button>
+      <button class="toggle-btn ${state.ac?'active':''}" onclick="state.ac=true;render()">With AC</button>
+    </div>
+    ${state.ac ? `<div style="display:flex;align-items:center;gap:8px">
+      <span class="mono" style="font-size:11px;color:var(--dim)">AC setpoint:</span>
+      <input type="number" value="${state.sp}" step="0.5" min="18" max="28" onchange="state.sp=parseFloat(this.value)||24;render()"
+        style="width:60px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:var(--mono);font-size:13px;text-align:center">
+      <span class="mono" style="font-size:11px;color:var(--dim)">°C</span>
+    </div>` : ''}
+  </div>`;
+}
+
+function renderPanel(label, pr, key) {
+  const col = label==='A' ? 'var(--houseA)' : 'var(--houseB)';
+  const colBg = label==='A' ? '#e8794a22' : '#4dd0a522';
+  const ervChecked = pr.ervEnabled;
+  return `<div class="card" style="padding:16px 16px 18px">
+    <div class="panel-header">
+      <div class="panel-badge" style="background:${colBg};color:${col}">${label}</div>
+      <input class="panel-name" value="${pr.name}" onchange="state.${key}.name=this.value;render()">
+    </div>
+    <div style="display:grid;gap:10px">
+      <div class="grid2sm">
+        ${field('Floor area (m²)', pr.floorArea, `state.${key}.floorArea`)}
+        ${field('Opaque UA (W/K)', pr.opaqueUA, `state.${key}.opaqueUA`)}
+      </div>
+      <div class="grid2sm">
+        ${field('Window U (W/m²K)', pr.windowU, `state.${key}.windowU`)}
+        ${field('Window area (m²)', pr.windowArea, `state.${key}.windowArea`)}
+      </div>
+      <div class="grid2sm">
+        ${field('ACH50 (blower door)', pr.ach50, `state.${key}.ach50`)}
+        ${field('Solar aperture (m²)', pr.solarAperture, `state.${key}.solarAperture`)}
+      </div>
+      <div class="erv-section">
+        <div class="erv-toggle" onclick="state.${key}.ervEnabled=!state.${key}.ervEnabled;render()">
+          <div class="switch" style="background:${ervChecked?'#4dd0a544':'var(--border)'}">
+            <div class="switch-knob" style="background:${ervChecked?'var(--accent)':'var(--muted)'};transform:translateX(${ervChecked?16:0}px)"></div>
+          </div>
+          <span class="mono" style="font-size:11px;color:${ervChecked?'var(--text)':'var(--dim)'}">ERV / HRV system</span>
+        </div>
+        ${ervChecked ? `<div class="grid2sm" style="margin-top:10px">
+          ${field('ERV airflow (ACH)', pr.ervAch, `state.${key}.ervAch`)}
+          ${field('Efficiency (%)', (pr.ervEfficiency*100), `state.${key}.ervEfficiency`, true)}
+        </div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function field(lbl, val, path, isEff) {
+  const handler = isEff
+    ? `oninput="${path}=parseFloat(this.value||0)/100;render()"`
+    : `oninput="${path}=parseFloat(this.value||0);render()"`;
+  return `<div class="field"><label>${lbl}</label><input type="number" value="${val}" step="any" ${handler}></div>`;
+}
+
+// ── SVG Charts ───────────────────────────────────────────────────────────────
+
+function renderTempChart(rA, rB, band) {
+  const W=800,H=260,pL=50,pR=20,pT=20,pB=35, pw=W-pL-pR, ph=H-pT-pB;
+  const yMin=14,yMax=34;
+  const x=h=>pL+(h/23)*pw, y=t=>pT+ph-((t-yMin)/(yMax-yMin))*ph;
+  const path=(d,k)=>d.map((r,i)=>`${i?'L':'M'}${x(r.h).toFixed(1)},${y(r[k]).toFixed(1)}`).join(' ');
+  const oPath=WEATHER.temperature.map((t,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(t).toFixed(1)}`).join(' ');
+  const ticks=[16,18,20,22,24,26,28,30,32];
+  const xLabels=[0,3,6,9,12,15,18,21];
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;display:block">`;
+  // Night
+  svg += `<rect x="${x(22)}" y="${pT}" width="${x(23)-x(22)}" height="${ph}" fill="#0a0b0d" opacity="0.5"/>`;
+  svg += `<rect x="${x(0)}" y="${pT}" width="${x(5)-x(0)}" height="${ph}" fill="#0a0b0d" opacity="0.5"/>`;
+  // Comfort bands
+  svg += `<rect x="${pL}" y="${y(band.u80)}" width="${pw}" height="${y(band.l80)-y(band.u80)}" fill="var(--accent)" opacity="0.08"/>`;
+  svg += `<rect x="${pL}" y="${y(band.u90)}" width="${pw}" height="${y(band.l90)-y(band.u90)}" fill="var(--accent)" opacity="0.08"/>`;
+  // Grid
+  for(const t of ticks) svg += `<line x1="${pL}" y1="${y(t)}" x2="${W-pR}" y2="${y(t)}" stroke="var(--border)" stroke-width="0.5"/><text x="${pL-6}" y="${y(t)+4}" text-anchor="end" fill="var(--muted)" font-size="10" font-family="var(--mono)">${t}°</text>`;
+  for(const h of xLabels) svg += `<text x="${x(h)}" y="${H-6}" text-anchor="middle" fill="var(--muted)" font-size="10" font-family="var(--mono)">${String(h).padStart(2,'0')}:00</text>`;
+  // Labels
+  svg += `<text x="${W-pR-4}" y="${y(band.u80)-3}" text-anchor="end" fill="var(--accent)" font-size="9" font-family="var(--mono)" opacity="0.6">ASHRAE 80%</text>`;
+  svg += `<text x="${W-pR-4}" y="${y(band.u90)-3}" text-anchor="end" fill="var(--accent)" font-size="9" font-family="var(--mono)" opacity="0.6">90%</text>`;
+  svg += `<text x="${x(1.5)}" y="${pT+14}" text-anchor="middle" fill="var(--muted)" font-size="9" font-family="var(--mono)" opacity="0.5">SLEEP</text>`;
+  svg += `<text x="${x(22.5)}" y="${pT+14}" text-anchor="middle" fill="var(--muted)" font-size="9" font-family="var(--mono)" opacity="0.5">SLEEP</text>`;
+  // Lines
+  svg += `<path d="${oPath}" fill="none" stroke="var(--outdoor)" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.6"/>`;
+  svg += `<path d="${path(rA,'Ta')}" fill="none" stroke="var(--houseA)" stroke-width="2"/>`;
+  svg += `<path d="${path(rB,'Ta')}" fill="none" stroke="var(--houseB)" stroke-width="2"/>`;
+  // Dots
+  for(const r of rA) svg += `<circle cx="${x(r.h)}" cy="${y(r.Ta)}" r="2.5" fill="var(--houseA)"/>`;
+  for(const r of rB) svg += `<circle cx="${x(r.h)}" cy="${y(r.Ta)}" r="2.5" fill="var(--houseB)"/>`;
+  svg += `</svg>`;
+
+  return `<div class="card animate"><div class="label">Indoor Temperature — 24 Hours</div>
+    <div style="overflow-x:auto">${svg}</div>
+    <div class="legend">
+      <div class="legend-item"><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="var(--houseA)" stroke-width="2"/></svg>${state.a.name}</div>
+      <div class="legend-item"><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="var(--houseB)" stroke-width="2"/></svg>${state.b.name}</div>
+      <div class="legend-item"><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="var(--outdoor)" stroke-width="2" stroke-dasharray="4 2"/></svg>Outdoor</div>
+      <div class="legend-item"><div style="width:14px;height:10px;background:var(--accent);opacity:0.25;border-radius:2px"></div>ASHRAE comfort band</div>
+    </div>
+  </div>`;
+}
+
+function renderHumChart(rA, rB) {
+  const W=800,H=200,pL=50,pR=20,pT=20,pB=35, pw=W-pL-pR, ph=H-pT-pB;
+  const yMin=30,yMax=100;
+  const x=h=>pL+(h/23)*pw, y=rh=>pT+ph-((rh-yMin)/(yMax-yMin))*ph;
+  const path=(d,k)=>d.map((r,i)=>`${i?'L':'M'}${x(r.h).toFixed(1)},${y(r[k]).toFixed(1)}`).join(' ');
+  const oPath=WEATHER.relativeHumidity.map((rh,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(rh).toFixed(1)}`).join(' ');
+  const ticks=[40,50,60,70,80,90];
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;display:block">`;
+  svg += `<rect x="${pL}" y="${y(70)}" width="${pw}" height="${y(40)-y(70)}" fill="var(--accent)" opacity="0.08"/>`;
+  for(const rh of ticks) svg += `<line x1="${pL}" y1="${y(rh)}" x2="${W-pR}" y2="${y(rh)}" stroke="var(--border)" stroke-width="0.5"/><text x="${pL-6}" y="${y(rh)+4}" text-anchor="end" fill="var(--muted)" font-size="10" font-family="var(--mono)">${rh}%</text>`;
+  for(const h of [0,3,6,9,12,15,18,21]) svg += `<text x="${x(h)}" y="${H-6}" text-anchor="middle" fill="var(--muted)" font-size="10" font-family="var(--mono)">${String(h).padStart(2,'0')}:00</text>`;
+  svg += `<text x="${W-pR-4}" y="${y(70)-3}" text-anchor="end" fill="var(--accent)" font-size="9" font-family="var(--mono)" opacity="0.6">40–70% acceptable</text>`;
+  svg += `<path d="${oPath}" fill="none" stroke="var(--outdoor)" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.6"/>`;
+  svg += `<path d="${path(rA,'RHi')}" fill="none" stroke="var(--houseA)" stroke-width="2"/>`;
+  svg += `<path d="${path(rB,'RHi')}" fill="none" stroke="var(--houseB)" stroke-width="2"/>`;
+  svg += `</svg>`;
+
+  return `<div class="card animate"><div class="label">Indoor Relative Humidity — 24 Hours</div>
+    <div style="overflow-x:auto">${svg}</div>
+    <div class="legend">
+      <div class="legend-item"><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="var(--houseA)" stroke-width="2"/></svg>${state.a.name}</div>
+      <div class="legend-item"><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="var(--houseB)" stroke-width="2"/></svg>${state.b.name}</div>
+      <div class="legend-item"><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="var(--outdoor)" stroke-width="2" stroke-dasharray="4 2"/></svg>Outdoor</div>
+    </div>
+  </div>`;
+}
+
+function renderSleepCards(sA, sB, band) {
+  return `<div class="grid2 animate" style="margin-bottom:16px">
+    ${sleepCard(state.a.name, sA, 'var(--houseA)', band)}
+    ${sleepCard(state.b.name, sB, 'var(--houseB)', band)}
+  </div>`;
+}
+
+function sleepCard(name, s, col, band) {
+  const allOK = s.comfy===s.total;
+  const border = allOK ? 'var(--accent)' : 'var(--border)';
+  const hrs = [22,23,0,1,2,3,4,5];
+  let blocks = '';
+  for(let i=0;i<8;i++) {
+    const bg = i<s.comfy ? 'var(--accent)' : '#e85a5a44';
+    blocks += `<div class="sleep-block"><div class="sleep-dot" style="background:${bg}"></div><span class="sleep-hr">${String(hrs[i]).padStart(2,'0')}</span></div>`;
+  }
+  return `<div class="card" style="border-color:${allOK?'#4dd0a555':'var(--border)'};position:relative;padding:18px 18px 20px">
+    ${allOK?'<div class="badge">Comfortable</div>':''}
+    <div style="font-weight:600;font-size:15px;margin-bottom:14px;color:${col}">${name}</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+      <span class="stat-label">Sleep hours in comfort zone</span>
+      <span class="mono" style="font-size:18px;font-weight:700;color:${allOK?'var(--accent)':'var(--warn)'}">${s.comfy}/${s.total}</span>
+    </div>
+    <div class="sleep-blocks">${blocks}</div>
+    <div class="stat-row"><span class="stat-label">Peak overnight temp</span><span class="stat-val" style="color:${s.peak>band.u80?'var(--hot)':'var(--text)'}">${fmt(s.peak)}°C</span></div>
+    <div class="stat-row"><span class="stat-label">Min overnight temp</span><span class="stat-val">${fmt(s.min)}°C</span></div>
+    <div class="stat-row"><span class="stat-label">Avg overnight temp</span><span class="stat-val">${fmt(s.avg)}°C</span></div>
+    <div class="stat-row"><span class="stat-label">Avg overnight RH</span><span class="stat-val">${fmt(s.avgRH,0)}%</span></div>
+    ${state.ac ? `<div style="border-top:1px solid var(--border);margin:10px 0"></div>
+      <div class="stat-row"><span class="stat-label">Avg cooling power</span><span class="stat-val" style="color:${s.avgCool<10?'var(--accent)':'var(--text)'}">${s.avgCool<10?'None needed':fmt(s.avgCool/1000,2)+' kW'}</span></div>
+      <div class="stat-row"><span class="stat-label">Overnight energy</span><span class="stat-val">${s.nightWh<10?'0 Wh':fmt(s.nightWh/1000,2)+' kWh'}</span></div>` : ''}
+  </div>`;
+}
+
+function renderACEnergy(sA, sB) {
+  const dA=sA.dayWh, dB=sB.dayWh, mx=Math.max(dA,dB,1), sav=dA-dB, pct=dA>0?sav/dA*100:0;
+  const rows = [{n:state.a.name,wh:dA,pk:sA.peakCool,c:'var(--houseA)'},{n:state.b.name,wh:dB,pk:sB.peakCool,c:'var(--houseB)'}];
+  let html = `<div class="card animate"><div class="label">AC Cooling Energy — Full Day</div>`;
+  for(const r of rows) {
+    html += `<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:13px;font-weight:500">${r.n}</span>
+        <span class="mono" style="font-size:14px;font-weight:700;color:${r.c}">${fmt(r.wh/1000,1)} kWh</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(r.wh/mx*100,2)}%;background:${r.c}"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px">
+        <span class="mono" style="font-size:10px;color:var(--muted)">Peak: ${fmt(r.pk/1000,1)} kW</span>
+        <span class="mono" style="font-size:10px;color:var(--muted)">~$${fmt(r.wh/1000*0.30,2)}/day</span>
+      </div>
+    </div>`;
+  }
+  if(sav>100) {
+    html += `<div class="insight">
+      <strong style="color:var(--accent)">${state.b.name}</strong> uses
+      <strong style="color:var(--accent)">${fmt(pct,0)}% less cooling energy</strong> than
+      <strong style="color:var(--houseA)">${state.a.name}</strong> — saving
+      <strong>${fmt(sav/1000,1)} kWh/day</strong> (${fmt(sav/1000*0.30,2)} NZD/day).
+      <br>Over a 90-day summer that is approximately
+      <strong style="color:var(--accent)">${fmt(sav/1000*90,0)} kWh</strong> and
+      <strong style="color:var(--accent)">$${fmt(sav/1000*90*0.30,0)} NZD</strong> saved.
+    </div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function renderMethod() {
+  return `<div class="card method">
+    <strong>Method &amp; References:</strong><br>
+    <strong>Thermal model:</strong> EN ISO 13790:2008 Annex C — Simple hourly method (5R1C thermal network).
+    Uses Crank-Nicolson finite difference for thermal mass. Constants: h_is = 3.45 W/(m²·K),
+    h_ms = 9.1 W/(m²·K), λ_at = 4.5.<br>
+    <strong>Comfort standard:</strong> ASHRAE Standard 55-2023 §5.4 — Adaptive comfort model for
+    naturally ventilated buildings. T_comfort = 0.31 × T_outdoor_mean + 17.8, ±3.5°C for 80% acceptability.<br>
+    <strong>Humidity:</strong> Simplified single-zone moisture balance. Acceptable indoor RH: 40–70% (ASHRAE 55).<br>
+    <strong>Weather data:</strong> Typical Auckland hot summer day based on NIWA CliFlo records (Mangere AWS).<br>
+    <strong>Limitations:</strong> Simplified single-zone model. Does not account for: furniture/contents thermal mass,
+    ground coupling, stack effect, window opening behavior, radiant asymmetry, or microclimate variations.<br>
+    <strong>Open-source reference:</strong> RC_BuildingSimulator (ETH Zurich, GitHub).
+  </div>`;
+}
+
+function bindEvents() { /* events are inline */ }
+
+render();
+</script>
+</body>
+</html>
