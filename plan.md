@@ -1,178 +1,149 @@
-# Wall Snapping Feature — Implementation Plan
+# Comfort Simulator — Implementation Plan
 
-## Overview
+## Goal
+Model indoor temperature and humidity hour-by-hour over a 24-hour Auckland summer day for two building envelopes (Typical NZ House vs DEVPRO SIP House). Show whether each house can maintain comfort for sleeping without active cooling, and if not, how much AC energy is required.
 
-Replace the fixed rectangular floor plan (`computeFloorPlan`) with a flexible graph-based layout where walls snap to the ends of other walls at 90-degree increments. Users select a wall in the 3D viewer, then attach other walls to either end, choosing orientation (0/90/180/270 degrees). Deductions determine the exact snap point along the wall's length.
+## Scientific Method: ISO 13790 5R1C Simplified Hourly Model
 
----
+**Standard:** EN ISO 13790:2008 Annex C — "Simple hourly method"
+**Superseded by:** ISO 52016-1:2017 (same core method, expanded)
+**Comfort standard:** ASHRAE Standard 55-2023 — Adaptive Comfort Model
+**Humidity model:** Simplified moisture balance (infiltration/ventilation exchange with outdoor humidity)
 
-## Data Model
+### References
+- ISO 13790:2008, Clause C — 5R1C thermal network, hourly timestep
+- ASHRAE Standard 55 — Adaptive comfort model for naturally ventilated buildings
+- NIWA CliFlo — Auckland summer climate data (Mangere AWS)
+- RC_BuildingSimulator (ETH Zurich) — open-source ISO 13790 implementation
 
-### New: `FloorPlanConnection` (persisted per-project in storage)
+### The 5R1C Thermal Network
 
-```js
-{
-  connections: [
-    {
-      id: "conn-1",
-      wallId: "wall-A",          // the wall being snapped TO (anchor)
-      anchorEnd: "left" | "right", // which end of wallId
-      attachedWallId: "wall-B",  // the wall being attached
-      attachedEnd: "left" | "right", // which end of wall-B connects
-      angleDeg: 0 | 90 | 180 | 270  // rotation of attached wall relative to anchor wall's direction
-    }
-  ]
-}
+Five resistances (R) and one capacitance (C) model the building zone:
+
+```
+  T_ext ──[H_tr_em]──┬──[H_tr_ms]── T_s ──[H_tr_is]── T_air
+                      │                                   │
+                     [C_m]                            [H_ve_adj]
+                   (T_mass)                               │
+                      │                                T_supply
+                      └──[H_tr_w]── T_ext
 ```
 
-Deductions are already on each wall (`deduction_left_mm`, `deduction_right_mm`). The snap point for a wall's "left" end = `deduction_left_mm` inset from the geometric left edge. Similarly for "right" = `deduction_right_mm` inset from the geometric right edge.
+**Temperature nodes:** T_air (indoor air), T_s (internal surfaces), T_mass (thermal mass)
+**Boundary nodes:** T_ext (outdoor), T_supply (ventilation supply air)
 
----
+### Key Equations (ISO 13790 Annex C)
 
-## Step-by-step Plan
+```
+// Combined conductances (C.6–C.8)
+H_tr_1 = 1 / (1/H_ve + 1/H_tr_is)
+H_tr_2 = H_tr_1 + H_tr_w
+H_tr_3 = 1 / (1/H_tr_2 + 1/H_tr_ms)
 
-### Step 1: Fix existing bugs found in review
+// Total heat flux to mass node (C.5)
+φ_m_tot = φ_m + H_tr_em × T_ext + H_tr_3 × (φ_st + H_tr_w × T_ext + H_tr_1 × (T_supply + φ_ia/H_ve)) / H_tr_2
 
-**Files:** `src/utils/calculator.js`
+// Thermal mass temperature update — Crank-Nicolson (C.4)
+T_m_next = (T_m_prev × (C_m/3600 − 0.5×(H_tr_3 + H_tr_em)) + φ_m_tot) / (C_m/3600 + 0.5×(H_tr_3 + H_tr_em))
+T_m = (T_m_next + T_m_prev) / 2                        // (C.9)
 
-- Fix `grossLen` → `grossLength` on lines 176 and 408 (ReferenceError for gable walls with openings).
+// Surface temperature (C.10)
+T_s = (H_tr_ms × T_m + φ_st + H_tr_w × T_ext + H_tr_1 × (T_supply + φ_ia/H_ve)) / (H_tr_ms + H_tr_w + H_tr_1)
 
-This is a prerequisite — gable walls crash without it, and the snapping feature must work with all wall profiles.
+// Indoor air temperature (C.11)
+T_air = (H_tr_is × T_s + H_ve × T_supply + φ_ia) / (H_tr_is + H_ve)
 
----
+// ISO 13790 constants
+h_is = 3.45 W/(m²·K)    // convective surface coefficient
+h_ms = 9.1 W/(m²·K)     // radiative mass-surface coupling
+λ_at = 4.5               // A_t / A_floor ratio
+```
 
-### Step 2: Create `src/utils/wallSnap.js` — core snap geometry engine
+### Heat gain distribution (ISO 13790 §C.2)
+- φ_ia = 0.5 × φ_int (internal gains to air node)
+- φ_st = (1 − A_m/A_t − H_tr_w/(9.1×A_t)) × (0.5×φ_int + φ_sol) (to surface node)
+- φ_m = (A_m/A_t) × (0.5×φ_int + φ_sol) (to mass node)
 
-Pure functions, no React dependency, fully testable.
+### ASHRAE 55 Adaptive Comfort Model
+```
+T_comfort = 0.31 × T_prevailing_outdoor + 17.8
+80% acceptability band: T_comfort ± 3.5°C
+90% acceptability band: T_comfort ± 2.5°C
+```
+For Auckland summer (mean outdoor ~22°C): T_comfort ≈ 24.6°C, 80% band = 21.1–28.1°C
 
-**Functions:**
+### Humidity Model (simplified moisture balance)
+Indoor humidity ratio updated each hour based on:
+- Air exchange with outdoor humidity (via infiltration + ventilation)
+- Internal moisture gains (occupants, ~50g/hr per person)
+- Psychrometric conversion from humidity ratio to RH at indoor temperature
 
-1. **`computeWallEndpoint(wall, end)`** → `{ x_mm, z_mm }`
-   - For a wall positioned at origin facing along +X: left end is at `x = deduction_left_mm`, right end is at `x = wall.length_mm - deduction_right_mm`.
-   - Returns the snap point in local wall coordinates.
+## Implementation Steps
 
-2. **`computeSnapPosition(anchorWall, anchorEnd, anchorPos, anchorAngleRad, attachedWall, attachedEnd, angleDeg)`** → `{ position: {x,y,z}, rotation: {x,y,z} }`
-   - Given the anchor wall's world position/rotation and which end to snap to, compute the world position and rotation of the attached wall.
-   - The anchor's snap point = anchor wall center + offset to the specified end (accounting for deduction), transformed by the anchor's world rotation.
-   - The attached wall is then positioned so that its specified end aligns with that snap point, rotated by `angleDeg` relative to the anchor wall's facing direction.
-   - Wall thickness offset: the attached wall is offset by `WALL_THICKNESS / 2` perpendicular to the anchor wall's face so that the surfaces butt cleanly.
+### Step 1: Create `src/utils/comfortSimulator.js` — Pure calculation engine
 
-3. **`resolveFloorPlanLayout(walls, connections)`** → `Array<{ wall, position: {x,y,z}, rotation: {x,y,z}, dimensions: {length, height, thickness} }>`
-   - Takes all walls and the connections array. Places the first wall at origin (or uses the first wall with no incoming connections as the "root").
-   - Walks the connection graph (BFS/DFS) calling `computeSnapPosition` for each connected wall.
-   - Walls with no connections are placed at origin (single-wall fallback, same as current behavior).
-   - Returns the same shape as current `computeFloorPlan` output so `ModelViewer3D` needs minimal changes.
+**Contents:**
+- `AUCKLAND_SUMMER_DAY` — 24-hour weather profile (temperature, RH, solar radiation) based on NIWA CliFlo typical hot day data
+- `ISO_CONSTANTS` — h_is, h_ms, λ_at values from ISO 13790
+- `deriveISO13790Params(preset)` — convert house presets to 5R1C network parameters (C_m, H_tr_em, H_tr_w, H_tr_ms, H_tr_is, H_ve)
+- `simulateHour(state, params, weather, hour, options)` — single ISO 13790 Annex C timestep
+- `simulate(params, weather, options)` — 24-hour loop returning hourly {T_air, T_mass, T_surface, RH_indoor, coolingPower}
+- `adaptiveComfortBand(T_outdoor_mean)` — ASHRAE 55 adaptive comfort bounds
+- `computeIndoorHumidity(T_air, T_ext, RH_ext, ACH, volume)` — simplified psychrometric moisture balance
+- `evaluateSleepComfort(results, comfortBand)` — score 10pm–6am: hours in comfort zone, peak temp, avg cooling needed
 
-4. **`validateConnections(walls, connections)`** → `Array<{ type, message, connectionId? }>`
-   - Checks for: duplicate connections on same endpoint, circular references, missing wall IDs, walls connected to themselves.
+### Step 2: Create `src/components/ComfortSimulator.jsx` — React UI
 
----
+**Layout (top to bottom):**
+1. Header with DEVPRO branding (matching HeatLossCalc style)
+2. Mode toggle: [Passive Only] [With AC]
+3. Two input panels side-by-side (house A / house B parameters)
+4. SVG temperature chart — outdoor line (dashed), House A line, House B line, ASHRAE comfort band (green shading), night hours (dark overlay 10pm-6am)
+5. SVG humidity chart — outdoor RH (dashed), House A RH, House B RH, target band shading
+6. Sleep comfort scorecard — side-by-side cards showing: hours in comfort zone, peak overnight temp, avg cooling power needed (AC mode)
+7. AC energy summary (when AC mode): total kWh overnight per house
+8. Method references section
 
-### Step 3: Create `src/utils/wallSnap.test.js` — comprehensive unit tests
+**SVG Charts (no dependencies):**
+- X axis: 0–24 hours, Y axis: temperature (°C) or humidity (%)
+- Comfort band as semi-transparent rectangle
+- Night hours (22:00–06:00) as dark overlay columns
+- Smooth polyline paths for temperature curves
+- Tooltip on hover showing exact values per hour
 
-**Test cases:**
+**State:** `acMode`, `acSetpoint`, `houseA`, `houseB` — results computed via `useMemo`
 
-**`computeWallEndpoint`:**
-- Wall with no deductions → endpoints at 0 and length_mm
-- Wall with left deduction → left endpoint shifted inward
-- Wall with right deduction → right endpoint shifted inward
-- Wall with both deductions
+### Step 3: Create `src/pages/ComfortPage.jsx` — thin page wrapper
 
-**`computeSnapPosition`:**
-- Snap wall-B's left end to wall-A's right end at 90° → verify position and rotation
-- Snap at 0° (inline/continuation) → walls extend in same direction
-- Snap at 180° (U-turn) → wall doubles back
-- Snap at 270° (left turn) → perpendicular other direction
-- Snap with deductions on both walls → verify offsets are correct
-- Snap right-to-right (both walls' right ends meet) → verify orientation flips correctly
-- Different wall heights → verify Y positioning is independent (each wall centered on its own height)
+Minimal wrapper matching H1Page.jsx pattern — just renders `<ComfortSimulator />`.
 
-**`resolveFloorPlanLayout`:**
-- No connections → each wall at origin (backward compat with single-wall)
-- Linear chain: A→B→C → verify positions cascade correctly
-- L-shape: A→B at 90° → verify classic corner
-- Rectangle: 4 walls, 4 connections at 90° each → verify it closes (gap validation)
-- T-junction: A has B on right end and C on left end → both placed correctly
-- Disconnected walls: some connected, some standalone
+### Step 4: Update `src/App.jsx` — add route
 
-**`validateConnections`:**
-- Valid connections → no errors
-- Wall connected to itself → error
-- Same endpoint used twice → error
-- Missing wall ID → error
-
----
-
-### Step 4: Update `src/utils/floorPlan.js`
-
-- Keep `computeFloorPlan` as-is for backward compatibility (projects without connections).
-- Add a new export: `computeFloorPlanFromConnections(walls, connections)` that delegates to `resolveFloorPlanLayout` from `wallSnap.js` and returns the same output shape.
-- Update `computeFloorPlanCorners` and `validateCornerJoins` to work with the new arbitrary layout (or deprecate them — they assume a rectangle).
-
----
-
-### Step 5: Update `src/utils/storage.js` — persist connections
-
-- Add `getProjectConnections(projectId)` → reads from `devpro-project-{id}-connections` key.
-- Add `saveProjectConnections(projectId, connections)` → writes to localStorage.
-- When a wall is deleted (`deleteWall`), also remove any connections referencing that wall's ID.
-- Include connections in `exportProject` / `importProject`.
-
----
-
-### Step 6: Update `ModelViewer3D.jsx` — wall selection + snap UI
-
-**Wall selection:**
-- Add `selectedWallId` state.
-- On click of a `WallMesh`, set it as selected (highlight with emissive color or outline).
-- Show endpoint markers (small spheres/cones) at the left and right snap points of the selected wall.
-
-**Snap controls (overlay panel):**
-- When an endpoint marker is clicked, show a dropdown of available walls to attach.
-- Show orientation picker (4 buttons: 0°, 90°, 180°, 270°) with visual arrow indicators.
-- "Attach" button creates a connection and re-renders the layout.
-- "Detach" button on existing connections to remove them.
-
-**Rendering changes:**
-- Switch from `computeFloorPlan(walls)` to `computeFloorPlanFromConnections(walls, connections)` when connections exist; fall back to `computeFloorPlan(walls)` when there are none.
-- Pass `selectedWallId` and `onSelectWall` to `WallMesh`.
-- Add `SnapPointMarker` sub-component (small sphere at each endpoint).
-
-**Props change:**
-- `ModelViewer3D` now also receives `connections` and `onConnectionsChange` (or manages connections via storage internally).
-
----
-
-### Step 7: Update `ProjectPage.jsx` — wire up connections state
-
-- Load connections from storage alongside walls.
-- Pass `connections` and `onConnectionsChange` to `ModelViewer3D`.
-- `onConnectionsChange` saves to storage and refreshes state.
-
----
-
-### Step 8: Update scene bounds calculation
-
-Replace the fragile `walls[0]`/`walls[1]` index-based bounds with a calculation derived from the resolved floor plan positions — iterate all placed walls and compute the bounding box from their world-space extents.
-
----
+```js
+{ path: '/comfort', element: <ComfortPage /> }
+```
 
 ## File Change Summary
 
 | File | Action |
 |------|--------|
-| `src/utils/calculator.js` | **Fix** `grossLen` bug (lines 176, 408) |
-| `src/utils/wallSnap.js` | **New** — snap geometry engine |
-| `src/utils/wallSnap.test.js` | **New** — unit tests |
-| `src/utils/floorPlan.js` | **Update** — add `computeFloorPlanFromConnections` |
-| `src/utils/storage.js` | **Update** — persist connections, clean up on wall delete |
-| `src/components/ModelViewer3D.jsx` | **Update** — selection, snap UI, use new layout |
-| `src/pages/ProjectPage.jsx` | **Update** — load/pass connections |
+| `src/utils/comfortSimulator.js` | **New** — ISO 13790 5R1C simulation engine |
+| `src/components/ComfortSimulator.jsx` | **New** — React UI with SVG charts |
+| `src/pages/ComfortPage.jsx` | **New** — page wrapper |
+| `src/App.jsx` | **Update** — add `/comfort` route |
 
-## Out of Scope (future work)
+## Expected Outputs
 
-- Arbitrary angles (non-90° snapping)
-- Collision detection between walls
-- Auto-matching deductions when walls are connected
-- 3D CSG for true opening cutouts
-- Error boundary around Canvas (noted in review, separate concern)
+**Typical NZ House (leaky, no ERV):**
+- Indoor temp peaks ~27-28°C mid-afternoon (2-3hr lag behind outdoor peak)
+- Stays above 24°C from 11am to 10pm
+- Night temp stays ~24-25°C (thermal mass releases stored heat)
+- Cannot sleep comfortably without AC
+- AC needs ~1.5-2.5 kW cooling to maintain 23°C overnight
+
+**DEVPRO SIP House (tight, with ERV):**
+- Indoor temp peaks ~22-23°C (much lower due to insulation + controlled ventilation)
+- ERV pre-cools incoming air, reducing ventilation heat gain by 80%
+- Night temp drops to ~21-22°C
+- Comfortable sleeping without AC
+- AC needed: 0 or minimal (<0.3 kW)
