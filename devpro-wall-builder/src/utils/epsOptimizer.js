@@ -291,12 +291,11 @@ export function extractFloorEpsPieces(layout, floorName = '') {
     }
   }
 
-  // Unreinforced spline EPS pieces (150mm depth, 146mm wide)
-  const splineEpsW = CONST_SPLINE_WIDTH; // 146mm — full spline width, no magboard deduction for floor splines
+  // Unreinforced spline EPS pieces (150mm depth, width = column span)
   for (const s of unreinforcedSplines) {
     if (s.length > 0) {
       pieces.push({
-        width: splineEpsW,
+        width: Math.round(s.width),
         height: Math.round(s.length),
         depth: FLOOR_SPLINE_EPS_DEPTH,
         label: 'Spline',

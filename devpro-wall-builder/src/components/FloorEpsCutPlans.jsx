@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
-import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_EPS_DEPTH, SPLINE_WIDTH,
+import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_EPS_DEPTH,
   REINFORCED_SPLINE_EPS_WIDTH, REINFORCED_SPLINE_EPS_DEPTH } from '../utils/constants.js';
 
 const CARD_W = 260;
@@ -110,11 +110,10 @@ function extractFloorEpsPiecesList(layout, floorName) {
     }
   }
 
-  // Unreinforced spline EPS pieces (146mm × 150mm)
-  const splineEpsW = SPLINE_WIDTH; // 146mm — full spline width, no magboard deduction
+  // Unreinforced spline EPS pieces (width = column span × 150mm depth)
   for (const s of unreinforcedSplines) {
     pieces.push({
-      width: splineEpsW,
+      width: Math.round(s.width),
       height: Math.round(s.length),
       depth: FLOOR_SPLINE_EPS_DEPTH,
       label: 'Spline',
