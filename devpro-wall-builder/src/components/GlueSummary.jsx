@@ -1,8 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { computeProjectGlue, computeProjectGlueWithFloors, computeProjectGlueWithRoofs } from '../utils/glueCalculator.js';
+import { fetchUnitPricing } from '../utils/priceCalculator.js';
 
 export default function GlueSummary({ walls, floors, roofs }) {
   const [expanded, setExpanded] = useState(false);
+  const [pricing, setPricing] = useState(null);
+
+  useEffect(() => {
+    fetchUnitPricing().then(setPricing);
+  }, []);
 
   const { result, error } = useMemo(() => {
     if ((!walls || walls.length === 0) && (!floors || floors.length === 0) && (!roofs || roofs.length === 0)) return { result: null, error: null };
@@ -81,6 +87,15 @@ export default function GlueSummary({ walls, floors, roofs }) {
               <div style={styles.cardUnit}>g/m² rate</div>
               <div style={styles.cardDetail}>coverage rate</div>
             </div>
+            {pricing && (
+              <div style={styles.card}>
+                <div style={{ ...styles.cardValue, color: '#D84315' }}>
+                  ${(totalLitres * pricing.glue.unit_cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div style={styles.cardUnit}>material cost (ex GST)</div>
+                <div style={styles.cardDetail}>@ ${pricing.glue.unit_cost.toFixed(2)}/litre</div>
+              </div>
+            )}
           </div>
 
           {/* Drum capacity gauge */}

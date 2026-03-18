@@ -508,12 +508,14 @@ export function computeProjectEpsBlocksWithRoofs(walls, floors, roofs) {
 
   let roofSplineSlabCount = 0;
   let roofSplineBlocks = 0;
+  const roofSplineSlabs = [];
   for (const [depthStr, group] of Object.entries(splineByDepth)) {
     const depth = Number(depthStr);
     const slabs = shelfPack(group, slabW, slabH);
     const slabsPerBlock = Math.floor(EPS_BLOCK.depth / depth) || 1;
     roofSplineSlabCount += slabs.length;
     roofSplineBlocks += Math.ceil(slabs.length / slabsPerBlock);
+    roofSplineSlabs.push(...slabs);
   }
 
   const slabArea = slabW * slabH;

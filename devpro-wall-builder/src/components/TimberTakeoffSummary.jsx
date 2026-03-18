@@ -1,8 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { computeProjectTimber, computeProjectTimberRatio } from '../utils/timberCalculator.js';
+import { fetchUnitPricing } from '../utils/priceCalculator.js';
 
 export default function TimberTakeoffSummary({ walls, floors }) {
   const [expanded, setExpanded] = useState(false);
+  const [pricing, setPricing] = useState(null);
+
+  useEffect(() => {
+    fetchUnitPricing().then(setPricing);
+  }, []);
 
   const { result, error } = useMemo(() => {
     if ((!walls || walls.length === 0) && (!floors || floors.length === 0)) return { result: null, error: null };
@@ -94,6 +100,15 @@ export default function TimberTakeoffSummary({ walls, floors }) {
               <div style={{ ...styles.cardValue, color: '#6A1B9A' }}>{floorLinealMetres.toFixed(1)}</div>
               <div style={styles.cardUnit}>floor timber (m)</div>
             </div>
+            {pricing && (
+              <div style={styles.card}>
+                <div style={{ ...styles.cardValue, color: '#D84315' }}>
+                  ${(totalLinealMetres * pricing.timber.unit_cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div style={styles.cardUnit}>material cost (ex GST)</div>
+                <div style={styles.cardDetail}>@ ${pricing.timber.unit_cost.toFixed(2)}/lineal m</div>
+              </div>
+            )}
           </div>
 
           {/* Thermal Bridging — Timber Fraction */}

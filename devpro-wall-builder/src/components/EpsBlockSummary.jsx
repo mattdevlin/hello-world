@@ -1,15 +1,21 @@
-import { useState, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { computeProjectEpsBlocks, computeProjectEpsBlocksWithFloors, computeProjectEpsBlocksWithRoofs, EPS_BLOCK, PANEL_SLABS_PER_BLOCK, SPLINE_SLABS_PER_BLOCK } from '../utils/epsOptimizer.js';
 import { FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK, FLOOR_EPS_DEPTH, FLOOR_SPLINE_EPS_DEPTH,
   REINFORCED_SPLINE_EPS_WIDTH, REINFORCED_SPLINE_EPS_DEPTH,
   ROOF_EPS_DEPTH, ROOF_SPLINE_EPS_DEPTH } from '../utils/constants.js';
 import { exportWallEpsCsv, exportAllWallsEpsCsv } from '../utils/epsSpreadsheetExport.js';
+import { fetchUnitPricing } from '../utils/priceCalculator.js';
 
 const EpsBlockViewer3D = lazy(() => import('./EpsBlockViewer3D.jsx'));
 
 export default function EpsBlockSummary({ walls, floors, roofs, projectName }) {
   const [expanded, setExpanded] = useState(false);
   const [show3D, setShow3D] = useState(false);
+  const [pricing, setPricing] = useState(null);
+
+  useEffect(() => {
+    fetchUnitPricing().then(setPricing);
+  }, []);
 
   const result = useMemo(() => {
     if ((!walls || walls.length === 0) && (!floors || floors.length === 0) && (!roofs || roofs.length === 0)) return null;
@@ -83,6 +89,15 @@ export default function EpsBlockSummary({ walls, floors, roofs, projectName }) {
                 {totalPieces} cut pieces
               </div>
             </div>
+            {pricing && (
+              <div style={styles.card}>
+                <div style={{ ...styles.cardValue, color: '#D84315' }}>
+                  ${(totalBlocks * pricing.eps.unit_cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div style={styles.cardUnit}>material cost (ex GST)</div>
+                <div style={styles.cardDetail}>@ ${pricing.eps.unit_cost.toFixed(2)}/block</div>
+              </div>
+            )}
           </div>
 
           {/* Slab utilization */}

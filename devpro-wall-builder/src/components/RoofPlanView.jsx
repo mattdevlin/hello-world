@@ -87,74 +87,48 @@ export default function RoofPlanView({ layout, roofName, projectName }) {
   const ey = (spanPos) => elevOffsetY + spanPos * elevScale;
   const es = (w) => w * elevScale;
 
-  // Collect all panel column edges for X-axis running measure
-  const allPanelXPositions = new Set();
-  planeLayouts.forEach(pl => {
-    pl.panels.forEach(panel => {
-      let ppx, ppw;
-      if (type === 'flat') {
-        if (panelDirection === 'along_ridge') { ppx = panel.u; ppw = panel.width; }
-        else { ppx = panel.v; ppw = panel.length; }
-      } else {
-        const cosPitch = Math.cos((pitch_deg * Math.PI) / 180);
-        if (panelDirection === 'along_ridge') { ppx = panel.u; ppw = panel.width; }
-        else {
-          const vPlan = panel.v * cosPitch;
-          const lPlan = panel.length * cosPitch;
-          ppx = panel.u; ppw = panel.width;
-          // For eave_to_ridge, panel X is the v projection
-          ppx = type === 'gable'
-            ? (pl.plane.index === 0 ? oxFoot + width_mm / 2 + ridgeOffset_mm - vPlan - lPlan : oxFoot + width_mm / 2 - ridgeOffset_mm + vPlan)
-            : (panel.v * cosPitch);
-          ppw = lPlan;
-        }
-      }
-      allPanelXPositions.add(Math.round(ppx));
-      allPanelXPositions.add(Math.round(ppx + ppw));
-    });
-  });
-
-  // Simpler: collect unique U-edge positions for the running measure along the primary axis
-  const columnEdges = new Set();
-  planeLayouts.forEach(pl => {
-    if (pl.columnPositions) {
-      pl.columnPositions.forEach(col => {
-        columnEdges.add(Math.round(col.x));
-        columnEdges.add(Math.round(col.x + col.width));
-      });
+  // Helper: compute plan-view coordinates for a panel
+  const cosPitch = type === 'flat' ? 1 : Math.cos((pitch_deg * Math.PI) / 180);
+  function panelPlanCoords(panel, plane) {
+    const { u, v, width: pw, length: pl2 } = panel;
+    if (type === 'flat') {
+      if (panelDirection === 'along_ridge') return { ppx: u, ppy: v, ppw: pw, pph: pl2 };
+      return { ppx: u, ppy: v, ppw: pl2, pph: pw };
     }
-  });
-  const sortedColumnEdges = [...columnEdges].sort((a, b) => a - b);
+    if (type === 'gable') {
+      // along_ridge: u/pw along ridge (X), v/pl2 along slope → projected to Y
+      // eave_to_ridge: u/pl2 along ridge (X), v/pw along slope → projected to Y
+      const ridgeW = panelDirection === 'along_ridge' ? pw : pl2;
+      const slopePos = v * cosPitch;
+      const slopeSize = (panelDirection === 'along_ridge' ? pl2 : pw) * cosPitch;
+      let slopeY;
+      if (plane.index === 0) {
+        slopeY = oyFoot + width_mm / 2 + ridgeOffset_mm - slopePos - slopeSize;
+      } else {
+        slopeY = oyFoot + width_mm / 2 - ridgeOffset_mm + slopePos;
+      }
+      return { ppx: u, ppy: slopeY, ppw: ridgeW, pph: slopeSize };
+    }
+    // Skillion / mono
+    if (panelDirection === 'along_ridge') {
+      return { ppx: u, ppy: v * cosPitch, ppw: pw, pph: pl2 * cosPitch };
+    }
+    return { ppx: u, ppy: v * cosPitch, ppw: pl2, pph: pw * cosPitch };
+  }
 
-  // Collect Y-edge positions for the Y-axis running measure
+  // Collect X and Y edge positions for running measures
+  const columnEdges = new Set();
   const rowEdges = new Set();
   planeLayouts.forEach(pl => {
     pl.panels.forEach(panel => {
-      const { u, v, width: pw, length: pl2 } = panel;
-      let ppy, pph;
-      if (type === 'flat') {
-        if (panelDirection === 'along_ridge') { ppy = v; pph = pl2; }
-        else { ppy = u; pph = pw; }
-      } else if (type === 'gable') {
-        const cosPitch = Math.cos((pitch_deg * Math.PI) / 180);
-        if (panelDirection === 'along_ridge') {
-          const vPlan = v * cosPitch;
-          const lPlan = pl2 * cosPitch;
-          if (pl.plane.index === 0) { ppy = oyFoot + width_mm / 2 + ridgeOffset_mm - vPlan - lPlan; }
-          else { ppy = oyFoot + width_mm / 2 - ridgeOffset_mm + vPlan; }
-          pph = lPlan;
-        } else {
-          ppy = u; pph = pw;
-        }
-      } else {
-        const cosPitch = Math.cos((pitch_deg * Math.PI) / 180);
-        if (panelDirection === 'along_ridge') { ppy = v * cosPitch; pph = pl2 * cosPitch; }
-        else { ppy = u; pph = pw; }
-      }
+      const { ppx, ppy, ppw, pph } = panelPlanCoords(panel, pl.plane);
+      columnEdges.add(Math.round(ppx));
+      columnEdges.add(Math.round(ppx + ppw));
       rowEdges.add(Math.round(ppy));
       rowEdges.add(Math.round(ppy + pph));
     });
   });
+  const sortedColumnEdges = [...columnEdges].sort((a, b) => a - b);
   const sortedRowEdges = [...rowEdges].sort((a, b) => a - b);
 
   const title = `${roofName || 'Roof'} — ${Math.round(length_mm)}×${Math.round(width_mm)}mm — ${totalPanels} panels (${ROOF_THICKNESS}mm)`;
@@ -211,49 +185,7 @@ export default function RoofPlanView({ layout, roofName, projectName }) {
         {planeLayouts.map((pl, pi) => {
           const plane = pl.plane;
           return pl.panels.map((panel, idx) => {
-            const { u, v, width: pw, length: pl2 } = panel;
-            let ppx, ppy, ppw, pph;
-            if (type === 'flat') {
-              if (panelDirection === 'along_ridge') {
-                ppx = u; ppy = v; ppw = pw; pph = pl2;
-              } else {
-                ppx = v; ppy = u; ppw = pl2; pph = pw;
-              }
-            } else if (type === 'gable') {
-              const cosPitch = Math.cos((pitch_deg * Math.PI) / 180);
-              if (panelDirection === 'along_ridge') {
-                ppx = u; ppw = pw;
-                const vPlan = v * cosPitch;
-                const lPlan = pl2 * cosPitch;
-                if (plane.index === 0) {
-                  ppy = oyFoot + width_mm / 2 + ridgeOffset_mm - vPlan - lPlan;
-                } else {
-                  ppy = oyFoot + width_mm / 2 - ridgeOffset_mm + vPlan;
-                }
-                pph = lPlan;
-              } else {
-                ppy = u; pph = pw;
-                const vPlan = v * cosPitch;
-                const lPlan = pl2 * cosPitch;
-                if (plane.index === 0) {
-                  ppx = oxFoot + width_mm / 2 + ridgeOffset_mm - vPlan - lPlan;
-                } else {
-                  ppx = oxFoot + width_mm / 2 - ridgeOffset_mm + vPlan;
-                }
-                ppw = lPlan;
-              }
-            } else {
-              const cosPitch = Math.cos((pitch_deg * Math.PI) / 180);
-              if (panelDirection === 'along_ridge') {
-                ppx = u; ppw = pw;
-                ppy = v * cosPitch;
-                pph = pl2 * cosPitch;
-              } else {
-                ppy = u; pph = pw;
-                ppx = v * cosPitch;
-                ppw = pl2 * cosPitch;
-              }
-            }
+            const { ppx, ppy, ppw, pph } = panelPlanCoords(panel, plane);
             return (
               <g key={`panel-${pi}-${idx}`}>
                 <rect

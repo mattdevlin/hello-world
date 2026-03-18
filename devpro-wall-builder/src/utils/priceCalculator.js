@@ -135,6 +135,15 @@ export async function fetchUnitPricing() {
  * @param {Array} roofs
  * @returns {Promise<{ totalExGst: number, gst: number, totalIncGst: number, isLive: boolean }>}
  */
+/**
+ * Fetch unit pricing (tries live API, falls back to defaults).
+ * Returns { magboard: { unit_cost }, eps: { unit_cost }, glue: { unit_cost }, timber: { unit_cost } }
+ */
+export async function fetchUnitPricing() {
+  const live = await fetchLivePricing();
+  return live?.pricing ?? DEFAULT_PRICING;
+}
+
 export async function calculateProjectPrice(walls, floors, roofs) {
   if ((!walls || walls.length === 0) && (!floors || floors.length === 0) && (!roofs || roofs.length === 0)) {
     return { totalExGst: 0, gst: 0, totalIncGst: 0, isLive: false };

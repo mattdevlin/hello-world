@@ -63,8 +63,8 @@ function EpsSlab({ slab, depth, color, yOffset }) {
       let cursorX = 0;
       for (const piece of shelf.pieces) {
         pcs.push({
-          x: cursorX,
-          y: shelfY,
+          x: piece.placedX != null ? piece.placedX : cursorX,
+          y: piece.placedY != null ? piece.placedY : shelfY,
           w: piece.placedW,
           h: piece.placedH,
           label: piece.label || '',
