@@ -16,12 +16,14 @@ import { calculateFloorLayout } from '../utils/floorCalculator.js';
 import { calculateRoofLayout } from '../utils/roofCalculator.js';
 import EpsBlockSummary from '../components/EpsBlockSummary.jsx';
 import MagboardSheetSummary from '../components/MagboardSheetSummary.jsx';
+import MagboardCutPlans from '../components/MagboardCutPlans.jsx';
 import GlueSummary from '../components/GlueSummary.jsx';
 import TimberTakeoffSummary from '../components/TimberTakeoffSummary.jsx';
 import ModelViewer3D from '../components/ModelViewer3D.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import ProjectWallSummary from '../components/ProjectWallSummary.jsx';
 import ProjectRoofSummary from '../components/ProjectRoofSummary.jsx';
+import ProjectFloorSummary from '../components/ProjectFloorSummary.jsx';
 import ExportProjectButton from '../components/ExportProjectButton.jsx';
 import ErrorBoundary from '../components/ErrorBoundary.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
@@ -499,8 +501,16 @@ export default function ProjectPage() {
             </CollapsibleSection>
           )}
 
+          {/* Floor Summary */}
+          {floors.length > 0 && (
+            <CollapsibleSection sectionKey="project-floor-summary" title="Floor Summary">
+              <ProjectFloorSummary floors={floors} />
+            </CollapsibleSection>
+          )}
+
           {/* Material Summaries */}
           {(walls.length > 0 || floors.length > 0 || roofs.length > 0) && <MagboardSheetSummary walls={walls} floors={floors} roofs={roofs} />}
+          {(walls.length > 0 || floors.length > 0 || roofs.length > 0) && <MagboardCutPlans walls={walls} floors={floors} roofs={roofs} projectName={project.name} />}
           {(walls.length > 0 || floors.length > 0 || roofs.length > 0) && <EpsBlockSummary walls={walls} floors={floors} roofs={roofs} projectName={project.name} />}
           {(walls.length > 0 || floors.length > 0 || roofs.length > 0) && <GlueSummary walls={walls} floors={floors} roofs={roofs} />}
           {(walls.length > 0 || floors.length > 0 || roofs.length > 0) && <TimberTakeoffSummary walls={walls} floors={floors} roofs={roofs} />}

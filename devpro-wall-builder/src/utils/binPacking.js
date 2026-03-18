@@ -41,9 +41,12 @@ export function shelfPack(pieces, slabW, slabH) {
 
       // Try to fit on an existing slab's existing shelf
       for (const slab of slabs) {
-        for (const shelf of slab.shelves) {
+        for (let si = 0; si < slab.shelves.length; si++) {
+          const shelf = slab.shelves[si];
           if (shelf.remainingW >= o.w && shelf.h >= o.h) {
-            shelf.pieces.push({ ...piece, placedW: o.w, placedH: o.h });
+            const placedX = slabW - shelf.remainingW;
+            const placedY = slab.shelves.slice(0, si).reduce((s, sh) => s + sh.h, 0);
+            shelf.pieces.push({ ...piece, placedW: o.w, placedH: o.h, placedX, placedY });
             shelf.remainingW -= o.w;
             placed = true;
             break;
@@ -57,7 +60,7 @@ export function shelfPack(pieces, slabW, slabH) {
           slab.shelves.push({
             h: o.h,
             remainingW: slabW - o.w,
-            pieces: [{ ...piece, placedW: o.w, placedH: o.h }],
+            pieces: [{ ...piece, placedW: o.w, placedH: o.h, placedX: 0, placedY: usedH }],
           });
           placed = true;
           break;
@@ -73,7 +76,7 @@ export function shelfPack(pieces, slabW, slabH) {
         shelves: [{
           h: o.h,
           remainingW: slabW - o.w,
-          pieces: [{ ...piece, placedW: o.w, placedH: o.h }],
+          pieces: [{ ...piece, placedW: o.w, placedH: o.h, placedX: 0, placedY: 0 }],
         }],
       });
     }
