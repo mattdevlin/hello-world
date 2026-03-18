@@ -8,6 +8,8 @@ import FramingElevation from '../components/FramingElevation.jsx';
 import EpsElevation from '../components/EpsElevation.jsx';
 import EpsCutPlans from '../components/EpsCutPlans.jsx';
 import Offcuts from '../components/Offcuts.jsx';
+import SplinePanels from '../components/SplinePanels.jsx';
+import { extractWallSplinePieces, groupSplinePanels } from '../utils/splineOptimizer.js';
 import StickframeElevation from '../components/StickframeElevation.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
@@ -19,10 +21,11 @@ import { REFERENCE_TIMBER_FRACTION, DEVPRO_WALL_R, REFERENCE_R_VALUES, getClimat
 import { getProjects, getProjectWalls, saveWall, getProjectH1 } from '../utils/storage.js';
 import { checkH1Compliance } from '../utils/h1Calculator.js';
 import { FONT_STACK, BRAND, NEUTRAL, RADIUS } from '../utils/designTokens.js';
+import { HeatLossBadge, TimberBadge, InsulationBadge, StickframeBadge } from '../components/ThermalBadge.jsx';
 
-function computeWallHeatLoss(projectId) {
+async function computeWallHeatLoss(projectId) {
   try {
-    const h1Input = getProjectH1(projectId);
+    const h1Input = await getProjectH1(projectId);
     if (!h1Input) return null;
     const result = checkH1Compliance(h1Input);
     if (result.error || !result.breakdown?.wall) return null;
@@ -56,39 +59,45 @@ export default function WallBuilderPage() {
   const blockerRef = useRef(null);
 
   useEffect(() => {
-    const p = getProjects().find(p => p.id === projectId);
-    if (!p) { navigate('/', { replace: true }); return; }
-    setProject(p);
+    async function load() {
+      const projects = await getProjects();
+      const p = projects.find(p => p.id === projectId);
+      if (!p) { navigate('/', { replace: true }); return; }
+      setProject(p);
 
-    if (wallId && wallId !== 'new') {
-      const walls = getProjectWalls(projectId);
-      const wall = walls.find(w => w.id === wallId);
-      if (wall) {
-        setWallInput(wall);
-        setSavedSnap(JSON.stringify(wall));
+      if (wallId && wallId !== 'new') {
+        const walls = await getProjectWalls(projectId);
+        const wall = walls.find(w => w.id === wallId);
+        if (wall) {
+          setWallInput(wall);
+          setSavedSnap(JSON.stringify(wall));
+          setDirty(false);
+          setLoadKey(k => k + 1);
+          const result = calculateWallLayout(wall);
+          setLayout(result);
+          setWallName(wall.name);
+          try {
+            const tr = computeWallTimberRatio(wall);
+            setTimberRatio(tr);
+            setWallHeatLoss(await computeWallHeatLoss(projectId));
+          } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); setWallHeatLoss(null); }
+          try { setStickframeLayout(calculateStickframeLayout(wall)); } catch (err) { console.warn('Failed to compute stickframe layout:', err); setStickframeLayout(null); }
+        }
+      } else {
+        const walls = await getProjectWalls(projectId);
+        const nextName = 'W' + String(walls.length + 1).padStart(2, '0');
+        setWallInput({ name: nextName });
+        setSavedSnap(null);
         setDirty(false);
+        setLayout(null);
+        setWallName('');
+        setTimberRatio(null);
+        setStickframeLayout(null);
+        setWallHeatLoss(null);
         setLoadKey(k => k + 1);
-        const result = calculateWallLayout(wall);
-        setLayout(result);
-        setWallName(wall.name);
-        try {
-          const tr = computeWallTimberRatio(wall);
-          setTimberRatio(tr);
-          setWallHeatLoss(computeWallHeatLoss(projectId));
-        } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); setWallHeatLoss(null); }
-        try { setStickframeLayout(calculateStickframeLayout(wall)); } catch (err) { console.warn('Failed to compute stickframe layout:', err); setStickframeLayout(null); }
       }
-    } else {
-      setWallInput(null);
-      setSavedSnap(null);
-      setDirty(false);
-      setLayout(null);
-      setWallName('');
-      setTimberRatio(null);
-      setStickframeLayout(null);
-      setWallHeatLoss(null);
-      setLoadKey(k => k + 1);
     }
+    load();
   }, [projectId, wallId, navigate]);
 
   // Track dirty state
@@ -103,8 +112,8 @@ export default function WallBuilderPage() {
   useEffect(() => {
     if (!dirty || !wallInput || !projectId) return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => {
-      const saved = saveWall(projectId, wallInput);
+    autoSaveTimer.current = setTimeout(async () => {
+      const saved = await saveWall(projectId, wallInput);
       setWallInput(saved);
       setSavedSnap(JSON.stringify(saved));
       setDirty(false);
@@ -143,15 +152,15 @@ export default function WallBuilderPage() {
     try {
       const tr = computeWallTimberRatio(wall);
       setTimberRatio(tr);
-      setWallHeatLoss(computeWallHeatLoss(projectId));
+      computeWallHeatLoss(projectId).then(hl => setWallHeatLoss(hl));
     } catch (err) { console.warn('Failed to compute timber ratio:', err); setTimberRatio(null); setWallHeatLoss(null); }
     try { setStickframeLayout(calculateStickframeLayout(wall)); } catch (err) { console.warn('Failed to compute stickframe layout:', err); setStickframeLayout(null); }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!wallInput || !projectId) return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    const saved = saveWall(projectId, wallInput);
+    const saved = await saveWall(projectId, wallInput);
     setWallInput(saved);
     setSavedSnap(JSON.stringify(saved));
     setDirty(false);
@@ -236,53 +245,36 @@ export default function WallBuilderPage() {
             <CollapsibleSection sectionKey="wallDrawing" title="External Elevation" forceOpen={generateKey}
               headerRight={timberRatio && (() => {
                 const zone = getClimateZone(project.territorialAuthority);
-                const ref = REFERENCE_R_VALUES[zone] || REFERENCE_R_VALUES[1];
+                const refVals = REFERENCE_R_VALUES[zone] || REFERENCE_R_VALUES[1];
                 const areaM2 = timberRatio.effectiveWallArea / 1e6;
                 const devHL = areaM2 / DEVPRO_WALL_R;
-                const refHL = areaM2 / ref.wall;
-                const devBetter = devHL < refHL;
-                const pctMore = devHL > 0 ? Math.round((refHL / devHL) * 100) : 0;
-                return (
-                  <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500, alignItems: 'baseline' }}>
-                    <span style={{ color: devBetter ? '#2E7D32' : '#E65100' }}>DEVPRO: {devHL.toFixed(2)} W/K</span>
-                    <span style={{ color: devBetter ? '#E65100' : '#2E7D32' }}>NZBC: {refHL.toFixed(2)} W/K</span>
-                    {devBetter && <span style={{ fontSize: 11, color: '#E65100', fontStyle: 'italic' }}>NZBC loses {pctMore}% more heat</span>}
-                  </span>
-                );
+                const refHL = areaM2 / refVals.wall;
+                return <HeatLossBadge devHL={devHL} refHL={refHL} />;
               })()}>
               <WallDrawing layout={layout} wallName={wallName} projectName={project.name} />
             </CollapsibleSection>
-            <CollapsibleSection sectionKey="framing" title="Framing Elevation" forceOpen={generateKey} headerRight={timberRatio && (
-                <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500 }}>
-                  <span style={{ color: timberRatio.timberPercentage < REFERENCE_TIMBER_FRACTION * 100 ? '#2E7D32' : '#E65100' }}>DEVPRO: {timberRatio.timberPercentage.toFixed(1)}% timber</span>
-                  <span style={{ color: REFERENCE_TIMBER_FRACTION * 100 > timberRatio.timberPercentage ? '#E65100' : '#2E7D32' }}>NZBC: {(REFERENCE_TIMBER_FRACTION * 100).toFixed(0)}% timber</span>
-                </span>
-              )}>
+            <CollapsibleSection sectionKey="framing" title="Framing Elevation" forceOpen={generateKey}
+              headerRight={timberRatio && <TimberBadge devTimber={timberRatio.timberPercentage} refTimber={REFERENCE_TIMBER_FRACTION * 100} />}>
               <FramingElevation layout={layout} wallName={wallName} projectName={project.name} timberRatio={timberRatio} />
             </CollapsibleSection>
-            <CollapsibleSection sectionKey="eps" title="EPS Elevation" defaultCollapsed forceOpen={generateKey} headerRight={timberRatio && (
-                <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500 }}>
-                  <span style={{ color: timberRatio.insulationPercentage > (1 - REFERENCE_TIMBER_FRACTION) * 100 ? '#2E7D32' : '#E65100' }}>DEVPRO: {timberRatio.insulationPercentage.toFixed(1)}% insulation</span>
-                  <span style={{ color: (1 - REFERENCE_TIMBER_FRACTION) * 100 < timberRatio.insulationPercentage ? '#E65100' : '#2E7D32' }}>NZBC: {((1 - REFERENCE_TIMBER_FRACTION) * 100).toFixed(0)}% insulation</span>
-                </span>
-              )}>
+            <CollapsibleSection sectionKey="eps" title="EPS Elevation" defaultCollapsed forceOpen={generateKey}
+              headerRight={timberRatio && <InsulationBadge devIns={timberRatio.insulationPercentage} refIns={(1 - REFERENCE_TIMBER_FRACTION) * 100} />}>
               <EpsElevation layout={layout} wallName={wallName} projectName={project.name} timberRatio={timberRatio} />
             </CollapsibleSection>
             {stickframeLayout && (
-              <CollapsibleSection sectionKey="stickframe" title="NZS 3604 Stickframe Elevation" forceOpen={generateKey} headerRight={stickframeLayout.thermalRatio && timberRatio && (
-                  <span style={{ display: 'flex', gap: 12, fontSize: 12, fontWeight: 500 }}>
-                    <span style={{ color: '#2E7D32' }}>DEVPRO: {timberRatio.timberPercentage.toFixed(1)}% timber</span>
-                    <span style={{ color: '#E65100' }}>Stickframe: {stickframeLayout.thermalRatio.timberPercentage.toFixed(1)}% timber</span>
-                  </span>
-                )}>
+              <CollapsibleSection sectionKey="stickframe" title="NZS 3604 Stickframe Elevation" forceOpen={generateKey}
+                headerRight={stickframeLayout.thermalRatio && timberRatio && <StickframeBadge devTimber={timberRatio.timberPercentage} stickTimber={stickframeLayout.thermalRatio.timberPercentage} />}>
                 <StickframeElevation stickframeLayout={stickframeLayout} wallName={wallName} projectName={project.name} />
               </CollapsibleSection>
             )}
-            <CollapsibleSection sectionKey="panelPlans" title="CNC Panel Plans" defaultCollapsed>
+            <CollapsibleSection sectionKey="panelPlans" title="Panel Cut Plans" defaultCollapsed>
               <PanelPlans layout={layout} wallName={wallName} projectName={project.name} />
             </CollapsibleSection>
             <CollapsibleSection sectionKey="epsCutPlans" title="EPS Cut Plans" defaultCollapsed>
               <EpsCutPlans layout={layout} wallName={wallName} projectName={project.name} />
+            </CollapsibleSection>
+            <CollapsibleSection sectionKey="splinePanels" title="Spline Panels" defaultCollapsed>
+              <SplinePanels splinePanels={groupSplinePanels(extractWallSplinePieces(layout))} systemLabel="Wall" name={wallName} projectName={project.name} />
             </CollapsibleSection>
             <CollapsibleSection sectionKey="offcuts" title="Offcuts" defaultCollapsed>
               <Offcuts layout={layout} wallName={wallName} projectName={project.name} />

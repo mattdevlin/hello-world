@@ -8,7 +8,7 @@ import {
   getProjectWallPositions, saveProjectWallPositions,
   getProjectFloors, deleteFloor,
   getProjectRoofs, deleteRoof,
-  updateProjectDetails,
+  updateProjectDetails, saveWall,
 } from '../utils/storage.js';
 import { TERRITORIAL_AUTHORITIES, TA_CLIMATE_ZONES, DEVPRO_WALL_R, DEVPRO_FLOOR_R, DEVPRO_ROOF_R, REFERENCE_R_VALUES, REFERENCE_TIMBER_FRACTION, getClimateZone } from '../utils/h1Constants.js';
 import { computeWallTimberRatio } from '../utils/timberCalculator.js';
@@ -21,9 +21,11 @@ import TimberTakeoffSummary from '../components/TimberTakeoffSummary.jsx';
 import ModelViewer3D from '../components/ModelViewer3D.jsx';
 import CollapsibleSection from '../components/CollapsibleSection.jsx';
 import ProjectWallSummary from '../components/ProjectWallSummary.jsx';
+import ProjectRoofSummary from '../components/ProjectRoofSummary.jsx';
 import ExportProjectButton from '../components/ExportProjectButton.jsx';
 import ErrorBoundary from '../components/ErrorBoundary.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import BulkUpdateDialog from '../components/BulkUpdateDialog.jsx';
 import { useToast } from '../hooks/useToast.js';
 import { FONT_STACK, BRAND, NEUTRAL, RADIUS, SHADOW } from '../utils/designTokens.js';
 import { calculateProjectPrice } from '../utils/priceCalculator.js';
@@ -45,25 +47,39 @@ export default function ProjectPage() {
   const [address, setAddress] = useState('');
   const [ta, setTa] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [projectPrice, setProjectPrice] = useState(null);
   const [buildingStats, setBuildingStats] = useState(null);
+  const [otherProjects, setOtherProjects] = useState([]);
 
   useEffect(() => {
-    const projects = getProjects();
-    const p = projects.find(p => p.id === projectId);
-    if (!p) {
-      navigate('/', { replace: true });
-      return;
+    async function load() {
+      const projects = await getProjects();
+      const p = projects.find(p => p.id === projectId);
+      if (!p) {
+        navigate('/', { replace: true });
+        return;
+      }
+      setProject(p);
+      setAddress(p.address || '');
+      setTa(p.territorialAuthority || '');
+      setOtherProjects(projects.filter(op => op.id !== projectId));
+      const [w, f, r, c, pl, wp] = await Promise.all([
+        getProjectWalls(projectId),
+        getProjectFloors(projectId),
+        getProjectRoofs(projectId),
+        getProjectConnections(projectId),
+        getProjectPlacements(projectId),
+        getProjectWallPositions(projectId),
+      ]);
+      setWalls(w);
+      setFloors(f);
+      setRoofs(r);
+      setConnections(c);
+      setPlacedWallIds(pl);
+      setWallPositions(wp);
     }
-    setProject(p);
-    setAddress(p.address || '');
-    setTa(p.territorialAuthority || '');
-    setWalls(getProjectWalls(projectId));
-    setFloors(getProjectFloors(projectId));
-    setRoofs(getProjectRoofs(projectId));
-    setConnections(getProjectConnections(projectId));
-    setPlacedWallIds(getProjectPlacements(projectId));
-    setWallPositions(getProjectWallPositions(projectId));
+    load();
   }, [projectId, navigate]);
 
   // Compute building stats (heat loss, timber %, insulation %) from design data
@@ -159,29 +175,39 @@ export default function ProjectPage() {
     return () => { cancelled = true; };
   }, [walls, floors, roofs]);
 
-  const refresh = () => {
-    setWalls(getProjectWalls(projectId));
-    setFloors(getProjectFloors(projectId));
-    setRoofs(getProjectRoofs(projectId));
-    setConnections(getProjectConnections(projectId));
-    setPlacedWallIds(getProjectPlacements(projectId));
-    setWallPositions(getProjectWallPositions(projectId));
-    const p = getProjects().find(p => p.id === projectId);
+  const refresh = async () => {
+    const [w, f, r, c, pl, wp, projects] = await Promise.all([
+      getProjectWalls(projectId),
+      getProjectFloors(projectId),
+      getProjectRoofs(projectId),
+      getProjectConnections(projectId),
+      getProjectPlacements(projectId),
+      getProjectWallPositions(projectId),
+      getProjects(),
+    ]);
+    setWalls(w);
+    setFloors(f);
+    setRoofs(r);
+    setConnections(c);
+    setPlacedWallIds(pl);
+    setWallPositions(wp);
+    const p = projects.find(p => p.id === projectId);
     if (p) setProject(p);
+    setOtherProjects(projects.filter(op => op.id !== projectId));
   };
 
-  const handleConnectionsChange = (newConnections) => {
-    saveProjectConnections(projectId, newConnections);
+  const handleConnectionsChange = async (newConnections) => {
+    await saveProjectConnections(projectId, newConnections);
     setConnections(newConnections);
   };
 
-  const handlePlacementsChange = (newPlacedIds) => {
-    saveProjectPlacements(projectId, newPlacedIds);
+  const handlePlacementsChange = async (newPlacedIds) => {
+    await saveProjectPlacements(projectId, newPlacedIds);
     setPlacedWallIds(newPlacedIds);
   };
 
-  const handleWallPositionsChange = (newPositions) => {
-    saveProjectWallPositions(projectId, newPositions);
+  const handleWallPositionsChange = async (newPositions) => {
+    await saveProjectWallPositions(projectId, newPositions);
     setWallPositions(newPositions);
   };
 
@@ -200,47 +226,60 @@ export default function ProjectPage() {
     setConfirmDelete({ type: 'roof', id: roofId, name: roofNameVal });
   };
 
-  const confirmDeleteItem = () => {
+  const confirmDeleteItem = async () => {
     if (!confirmDelete) return;
     if (confirmDelete.type === 'wall') {
-      deleteWall(projectId, confirmDelete.id);
+      await deleteWall(projectId, confirmDelete.id);
     } else if (confirmDelete.type === 'floor') {
-      deleteFloor(projectId, confirmDelete.id);
+      await deleteFloor(projectId, confirmDelete.id);
     } else if (confirmDelete.type === 'roof') {
-      deleteRoof(projectId, confirmDelete.id);
+      await deleteRoof(projectId, confirmDelete.id);
     }
-    refresh();
+    await refresh();
     setConfirmDelete(null);
   };
 
-  const handleRename = () => {
+  const handleRename = async () => {
     if (renameValue.trim()) {
-      renameProject(projectId, renameValue.trim());
-      refresh();
+      await renameProject(projectId, renameValue.trim());
+      await refresh();
     }
     setRenamingProject(false);
   };
 
-  const handleCopyWall = (wall, targetProjectId) => {
-    copyWallToProject(wall, targetProjectId);
+  const handleCopyWall = async (wall, targetProjectId) => {
+    await copyWallToProject(wall, targetProjectId);
     setCopyingWallId(null);
-    refresh();
+    await refresh();
     showToast({ type: 'success', message: `Wall copied successfully.` });
   };
 
-  const handleAddressBlur = () => {
-    updateProjectDetails(projectId, { address });
+  const handleAddressBlur = async () => {
+    await updateProjectDetails(projectId, { address });
   };
 
-  const handleTaChange = (e) => {
+  const handleTaChange = async (e) => {
     const newTa = e.target.value;
     setTa(newTa);
-    updateProjectDetails(projectId, { territorialAuthority: newTa });
+    await updateProjectDetails(projectId, { territorialAuthority: newTa });
+  };
+
+  const handleBulkUpdate = async (field, value) => {
+    setBulkUpdateOpen(false);
+    const results = await Promise.allSettled(
+      walls.map(wall => saveWall(projectId, { ...wall, [field]: value }))
+    );
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    await refresh();
+    if (failed === 0) {
+      showToast({ type: 'success', message: `Updated ${succeeded} wall${succeeded !== 1 ? 's' : ''}.` });
+    } else {
+      showToast({ type: 'error', message: `Updated ${succeeded} of ${walls.length} walls. ${failed} failed.` });
+    }
   };
 
   if (!project) return null;
-
-  const otherProjects = getProjects().filter(p => p.id !== projectId);
 
   return (
     <div style={styles.page}>
@@ -370,6 +409,11 @@ export default function ProjectPage() {
             >
               H1 Calculator
             </button>
+            {walls.length > 0 && (
+              <button onClick={() => setBulkUpdateOpen(true)} style={styles.bulkUpdateBtn}>
+                Bulk Update
+              </button>
+            )}
             <button
               onClick={() => navigate(`/project/${projectId}/wall/new`)}
               style={styles.newWallBtn}
@@ -438,6 +482,13 @@ export default function ProjectPage() {
                   onWallPositionsChange={handleWallPositionsChange}
                 />
               </ErrorBoundary>
+            </CollapsibleSection>
+          )}
+
+          {/* Roof Summary */}
+          {roofs.length > 0 && (
+            <CollapsibleSection sectionKey="project-roof-summary" title="Roof Summary">
+              <ProjectRoofSummary roofs={roofs} projectName={project.name} />
             </CollapsibleSection>
           )}
 
@@ -626,6 +677,13 @@ export default function ProjectPage() {
         onConfirm={confirmDeleteItem}
         onCancel={() => setConfirmDelete(null)}
       />
+
+      <BulkUpdateDialog
+        open={bulkUpdateOpen}
+        wallCount={walls.length}
+        onApply={handleBulkUpdate}
+        onCancel={() => setBulkUpdateOpen(false)}
+      />
     </div>
   );
 }
@@ -808,6 +866,18 @@ const styles = {
     background: BRAND.h1,
     color: '#fff',
     border: 'none',
+    borderRadius: RADIUS.md,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
+  bulkUpdateBtn: {
+    padding: '10px 20px',
+    background: NEUTRAL.surface,
+    color: BRAND.primary,
+    border: `1px solid ${BRAND.primary}`,
     borderRadius: RADIUS.md,
     cursor: 'pointer',
     fontSize: 14,

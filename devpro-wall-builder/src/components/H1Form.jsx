@@ -40,6 +40,11 @@ export default function H1Form({ projectId, climateZone, initialData, onChange, 
     onChangeRef.current = onChange;
   });
 
+  // Sync state when saved data loads from the API
+  useEffect(() => {
+    if (initialData) setInput(initialData);
+  }, [initialData]);
+
   useEffect(() => {
     if (onChangeRef.current) onChangeRef.current(input);
   }, [input]);
@@ -114,9 +119,9 @@ export default function H1Form({ projectId, climateZone, initialData, onChange, 
   const glazingRatio = input.grossWallArea > 0 ? ((glazingArea / input.grossWallArea) * 100).toFixed(1) : '0.0';
   const glazingOk = parseFloat(glazingRatio) <= 40;
 
-  const handleImportDesign = () => {
+  const handleImportDesign = async () => {
     if (!projectId) return;
-    const { input: imported, summary } = buildH1FromDesign(projectId, input);
+    const { input: imported, summary } = await buildH1FromDesign(projectId, input);
     setInput(imported);
     setImportSummary(summary);
   };

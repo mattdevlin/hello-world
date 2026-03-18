@@ -18,10 +18,12 @@ import { DEVPRO_WALL_R, DEVPRO_FLOOR_R, DEVPRO_ROOF_R } from './h1Constants.js';
  * @param {object} existing - current H1 form input (to preserve non-derivable fields)
  * @returns {{ input: object, summary: object }} merged input + import summary
  */
-export function buildH1FromDesign(projectId, existing) {
-  const walls = getProjectWalls(projectId);
-  const floors = getProjectFloors(projectId);
-  const roofs = getProjectRoofs(projectId);
+export async function buildH1FromDesign(projectId, existing) {
+  const [walls, floors, roofs] = await Promise.all([
+    getProjectWalls(projectId),
+    getProjectFloors(projectId),
+    getProjectRoofs(projectId),
+  ]);
 
   // ── Walls ──
   let grossWallAreaMM2 = 0;

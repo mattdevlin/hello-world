@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Download, Edit2, Trash2, Plus } from 'lucide-react';
 import {
   getProjects, createProject, renameProject, deleteProject,
-  exportProject, importProject, migrateLegacyWalls,
+  exportProject, importProject,
   getProjectWalls, getProjectFloors, getProjectRoofs,
+  migrateLocalStorageToSqlite,
 } from '../utils/storage.js';
 import { FONT_STACK, BRAND, NEUTRAL, RADIUS, SHADOW } from '../utils/designTokens.js';
 import { calculateProjectPrice } from '../utils/priceCalculator.js';
@@ -40,8 +41,15 @@ export default function ProjectsPage() {
   }, [projects, searchQuery, sortBy]);
 
   useEffect(() => {
-    migrateLegacyWalls();
-    setProjects(getProjects());
+    async function init() {
+      try {
+        await migrateLocalStorageToSqlite();
+      } catch (err) {
+        console.warn('Migration failed:', err);
+      }
+      setProjects(await getProjects());
+    }
+    init();
   }, []);
 
   // Compute prices for all projects
@@ -51,9 +59,11 @@ export default function ProjectsPage() {
     async function computePrices() {
       const result = {};
       for (const p of projects) {
-        const walls = getProjectWalls(p.id);
-        const floors = getProjectFloors(p.id);
-        const roofs = getProjectRoofs(p.id);
+        const [walls, floors, roofs] = await Promise.all([
+          getProjectWalls(p.id),
+          getProjectFloors(p.id),
+          getProjectRoofs(p.id),
+        ]);
         if (walls.length > 0 || floors.length > 0 || roofs.length > 0) {
           try {
             result[p.id] = await calculateProjectPrice(walls, floors, roofs);
@@ -68,14 +78,14 @@ export default function ProjectsPage() {
     return () => { cancelled = true; };
   }, [projects]);
 
-  const refresh = () => setProjects(getProjects());
+  const refresh = async () => setProjects(await getProjects());
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    const p = createProject(newName.trim());
+    const p = await createProject(newName.trim());
     setNewName('');
-    refresh();
+    await refresh();
     navigate(`/project/${p.id}`);
   };
 
@@ -84,10 +94,10 @@ export default function ProjectsPage() {
     setConfirmDelete({ id, name });
   };
 
-  const confirmDeleteProject = () => {
+  const confirmDeleteProject = async () => {
     if (confirmDelete) {
-      deleteProject(confirmDelete.id);
-      refresh();
+      await deleteProject(confirmDelete.id);
+      await refresh();
       setConfirmDelete(null);
     }
   };
@@ -108,7 +118,7 @@ export default function ProjectsPage() {
     if (!file) return;
     try {
       await importProject(file);
-      refresh();
+      await refresh();
       showToast({ type: 'success', message: 'Project imported successfully.' });
     } catch (err) {
       console.error('Import failed:', err);
@@ -123,10 +133,10 @@ export default function ProjectsPage() {
     setRenameValue(p.name);
   };
 
-  const finishRename = (id) => {
-    if (renameValue.trim()) renameProject(id, renameValue.trim());
+  const finishRename = async (id) => {
+    if (renameValue.trim()) await renameProject(id, renameValue.trim());
     setRenamingId(null);
-    refresh();
+    await refresh();
   };
 
   return (
@@ -134,7 +144,7 @@ export default function ProjectsPage() {
       <div style={styles.container}>
         <header style={styles.header}>
           <div>
-            <h1 style={styles.title}>DEVPRO Wall Builder</h1>
+            <h1 style={styles.title}>DEVPRO Builder</h1>
             <p style={styles.subtitle}>SIP panel layout tool</p>
           </div>
           <nav style={{ display: 'flex', gap: 8 }} aria-label="Page actions">
