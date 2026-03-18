@@ -32,21 +32,29 @@ export default function RoofPlanView({ layout, roofName, projectName }) {
 
   const {
     type, length_mm, width_mm, pitch_deg,
-    eaveOverhang_mm, gableOverhang_mm, ridgeOffset_mm,
+    eaveOverhang_mm, eaveOverhangHigh_mm, eaveOverhangLow_mm,
+    gableOverhang_mm, ridgeOffset_mm,
     ridgeHeight, totalPanels,
     planeLayouts, penetrations,
     panelDirection,
   } = layout;
 
+  // Resolve high/low eave overhangs (skillion uses separate values, others symmetric)
+  const highEave = type === 'skillion' ? (eaveOverhangHigh_mm ?? eaveOverhang_mm) : eaveOverhang_mm;
+  const lowEave = type === 'skillion' ? (eaveOverhangLow_mm ?? eaveOverhang_mm) : eaveOverhang_mm;
+
   // ── Plan view dimensions ──
   const totalPlanW = type === 'flat' ? length_mm : length_mm + 2 * gableOverhang_mm;
-  const totalPlanH = type === 'flat' ? width_mm : width_mm + 2 * eaveOverhang_mm;
+  const totalPlanH = type === 'flat' ? width_mm : (type === 'skillion' ? width_mm + highEave + lowEave : width_mm + 2 * eaveOverhang_mm);
   const oxFoot = type === 'flat' ? 0 : gableOverhang_mm;
-  const oyFoot = type === 'flat' ? 0 : eaveOverhang_mm;
+  const oyFoot = type === 'flat' ? 0 : (type === 'skillion' ? highEave : eaveOverhang_mm);
 
   // ── Elevation dimensions (end view, looking along ridge) ──
-  const elevSpan = type === 'flat' ? width_mm : width_mm + 2 * eaveOverhang_mm;
-  const elevRiseRaw = type === 'flat' ? 300 : ridgeHeight + eaveOverhang_mm * Math.tan((pitch_deg * Math.PI) / 180);
+  const elevSpan = type === 'flat' ? width_mm : (type === 'skillion' ? width_mm + highEave + lowEave : width_mm + 2 * eaveOverhang_mm);
+  const tanPitchForElev = Math.tan((pitch_deg * Math.PI) / 180);
+  const elevRiseRaw = type === 'flat' ? 300 : (type === 'skillion'
+    ? ridgeHeight + highEave * tanPitchForElev
+    : ridgeHeight + eaveOverhang_mm * tanPitchForElev);
   const elevRise = Math.max(elevRiseRaw, 300);
 
   // ── Layout: plan on left, rotated elevation on right ──
@@ -97,7 +105,7 @@ export default function RoofPlanView({ layout, roofName, projectName }) {
           // For eave_to_ridge, panel X is the v projection
           ppx = type === 'gable'
             ? (pl.plane.index === 0 ? oxFoot + width_mm / 2 + ridgeOffset_mm - vPlan - lPlan : oxFoot + width_mm / 2 - ridgeOffset_mm + vPlan)
-            : (oyFoot + panel.v * cosPitch);
+            : (panel.v * cosPitch);
           ppw = lPlan;
         }
       }
@@ -140,7 +148,7 @@ export default function RoofPlanView({ layout, roofName, projectName }) {
         }
       } else {
         const cosPitch = Math.cos((pitch_deg * Math.PI) / 180);
-        if (panelDirection === 'along_ridge') { ppy = oyFoot + v * cosPitch; pph = pl2 * cosPitch; }
+        if (panelDirection === 'along_ridge') { ppy = v * cosPitch; pph = pl2 * cosPitch; }
         else { ppy = u; pph = pw; }
       }
       rowEdges.add(Math.round(ppy));
@@ -238,11 +246,11 @@ export default function RoofPlanView({ layout, roofName, projectName }) {
               const cosPitch = Math.cos((pitch_deg * Math.PI) / 180);
               if (panelDirection === 'along_ridge') {
                 ppx = u; ppw = pw;
-                ppy = oyFoot + v * cosPitch;
+                ppy = v * cosPitch;
                 pph = pl2 * cosPitch;
               } else {
                 ppy = u; pph = pw;
-                ppx = oxFoot + v * cosPitch;
+                ppx = v * cosPitch;
                 ppw = pl2 * cosPitch;
               }
             }
@@ -370,7 +378,7 @@ export default function RoofPlanView({ layout, roofName, projectName }) {
           End Elevation
         </text>
 
-        {renderElevation(type, width_mm, eaveOverhang_mm, ridgeOffset_mm, pitch_deg, ridgeHeight, ex, ey, es)}
+        {renderElevation(type, width_mm, eaveOverhang_mm, ridgeOffset_mm, pitch_deg, ridgeHeight, ex, ey, es, highEave, lowEave)}
 
         {/* Elevation span dimension (vertical, right side) */}
         <text
@@ -395,10 +403,10 @@ export default function RoofPlanView({ layout, roofName, projectName }) {
 /**
  * Render the end elevation profile (rotated 90° left).
  */
-function renderElevation(type, width_mm, eaveOverhang_mm, ridgeOffset_mm, pitch_deg, _ridgeHeight, ex, ey, es) {
+function renderElevation(type, width_mm, eaveOverhang_mm, ridgeOffset_mm, pitch_deg, _ridgeHeight, ex, ey, es, highEave, lowEave) {
   const pitchRad = (pitch_deg * Math.PI) / 180;
   const tanPitch = Math.tan(pitchRad);
-  const totalSpan = type === 'flat' ? width_mm : width_mm + 2 * eaveOverhang_mm;
+  const totalSpan = type === 'flat' ? width_mm : (type === 'skillion' ? width_mm + highEave + lowEave : width_mm + 2 * eaveOverhang_mm);
 
   if (type === 'gable') {
     const ridgeSpan = eaveOverhang_mm + width_mm / 2 + ridgeOffset_mm;
@@ -434,26 +442,30 @@ function renderElevation(type, width_mm, eaveOverhang_mm, ridgeOffset_mm, pitch_
   }
 
   if (type === 'skillion') {
+    // HIGH side at top (ey=0), LOW side at bottom (ey=totalSpan)
+    // Matches architectural convention: left=high in end elevation
     const highRise = width_mm * tanPitch;
-    const lowEaveRise = -(eaveOverhang_mm * tanPitch);
-    const highEaveRise = highRise + eaveOverhang_mm * tanPitch;
+    const lowEaveRise = -(lowEave * tanPitch);
+    const highEaveRise = highRise + highEave * tanPitch;
     const thickness = es(200);
 
     return (
       <g>
         <line x1={ex(0)} y1={ey(0)} x2={ex(0)} y2={ey(totalSpan)}
           stroke={COLORS.overhangStroke} strokeWidth={1} strokeDasharray="4,3" />
-        <line x1={ex(-20)} y1={ey(eaveOverhang_mm)} x2={ex(highRise * 0.5)} y2={ey(eaveOverhang_mm)}
+        {/* Wall ref lines: high wall at highEave from top, low wall at highEave + width */}
+        <line x1={ex(-20)} y1={ey(highEave)} x2={ex(highRise * 0.8)} y2={ey(highEave)}
           stroke={COLORS.footprintStroke} strokeWidth={1} strokeDasharray="3,3" />
-        <line x1={ex(-20)} y1={ey(eaveOverhang_mm + width_mm)} x2={ex(highRise * 0.8)} y2={ey(eaveOverhang_mm + width_mm)}
+        <line x1={ex(-20)} y1={ey(highEave + width_mm)} x2={ex(highRise * 0.5)} y2={ey(highEave + width_mm)}
           stroke={COLORS.footprintStroke} strokeWidth={1} strokeDasharray="3,3" />
-        <line x1={ex(lowEaveRise)} y1={ey(0)} x2={ex(highEaveRise)} y2={ey(totalSpan)}
+        {/* Slope line: high eave tip (top) → low eave tip (bottom) */}
+        <line x1={ex(highEaveRise)} y1={ey(0)} x2={ex(lowEaveRise)} y2={ey(totalSpan)}
           stroke={COLORS.roofStroke} strokeWidth={3} />
-        <line x1={ex(lowEaveRise) - thickness} y1={ey(0)} x2={ex(highEaveRise) - thickness} y2={ey(totalSpan)}
+        <line x1={ex(highEaveRise) - thickness} y1={ey(0)} x2={ex(lowEaveRise) - thickness} y2={ey(totalSpan)}
           stroke={COLORS.roofStroke} strokeWidth={1} strokeDasharray="4,3" />
-        <line x1={ex(lowEaveRise)} y1={ey(0)} x2={ex(lowEaveRise) - thickness} y2={ey(0)}
+        <line x1={ex(highEaveRise)} y1={ey(0)} x2={ex(highEaveRise) - thickness} y2={ey(0)}
           stroke={COLORS.roofStroke} strokeWidth={2} />
-        <line x1={ex(highEaveRise)} y1={ey(totalSpan)} x2={ex(highEaveRise) - thickness} y2={ey(totalSpan)}
+        <line x1={ex(lowEaveRise)} y1={ey(totalSpan)} x2={ex(lowEaveRise) - thickness} y2={ey(totalSpan)}
           stroke={COLORS.roofStroke} strokeWidth={2} />
         <text x={ex((lowEaveRise + highEaveRise) / 2) + 8} y={ey(totalSpan / 2)}
           textAnchor="start" fontSize={10} fontWeight={600} fill={NEUTRAL.text}>

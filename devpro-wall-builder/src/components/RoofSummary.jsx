@@ -23,7 +23,7 @@ export default function RoofSummary({ layout, roofName, projectName }) {
     type, length_mm, width_mm, pitch_deg, totalPanels, fullPanels, cutPanels,
     totalSplines, totalPlanArea, totalPanelArea, internalRoofArea,
     ridgeLength, ridgeHeight,
-    epsDepth, totalThickness, eaveOverhang_mm, gableOverhang_mm, planes,
+    epsDepth, totalThickness, eaveOverhang_mm, eaveOverhangHigh_mm, eaveOverhangLow_mm, gableOverhang_mm, planes,
     panels, splines, longSplineEps, shortSplineEps, splineTotal,
   } = layout;
 
@@ -80,7 +80,14 @@ export default function RoofSummary({ layout, roofName, projectName }) {
               <Row label="Planes" value={planes.length} />
               {ridgeLength > 0 && <Row label="Ridge Length" value={`${ridgeLength} mm`} />}
               {ridgeHeight > 0 && <Row label="Ridge Height" value={`${Math.round(ridgeHeight)} mm`} />}
-              {eaveOverhang_mm > 0 && <Row label="Eave Overhang" value={`${eaveOverhang_mm} mm`} />}
+              {type === 'skillion' ? (
+                <>
+                  {(eaveOverhangHigh_mm ?? eaveOverhang_mm) > 0 && <Row label="High-Side Eave" value={`${eaveOverhangHigh_mm ?? eaveOverhang_mm} mm`} />}
+                  {(eaveOverhangLow_mm ?? eaveOverhang_mm) > 0 && <Row label="Low-Side Eave" value={`${eaveOverhangLow_mm ?? eaveOverhang_mm} mm`} />}
+                </>
+              ) : (
+                eaveOverhang_mm > 0 && <Row label="Eave Overhang" value={`${eaveOverhang_mm} mm`} />
+              )}
               {gableOverhang_mm > 0 && <Row label="Gable Overhang" value={`${gableOverhang_mm} mm`} />}
             </tbody>
           </table>

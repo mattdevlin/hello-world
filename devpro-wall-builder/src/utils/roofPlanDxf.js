@@ -10,14 +10,18 @@ export function buildRoofPlanDxf(layout, roofName = '') {
   const d = createDrawing();
   const {
     type, length_mm, width_mm, pitch_deg,
-    eaveOverhang_mm, gableOverhang_mm, ridgeOffset_mm,
+    eaveOverhang_mm, eaveOverhangHigh_mm, eaveOverhangLow_mm,
+    gableOverhang_mm, ridgeOffset_mm,
     planeLayouts, penetrations, panelDirection,
   } = layout;
 
+  const highEave = type === 'skillion' ? (eaveOverhangHigh_mm ?? eaveOverhang_mm) : eaveOverhang_mm;
+  const lowEave = type === 'skillion' ? (eaveOverhangLow_mm ?? eaveOverhang_mm) : eaveOverhang_mm;
+
   const totalWidth = type === 'flat' ? length_mm : length_mm + 2 * gableOverhang_mm;
-  const totalHeight = type === 'flat' ? width_mm : width_mm + 2 * eaveOverhang_mm;
+  const totalHeight = type === 'flat' ? width_mm : (type === 'skillion' ? width_mm + highEave + lowEave : width_mm + 2 * eaveOverhang_mm);
   const oxFoot = type === 'flat' ? 0 : gableOverhang_mm;
-  const oyFoot = type === 'flat' ? 0 : eaveOverhang_mm;
+  const oyFoot = type === 'flat' ? 0 : (type === 'skillion' ? highEave : eaveOverhang_mm);
 
   // Footprint outline
   d.setActiveLayer('OUTLINE');
@@ -74,13 +78,14 @@ export function buildRoofPlanDxf(layout, roofName = '') {
           pw = lPlan;
         }
       } else {
+        // Skillion: v already covers full slope including overhangs, no offset needed
         if (panelDirection === 'along_ridge') {
           px = panel.u; pw = panel.width;
-          py = oyFoot + panel.v * cosPitch;
+          py = panel.v * cosPitch;
           ph = panel.length * cosPitch;
         } else {
           py = panel.u; ph = panel.width;
-          px = oxFoot + panel.v * cosPitch;
+          px = panel.v * cosPitch;
           pw = panel.length * cosPitch;
         }
       }

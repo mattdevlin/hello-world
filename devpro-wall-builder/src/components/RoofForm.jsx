@@ -50,6 +50,8 @@ function buildDefaultRoof(detectedType, projectWalls, projectFloors) {
     panelDirection: ROOF_PANEL_DIRECTIONS.ALONG_RIDGE,
     thickness: 'roof',
     eaveOverhang_mm: DEFAULT_EAVE_OVERHANG,
+    eaveOverhangHigh_mm: DEFAULT_EAVE_OVERHANG,
+    eaveOverhangLow_mm: DEFAULT_EAVE_OVERHANG,
     gableOverhang_mm: DEFAULT_GABLE_OVERHANG,
     boundaryJoistCount: 1,
     penetrations: [],
@@ -221,10 +223,23 @@ export default function RoofForm({ onCalculate, onChange, initialRoof, detectedT
       {/* Overhangs */}
       {roof.type !== 'flat' && (
         <div style={styles.row}>
-          <div style={styles.field}>
-            <label style={styles.label}>Eave Overhang mm</label>
-            <CalcInput value={roof.eaveOverhang_mm} onChange={v => updateField('eaveOverhang_mm', v)} style={styles.input} />
-          </div>
+          {roof.type === 'skillion' ? (
+            <>
+              <div style={styles.field}>
+                <label style={styles.label}>High-Side Eave Overhang mm</label>
+                <CalcInput value={roof.eaveOverhangHigh_mm ?? roof.eaveOverhang_mm ?? DEFAULT_EAVE_OVERHANG} onChange={v => updateField('eaveOverhangHigh_mm', v)} style={styles.input} />
+              </div>
+              <div style={styles.field}>
+                <label style={styles.label}>Low-Side Eave Overhang mm</label>
+                <CalcInput value={roof.eaveOverhangLow_mm ?? roof.eaveOverhang_mm ?? DEFAULT_EAVE_OVERHANG} onChange={v => updateField('eaveOverhangLow_mm', v)} style={styles.input} />
+              </div>
+            </>
+          ) : (
+            <div style={styles.field}>
+              <label style={styles.label}>Eave Overhang mm</label>
+              <CalcInput value={roof.eaveOverhang_mm} onChange={v => updateField('eaveOverhang_mm', v)} style={styles.input} />
+            </div>
+          )}
           <div style={styles.field}>
             <label style={styles.label}>Gable Overhang mm</label>
             <CalcInput value={roof.gableOverhang_mm} onChange={v => updateField('gableOverhang_mm', v)} style={styles.input} />

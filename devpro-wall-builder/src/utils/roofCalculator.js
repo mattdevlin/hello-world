@@ -41,6 +41,18 @@ export function detectRoofType(walls) {
 }
 
 /**
+ * Resolve high/low eave overhangs for skillion roofs.
+ * Falls back to the single eaveOverhang_mm for backward compat.
+ */
+export function resolveEaveOverhangs(roof) {
+  const eave = roof.eaveOverhang_mm ?? DEFAULT_EAVE_OVERHANG;
+  return {
+    highEave: roof.eaveOverhangHigh_mm ?? eave,
+    lowEave: roof.eaveOverhangLow_mm ?? eave,
+  };
+}
+
+/**
  * Compute the roof planes (1 or 2 rectangular UV planes) from a roof definition.
  *
  * Each plane has:
@@ -93,8 +105,9 @@ export function computeRoofPlanes(roof) {
       pitchDeg: pitch_deg,
     });
   } else if (type === ROOF_TYPES.SKILLION) {
-    // Single sloping plane — eave overhang on both high and low edges
-    const totalWidth = width_mm + 2 * eaveOverhang_mm;
+    // Single sloping plane — separate high/low eave overhangs
+    const { highEave, lowEave } = resolveEaveOverhangs(roof);
+    const totalWidth = width_mm + highEave + lowEave;
     const slopeLength = cosPitch > 0 ? totalWidth / cosPitch : totalWidth;
 
     planes.push({
@@ -105,6 +118,8 @@ export function computeRoofPlanes(roof) {
       planWidth: totalWidth,
       pitchDeg: pitch_deg,
       highEdge,
+      eaveOverhangHigh: highEave,
+      eaveOverhangLow: lowEave,
     });
   } else {
     // Flat / ceiling
@@ -398,10 +413,14 @@ export function calculateRoofLayout(roof, projectWalls = []) {
   const totalThickness = thicknessOption.total;
   const { longSplineEps, shortSplineEps, splineTotal } = thicknessOption;
 
+  // Resolve separate high/low eave overhangs for skillion
+  const { highEave: eaveOverhangHigh_mm, lowEave: eaveOverhangLow_mm } = resolveEaveOverhangs(roof);
+
   // Compute planes
   const resolvedRoof = {
     type, length_mm, width_mm, pitch_deg, ridgeOffset_mm,
     highEdge, eaveOverhang_mm, gableOverhang_mm,
+    eaveOverhangHigh_mm, eaveOverhangLow_mm,
   };
   const planes = computeRoofPlanes(resolvedRoof);
 
@@ -488,6 +507,8 @@ export function calculateRoofLayout(roof, projectWalls = []) {
     epsDepth,
     totalThickness,
     eaveOverhang_mm,
+    eaveOverhangHigh_mm,
+    eaveOverhangLow_mm,
     gableOverhang_mm,
     planes,
     planeLayouts,
