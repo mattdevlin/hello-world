@@ -9,15 +9,17 @@
  * Uses shelf-based bin packing with rotation to minimize slab count → block count.
  */
 
-import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH,
+import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, FLOOR_EPS_DEPTH, FLOOR_SPLINE_EPS_DEPTH,
   FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK,
+  REINFORCED_SPLINE_SLABS_PER_BLOCK,
   ROOF_EPS_DEPTH, ROOF_SPLINE_EPS_DEPTH,
   ROOF_PANEL_SLABS_PER_BLOCK, ROOF_SPLINE_SLABS_PER_BLOCK,
+  REINFORCED_SPLINE_EPS_WIDTH, REINFORCED_SPLINE_EPS_DEPTH,
   SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP, MAGBOARD } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
 import { calculateRoofLayout } from './roofCalculator.js';
-import { shelfPack, getEpsSegments } from './binPacking.js';
+import { shelfPack, getEpsSegments, harvestWasteStrips } from './binPacking.js';
 
 // ── Block dimensions ──
 export const EPS_BLOCK = {
@@ -289,21 +291,24 @@ export function extractFloorEpsPieces(layout, floorName = '') {
     }
   }
 
-  // Spline EPS pieces (170mm depth)
-  const splineEpsW = CONST_SPLINE_WIDTH - FLOOR_MAGBOARD * 2;
-  for (const s of [...reinforcedSplines, ...unreinforcedSplines]) {
+  // Unreinforced spline EPS pieces (150mm depth, 146mm wide)
+  const splineEpsW = CONST_SPLINE_WIDTH; // 146mm — full spline width, no magboard deduction for floor splines
+  for (const s of unreinforcedSplines) {
     if (s.length > 0) {
       pieces.push({
         width: splineEpsW,
         height: Math.round(s.length),
-        depth: FLOOR_SPLINE_DEPTH,
+        depth: FLOOR_SPLINE_EPS_DEPTH,
         label: 'Spline',
         floorName,
       });
     }
   }
 
-  return pieces;
+  // Reinforced splines — sum total linear mm (140mm × 142mm, flexible lengths)
+  const reinforcedSplineTotalMm = reinforcedSplines.reduce((sum, s) => sum + Math.round(s.length), 0);
+
+  return { pieces, reinforcedSplineTotalMm };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -323,15 +328,17 @@ export function computeProjectEpsBlocksWithFloors(walls, floors) {
   const floorPanelPieces = [];
   const floorSplinePieces = [];
   const perFloor = [];
+  let totalReinforcedMm = 0;
 
   for (const floor of floors) {
     const layout = calculateFloorLayout(floor);
     if (layout.error) continue;
-    const pieces = extractFloorEpsPieces(layout, floor.name);
+    const { pieces, reinforcedSplineTotalMm } = extractFloorEpsPieces(layout, floor.name);
     const panelP = pieces.filter(p => p.depth === FLOOR_EPS_DEPTH);
-    const splineP = pieces.filter(p => p.depth === FLOOR_SPLINE_DEPTH);
+    const splineP = pieces.filter(p => p.depth === FLOOR_SPLINE_EPS_DEPTH);
     floorPanelPieces.push(...panelP);
     floorSplinePieces.push(...splineP);
+    totalReinforcedMm += reinforcedSplineTotalMm;
     perFloor.push({
       floorName: floor.name,
       floorId: floor.id,
@@ -339,6 +346,7 @@ export function computeProjectEpsBlocksWithFloors(walls, floors) {
       splineCount: splineP.length,
       panelArea: panelP.reduce((s, p) => s + p.width * p.height, 0),
       splineArea: splineP.reduce((s, p) => s + p.width * p.height, 0),
+      reinforcedSplineMm: reinforcedSplineTotalMm,
     });
   }
 
@@ -359,10 +367,27 @@ export function computeProjectEpsBlocksWithFloors(walls, floors) {
   const fSplineTotalArea = floorSplineSlabs.length * slabArea;
 
   const floorPanelVolume = fPanelUsedArea * FLOOR_EPS_DEPTH;
-  const floorSplineVolume = fSplineUsedArea * FLOOR_SPLINE_DEPTH;
+  const floorSplineVolume = fSplineUsedArea * FLOOR_SPLINE_EPS_DEPTH;
+
+  // Reinforced spline waste harvesting from wall panel slabs (both 142mm thick)
+  const harvestedMm = harvestWasteStrips(wallResult.panelSlabs, REINFORCED_SPLINE_EPS_WIDTH, slabW, slabH);
+  const reinforcedSplineHarvestedMm = Math.min(harvestedMm, totalReinforcedMm);
+  const remainingMm = Math.max(0, totalReinforcedMm - harvestedMm);
+
+  // Extra 142mm slabs needed for remaining reinforced spline demand
+  const stripsPerSlab = Math.floor(slabH / REINFORCED_SPLINE_EPS_WIDTH);
+  const mmPerSlab = stripsPerSlab * slabW;
+  const reinforcedSplineExtraSlabs = remainingMm > 0 ? Math.ceil(remainingMm / mmPerSlab) : 0;
+
+  // Extra reinforced spline slabs get their own block count (142mm thick, same as wall panel)
+  const reinforcedSplineBlocks = reinforcedSplineExtraSlabs > 0
+    ? Math.ceil(reinforcedSplineExtraSlabs / REINFORCED_SPLINE_SLABS_PER_BLOCK) : 0;
+
+  const reinforcedSplineVolume = totalReinforcedMm * REINFORCED_SPLINE_EPS_WIDTH * REINFORCED_SPLINE_EPS_DEPTH;
 
   return {
     ...wallResult,
+    reinforcedSplineBlocks,
     // Floor additions
     floorPanelPieces,
     floorSplinePieces,
@@ -374,10 +399,14 @@ export function computeProjectEpsBlocksWithFloors(walls, floors) {
     floorSplineBlocks,
     floorPanelUtilization: fPanelTotalArea > 0 ? fPanelUsedArea / fPanelTotalArea : 0,
     floorSplineUtilization: fSplineTotalArea > 0 ? fSplineUsedArea / fSplineTotalArea : 0,
+    // Reinforced spline info
+    reinforcedSplineTotalMm: totalReinforcedMm,
+    reinforcedSplineHarvestedMm,
+    reinforcedSplineExtraSlabs,
     // Combined totals
-    totalBlocks: wallResult.panelBlocks + wallResult.splineBlocks + floorPanelBlocks + floorSplineBlocks,
+    totalBlocks: wallResult.panelBlocks + wallResult.splineBlocks + floorPanelBlocks + floorSplineBlocks + reinforcedSplineBlocks,
     totalPieces: wallResult.totalPieces + floorPanelPieces.length + floorSplinePieces.length,
-    totalVolumeM3: ((parseFloat(wallResult.totalVolumeM3) * 1e9 + floorPanelVolume + floorSplineVolume) / 1e9).toFixed(3),
+    totalVolumeM3: ((parseFloat(wallResult.totalVolumeM3) * 1e9 + floorPanelVolume + floorSplineVolume + reinforcedSplineVolume) / 1e9).toFixed(3),
     perFloor,
     hasFloors: true,
   };

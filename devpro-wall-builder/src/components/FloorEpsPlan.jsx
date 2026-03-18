@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import PrintButton from './PrintButton.jsx';
 import ZoomControls, { ZOOM_STEPS, DEFAULT_IDX } from './ZoomControls.jsx';
-import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, EPS_GAP } from '../utils/constants.js';
+import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_EPS_DEPTH, REINFORCED_SPLINE_EPS_DEPTH, EPS_GAP } from '../utils/constants.js';
 import { computeFloorEpsDeductions } from '../utils/floorEpsDeductions.js';
 
 const MARGIN = { top: 60, right: 40, bottom: 80, left: 60 };
@@ -80,7 +80,7 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
     <div ref={sectionRef} data-print-section style={{ background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e0e0e0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>
-          EPS Floor Plan — {floorName} ({FLOOR_EPS_DEPTH}mm panel / {FLOOR_SPLINE_DEPTH}mm spline)
+          EPS Floor Plan — {floorName} ({FLOOR_EPS_DEPTH}mm panel / {FLOOR_SPLINE_EPS_DEPTH}mm unreinf. / {REINFORCED_SPLINE_EPS_DEPTH}mm reinf.)
           {boundaryJoistCount > 1 && ` · ${boundaryJoistCount}× boundary joists`}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -186,13 +186,13 @@ export default function FloorEpsPlan({ layout, floorName, projectName }) {
         {reinforcedSplines.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <svg width={16} height={12}><rect x={1} y={1} width={14} height={10} fill="#90EE90" fillOpacity={0.4} stroke="#27ae60" strokeWidth={1} /></svg>
-            <span>Reinforced spline EPS ({FLOOR_SPLINE_DEPTH}mm)</span>
+            <span>Reinforced spline EPS ({REINFORCED_SPLINE_EPS_DEPTH}mm)</span>
           </div>
         )}
         {unreinforcedSplines.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <svg width={16} height={12}><rect x={1} y={1} width={14} height={10} fill="#90EE90" fillOpacity={0.2} stroke="#27ae60" strokeWidth={1} /></svg>
-            <span>Unreinforced spline EPS ({FLOOR_SPLINE_DEPTH}mm)</span>
+            <span>Unreinforced spline EPS ({FLOOR_SPLINE_EPS_DEPTH}mm)</span>
           </div>
         )}
         {openings.length > 0 && (

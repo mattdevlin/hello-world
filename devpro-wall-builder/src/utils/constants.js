@@ -14,10 +14,13 @@ export const ROOF_THICKNESS = 242;      // mm
 // Floor panel system
 export const FLOOR_EPS_DEPTH = 172;           // mm (192 - 2×10mm magboard)
 export const FLOOR_SPLINE_DEPTH = 170;        // mm
+export const REINFORCED_SPLINE_EPS_WIDTH = 140;  // mm — fits inside LGS C-section (150mm outer web)
+export const REINFORCED_SPLINE_EPS_DEPTH = 142;  // mm — same as wall panel EPS thickness
 export const FLOOR_SPLINE_EPS_DEPTH = 150;    // mm
 export const FLOOR_PLATE_DEPTH = 170;         // mm
 export const FLOOR_PANEL_SLABS_PER_BLOCK = 3; // 172×3 = 516mm from 630
-export const FLOOR_SPLINE_SLABS_PER_BLOCK = 3;// 170×3 = 510mm from 630
+export const FLOOR_SPLINE_SLABS_PER_BLOCK = 4;    // 150×4 = 600mm from 630 (unreinforced)
+export const REINFORCED_SPLINE_SLABS_PER_BLOCK = 4; // 142×4 = 568mm from 630 (reinforced, same as wall panel)
 export const DEFAULT_PERIMETER_PLATE_WIDTH = 45; // mm
 export const MIN_FLOOR_PANEL_WIDTH = 498;          // mm (332mm EPS + 2×83mm recess)
 export const FLOOR_EPS_RECESS = 83;                // mm EPS inset from panel edge

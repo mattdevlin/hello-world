@@ -169,3 +169,37 @@ export function getEpsSegments(panelLeft, panelRight, exclusions, epsGap) {
   if (cursor < segRight) segs.push([cursor, segRight]);
   return segs;
 }
+
+/**
+ * Compute how many linear mm of strips (stripWidth wide) can be harvested
+ * from waste areas on existing slabs.
+ *
+ * Checks two waste regions per slab:
+ * 1. Right-side remainder on each shelf (if wide enough for a strip)
+ * 2. Bottom waste below all shelves (if tall enough for a strip)
+ *
+ * @param {Array} slabs - packed slabs from shelfPack
+ * @param {number} stripWidth - width of strip to harvest (mm)
+ * @param {number} slabW - slab width (mm)
+ * @param {number} slabH - slab height (mm)
+ * @returns {number} total linear mm of harvestable strips
+ */
+export function harvestWasteStrips(slabs, stripWidth, slabW, slabH) {
+  let totalMm = 0;
+  for (const slab of slabs) {
+    let usedH = 0;
+    for (const shelf of slab.shelves) {
+      // Right-side shelf remainder: if wide enough, yields a strip of length = shelf.h
+      if (shelf.remainingW >= stripWidth) {
+        totalMm += shelf.h;
+      }
+      usedH += shelf.h;
+    }
+    // Bottom waste: if tall enough, yields strips across full slab width
+    const bottomH = slabH - usedH;
+    if (bottomH >= stripWidth) {
+      totalMm += slabW;
+    }
+  }
+  return totalMm;
+}

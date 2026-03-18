@@ -1,7 +1,8 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
 import StatCard from './StatCard.jsx';
-import { FLOOR_THICKNESS, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, SPLINE_WIDTH, MAGBOARD } from '../utils/constants.js';
+import { FLOOR_THICKNESS, FLOOR_EPS_DEPTH, FLOOR_SPLINE_EPS_DEPTH, SPLINE_WIDTH,
+  REINFORCED_SPLINE_EPS_WIDTH, REINFORCED_SPLINE_EPS_DEPTH } from '../utils/constants.js';
 
 function Row({ label, value }) {
   return (
@@ -28,15 +29,19 @@ export default function FloorSummary({ layout, floorName, projectName }) {
 
   // EPS volume estimate
   const panelEpsVol = panels.reduce((sum, p) => sum + p.width * p.length * FLOOR_EPS_DEPTH, 0);
-  const splineEpsW = SPLINE_WIDTH - MAGBOARD * 2;
-  const splineEpsVol = [...reinforcedSplines, ...unreinforcedSplines]
-    .reduce((sum, s) => sum + splineEpsW * s.length * FLOOR_SPLINE_DEPTH, 0);
+  const splineEpsW = SPLINE_WIDTH; // 146mm — full spline width, no magboard deduction for floor splines
+  const unreinforcedVol = unreinforcedSplines
+    .reduce((sum, s) => sum + splineEpsW * s.length * FLOOR_SPLINE_EPS_DEPTH, 0);
+  const reinforcedVol = reinforcedSplines
+    .reduce((sum, s) => sum + REINFORCED_SPLINE_EPS_WIDTH * s.length * REINFORCED_SPLINE_EPS_DEPTH, 0);
+  const splineEpsVol = unreinforcedVol + reinforcedVol;
   const totalEpsM3 = ((panelEpsVol + splineEpsVol) / 1e9).toFixed(3);
 
   // Glue area (both faces)
   const panelSA = panels.reduce((sum, p) => sum + p.width * p.length, 0);
-  const splineSA = [...reinforcedSplines, ...unreinforcedSplines]
-    .reduce((sum, s) => sum + splineEpsW * s.length, 0);
+  const unreinforcedSA = unreinforcedSplines.reduce((sum, s) => sum + splineEpsW * s.length, 0);
+  const reinforcedSA = reinforcedSplines.reduce((sum, s) => sum + REINFORCED_SPLINE_EPS_WIDTH * s.length, 0);
+  const splineSA = unreinforcedSA + reinforcedSA;
   const totalGlueM2 = ((panelSA + splineSA) * 2 / 1e6).toFixed(2);
 
   return (

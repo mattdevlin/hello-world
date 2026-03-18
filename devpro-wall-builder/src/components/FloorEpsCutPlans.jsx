@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import PrintButton from './PrintButton.jsx';
-import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH, SPLINE_WIDTH, MAGBOARD } from '../utils/constants.js';
+import { FLOOR_EPS_DEPTH, FLOOR_SPLINE_EPS_DEPTH, SPLINE_WIDTH,
+  REINFORCED_SPLINE_EPS_WIDTH, REINFORCED_SPLINE_EPS_DEPTH } from '../utils/constants.js';
 
 const CARD_W = 260;
 const CARD_H = 280;
@@ -14,7 +15,8 @@ export default function FloorEpsCutPlans({ layout, floorName, projectName }) {
   if (pieces.length === 0) return null;
 
   const panelPieces = pieces.filter(p => p.depth === FLOOR_EPS_DEPTH);
-  const splinePieces = pieces.filter(p => p.depth === FLOOR_SPLINE_DEPTH);
+  const splinePieces = pieces.filter(p => p.depth === FLOOR_SPLINE_EPS_DEPTH);
+  const reinforcedPieces = pieces.filter(p => p.depth === REINFORCED_SPLINE_EPS_DEPTH);
 
   return (
     <div ref={sectionRef} data-print-section style={{ background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e0e0e0' }}>
@@ -37,10 +39,21 @@ export default function FloorEpsCutPlans({ layout, floorName, projectName }) {
       {splinePieces.length > 0 && (
         <>
           <div style={{ fontSize: 12, fontWeight: 600, color: '#666', marginBottom: 8, textTransform: 'uppercase' }}>
-            Spline EPS ({FLOOR_SPLINE_DEPTH}mm) — {splinePieces.length} pieces
+            Spline EPS ({FLOOR_SPLINE_EPS_DEPTH}mm, unreinforced) — {splinePieces.length} pieces
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: reinforcedPieces.length > 0 ? 16 : 0 }}>
+            {splinePieces.map((piece, i) => <RectCard key={`s${i}`} piece={piece} />)}
+          </div>
+        </>
+      )}
+
+      {reinforcedPieces.length > 0 && (
+        <>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#666', marginBottom: 8, textTransform: 'uppercase' }}>
+            Reinforced Spline EPS ({REINFORCED_SPLINE_EPS_DEPTH}mm) — {reinforcedPieces.length} pieces
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {splinePieces.map((piece, i) => <RectCard key={`s${i}`} piece={piece} />)}
+            {reinforcedPieces.map((piece, i) => <RectCard key={`r${i}`} piece={piece} />)}
           </div>
         </>
       )}
@@ -82,7 +95,7 @@ function RectCard({ piece }) {
  */
 function extractFloorEpsPiecesList(layout, floorName) {
   const pieces = [];
-  const { panels, reinforcedSplines, unreinforcedSplines } = layout;
+  const { panels, reinforcedSplines = [], unreinforcedSplines = [] } = layout;
 
   // Panel EPS pieces
   for (const panel of panels) {
@@ -97,14 +110,25 @@ function extractFloorEpsPiecesList(layout, floorName) {
     }
   }
 
-  // Spline EPS pieces
-  const splineEpsW = SPLINE_WIDTH - MAGBOARD * 2;
-  for (const s of [...reinforcedSplines, ...unreinforcedSplines]) {
+  // Unreinforced spline EPS pieces (146mm × 150mm)
+  const splineEpsW = SPLINE_WIDTH; // 146mm — full spline width, no magboard deduction
+  for (const s of unreinforcedSplines) {
     pieces.push({
       width: splineEpsW,
       height: Math.round(s.length),
-      depth: FLOOR_SPLINE_DEPTH,
-      label: `Spline`,
+      depth: FLOOR_SPLINE_EPS_DEPTH,
+      label: 'Spline',
+      floorName,
+    });
+  }
+
+  // Reinforced spline EPS pieces (140mm × 142mm)
+  for (const s of reinforcedSplines) {
+    pieces.push({
+      width: REINFORCED_SPLINE_EPS_WIDTH,
+      height: Math.round(s.length),
+      depth: REINFORCED_SPLINE_EPS_DEPTH,
+      label: 'R.Spline',
       floorName,
     });
   }

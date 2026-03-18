@@ -1,6 +1,8 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
 import { computeProjectEpsBlocks, computeProjectEpsBlocksWithFloors, computeProjectEpsBlocksWithRoofs, EPS_BLOCK, PANEL_SLABS_PER_BLOCK, SPLINE_SLABS_PER_BLOCK } from '../utils/epsOptimizer.js';
-import { FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK, FLOOR_EPS_DEPTH, FLOOR_SPLINE_DEPTH } from '../utils/constants.js';
+import { FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK, FLOOR_EPS_DEPTH, FLOOR_SPLINE_EPS_DEPTH,
+  REINFORCED_SPLINE_EPS_WIDTH, REINFORCED_SPLINE_EPS_DEPTH,
+  ROOF_EPS_DEPTH, ROOF_SPLINE_EPS_DEPTH } from '../utils/constants.js';
 import { exportWallEpsCsv, exportAllWallsEpsCsv } from '../utils/epsSpreadsheetExport.js';
 
 const EpsBlockViewer3D = lazy(() => import('./EpsBlockViewer3D.jsx'));
@@ -37,6 +39,7 @@ export default function EpsBlockSummary({ walls, floors, roofs, projectName }) {
           <span style={styles.subtitle}>
             {totalPieces} pieces across {walls.length} wall{walls.length !== 1 ? 's' : ''}
             {result.hasFloors && result.perFloor?.length > 0 && ` + ${result.perFloor.length} floor${result.perFloor.length !== 1 ? 's' : ''}`}
+            {result.hasRoofs && result.perRoof?.length > 0 && ` + ${result.perRoof.length} roof${result.perRoof.length !== 1 ? 's' : ''}`}
           </span>
         </div>
         <div style={styles.headerRight}>
@@ -126,12 +129,61 @@ export default function EpsBlockSummary({ walls, floors, roofs, projectName }) {
                       </td>
                     </tr>
                     <tr style={styles.evenRow}>
-                      <td style={styles.td}>Floor Spline EPS ({FLOOR_SPLINE_DEPTH}mm)</td>
+                      <td style={styles.td}>Floor Spline EPS ({FLOOR_SPLINE_EPS_DEPTH}mm, unreinforced)</td>
                       <td style={{ ...styles.td, textAlign: 'right' }}>{result.floorSplinePieces?.length || 0}</td>
                       <td style={{ ...styles.td, textAlign: 'right' }}>{result.floorSplineSlabCount || 0}</td>
                       <td style={{ ...styles.td, textAlign: 'right' }}>{result.floorSplineBlocks || 0}</td>
                       <td style={{ ...styles.td, textAlign: 'right' }}>
                         <UtilBar pct={result.floorSplineUtilization || 0} />
+                      </td>
+                    </tr>
+                    {(result.reinforcedSplineTotalMm || 0) > 0 && (
+                      <tr>
+                        <td style={styles.td}>
+                          Reinforced Spline EPS ({REINFORCED_SPLINE_EPS_DEPTH}mm)
+                          <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>
+                            {REINFORCED_SPLINE_EPS_WIDTH}mm wide — shares wall panel blocks
+                          </div>
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>
+                          {(result.reinforcedSplineTotalMm / 1000).toFixed(1)}m
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>
+                          <span style={{ fontSize: 11, color: '#27ae60' }}>
+                            {(result.reinforcedSplineHarvestedMm / 1000).toFixed(1)}m from waste
+                          </span>
+                          {result.reinforcedSplineExtraSlabs > 0 && (
+                            <div style={{ fontSize: 11, color: '#888' }}>
+                              +{result.reinforcedSplineExtraSlabs} extra slab{result.reinforcedSplineExtraSlabs !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontSize: 11, color: '#888' }}>
+                          incl. above
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>—</td>
+                      </tr>
+                    )}
+                  </>
+                )}
+                {result.hasRoofs && (
+                  <>
+                    <tr>
+                      <td style={styles.td}>Roof Panel EPS ({ROOF_EPS_DEPTH}mm)</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{result.roofPanelPieces?.length || 0}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{result.roofPanelSlabCount || 0}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{result.roofPanelBlocks || 0}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>
+                        <UtilBar pct={result.roofPanelUtilization || 0} />
+                      </td>
+                    </tr>
+                    <tr style={styles.evenRow}>
+                      <td style={styles.td}>Roof Spline EPS ({ROOF_SPLINE_EPS_DEPTH}mm)</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{result.roofSplinePieces?.length || 0}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{result.roofSplineSlabCount || 0}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{result.roofSplineBlocks || 0}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>
+                        <UtilBar pct={result.roofSplineUtilization || 0} />
                       </td>
                     </tr>
                   </>
@@ -202,6 +254,35 @@ export default function EpsBlockSummary({ walls, floors, roofs, projectName }) {
                       <td style={{ ...styles.td, textAlign: 'right' }}>{(f.panelArea / 1e6).toFixed(2)} m²</td>
                       <td style={{ ...styles.td, textAlign: 'right' }}>{f.splineCount}</td>
                       <td style={{ ...styles.td, textAlign: 'right' }}>{(f.splineArea / 1e6).toFixed(2)} m²</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Per-roof breakdown */}
+          {result.hasRoofs && result.perRoof?.length > 0 && (
+            <div style={styles.section}>
+              <div style={styles.sectionLabel}>Per-Roof Breakdown</div>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Roof</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Panel Pieces</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Panel Area</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Spline Pieces</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Spline Area</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.perRoof.map((r, i) => (
+                    <tr key={r.roofId} style={i % 2 === 0 ? styles.evenRow : undefined}>
+                      <td style={{ ...styles.td, fontWeight: 600 }}>{r.roofName}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{r.panelCount}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{(r.panelArea / 1e6).toFixed(2)} m²</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{r.splineCount}</td>
+                      <td style={{ ...styles.td, textAlign: 'right' }}>{(r.splineArea / 1e6).toFixed(2)} m²</td>
                     </tr>
                   ))}
                 </tbody>
