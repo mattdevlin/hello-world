@@ -1,0 +1,1857 @@
+{
+  "_meta": {
+    "standard": "NZS 3604:2011",
+    "grade": "SG8",
+    "engine_version": "0.1.0"
+  },
+  "site": {
+    "wind_zone": "M",
+    "eq_zone": 1,
+    "soil_type": "C",
+    "wind_region": "A",
+    "territorial_authority": "Whangarei District"
+  },
+  "bracing_design": {
+    "wind_zone": "M",
+    "wind_multiplier": 0.7,
+    "eq_zone": 1,
+    "eq_factor": 0.4,
+    "soil_type": "C",
+    "storeys": [
+      {
+        "level": "Ground Floor",
+        "storey_type": "single_upper",
+        "wind_bracing": {
+          "across_bu_per_m": 0,
+          "along_bu_per_m": 0,
+          "across_total_bu": 0.0,
+          "along_total_bu": 0.0
+        },
+        "eq_bracing": {
+          "bu_per_m2": 6.0,
+          "total_bu": 0.0
+        },
+        "governing": {
+          "across_bu": 0.0,
+          "along_bu": 0.0,
+          "controlled_by_across": "wind",
+          "controlled_by_along": "wind"
+        }
+      }
+    ]
+  },
+  "levels": [
+    {
+      "level_name": "Ground Floor",
+      "is_top_storey": true,
+      "walls": [
+        {
+          "wall_name": "Front Wall (North)",
+          "wall_type": "external_loadbearing",
+          "position": "sot",
+          "loaded_dim_m": 2.0,
+          "stud": {
+            "size": "90x45",
+            "spacing": 600,
+            "height_m": 2.7,
+            "table_ref": "Table 8.2"
+          },
+          "top_plate": {
+            "size": "90x45",
+            "joint_location": "anywhere",
+            "max_loaded_dim": 6.0,
+            "table_ref": "Table 8.16"
+          },
+          "bottom_plate": {
+            "size": "90x45",
+            "max_loaded_dim": 6.0,
+            "table_ref": "Table 8.17"
+          },
+          "dwang_positions_mm": [
+            1200,
+            1350,
+            2400
+          ],
+          "dwang_size": "90x45",
+          "openings": [
+            {
+              "opening_ref": "O1",
+              "opening_type": "window",
+              "width_mm": 1800,
+              "height_mm": 1200,
+              "span_m": 1.8,
+              "lintel": {
+                "size": "140x70",
+                "quantity": 1,
+                "specification": "140x70 SG8",
+                "max_span_m": 2.0,
+                "load_case": "roof_only",
+                "table_ref": "Table 8.9"
+              },
+              "lintel_fixing": {
+                "fixing_type": "F (no uplift)",
+                "no_uplift_max_span": 2.4,
+                "uplift_max_span": 5.0,
+                "table_ref": "Table 8.14"
+              },
+              "jamb_studs": {
+                "size": "90x45",
+                "quantity": 2,
+                "specification": "2/90x45 SG8 (one each side)",
+                "note": "Full-height studs at opening jambs per S8.6"
+              },
+              "trimmer_studs": {
+                "size": "90x45",
+                "count_per_side": 1,
+                "total_count": 2,
+                "specification": "90x45 SG8 each side",
+                "required_thickness_mm": 45,
+                "table_ref": "Table 8.5"
+              },
+              "head_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member above opening head"
+              },
+              "sill_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member under window sill"
+              },
+              "cripple_studs_below_sill": {
+                "size": "90x45",
+                "quantity": 2,
+                "length_mm": 1300,
+                "specification": "2/90x45 SG8 @ 600mm crs",
+                "note": "Short studs below window sill, 1300mm long"
+              },
+              "cripple_studs_above_head": {
+                "size": "90x45",
+                "quantity": 2,
+                "length_mm": 200,
+                "specification": "2/90x45 SG8 @ 600mm crs",
+                "note": "Short studs above lintel, 200mm long"
+              },
+              "total_pieces": 11
+            },
+            {
+              "opening_ref": "O1",
+              "opening_type": "window",
+              "width_mm": 1200,
+              "height_mm": 1200,
+              "span_m": 1.2,
+              "lintel": {
+                "size": "90x70",
+                "quantity": 1,
+                "specification": "90x70 SG8",
+                "max_span_m": 1.2,
+                "load_case": "roof_only",
+                "table_ref": "Table 8.9"
+              },
+              "lintel_fixing": {
+                "fixing_type": "F (no uplift)",
+                "no_uplift_max_span": 2.4,
+                "uplift_max_span": 5.0,
+                "table_ref": "Table 8.14"
+              },
+              "jamb_studs": {
+                "size": "90x45",
+                "quantity": 2,
+                "specification": "2/90x45 SG8 (one each side)",
+                "note": "Full-height studs at opening jambs per S8.6"
+              },
+              "trimmer_studs": {
+                "size": "90x45",
+                "count_per_side": 1,
+                "total_count": 2,
+                "specification": "90x45 SG8 each side",
+                "required_thickness_mm": 45,
+                "table_ref": "Table 8.5"
+              },
+              "head_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member above opening head"
+              },
+              "sill_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member under window sill"
+              },
+              "cripple_studs_below_sill": {
+                "size": "90x45",
+                "quantity": 1,
+                "length_mm": 1300,
+                "specification": "1/90x45 SG8 @ 600mm crs",
+                "note": "Short studs below window sill, 1300mm long"
+              },
+              "cripple_studs_above_head": {
+                "size": "90x45",
+                "quantity": 1,
+                "length_mm": 200,
+                "specification": "1/90x45 SG8 @ 600mm crs",
+                "note": "Short studs above lintel, 200mm long"
+              },
+              "total_pieces": 9
+            },
+            {
+              "opening_ref": "O1",
+              "opening_type": "door",
+              "width_mm": 900,
+              "height_mm": 2100,
+              "span_m": 0.9,
+              "lintel": {
+                "size": "90x70",
+                "quantity": 1,
+                "specification": "90x70 SG8",
+                "max_span_m": 1.2,
+                "load_case": "roof_only",
+                "table_ref": "Table 8.9"
+              },
+              "lintel_fixing": {
+                "fixing_type": "F (no uplift)",
+                "no_uplift_max_span": 2.4,
+                "uplift_max_span": 5.0,
+                "table_ref": "Table 8.14"
+              },
+              "jamb_studs": {
+                "size": "90x45",
+                "quantity": 2,
+                "specification": "2/90x45 SG8 (one each side)",
+                "note": "Full-height studs at opening jambs per S8.6"
+              },
+              "trimmer_studs": {
+                "size": "90x45",
+                "count_per_side": 1,
+                "total_count": 2,
+                "specification": "90x45 SG8 each side",
+                "required_thickness_mm": 45,
+                "table_ref": "Table 8.5"
+              },
+              "head_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member above opening head"
+              },
+              "cripple_studs_above_head": null,
+              "total_pieces": 6
+            }
+          ],
+          "estimated_studs": 27,
+          "wall_length_mm": 12000,
+          "height_mm": 2700
+        },
+        {
+          "wall_name": "Rear Wall (South)",
+          "wall_type": "external_loadbearing",
+          "position": "sot",
+          "loaded_dim_m": 2.0,
+          "stud": {
+            "size": "90x45",
+            "spacing": 600,
+            "height_m": 2.7,
+            "table_ref": "Table 8.2"
+          },
+          "top_plate": {
+            "size": "90x45",
+            "joint_location": "anywhere",
+            "max_loaded_dim": 6.0,
+            "table_ref": "Table 8.16"
+          },
+          "bottom_plate": {
+            "size": "90x45",
+            "max_loaded_dim": 6.0,
+            "table_ref": "Table 8.17"
+          },
+          "dwang_positions_mm": [
+            1200,
+            1350,
+            2400
+          ],
+          "dwang_size": "90x45",
+          "openings": [
+            {
+              "opening_ref": "O1",
+              "opening_type": "window",
+              "width_mm": 2400,
+              "height_mm": 1200,
+              "span_m": 2.4,
+              "lintel": {
+                "size": "190x70",
+                "quantity": 1,
+                "specification": "190x70 SG8",
+                "max_span_m": 2.7,
+                "load_case": "roof_only",
+                "table_ref": "Table 8.9"
+              },
+              "lintel_fixing": {
+                "fixing_type": "F (no uplift)",
+                "no_uplift_max_span": 2.4,
+                "uplift_max_span": 5.0,
+                "table_ref": "Table 8.14"
+              },
+              "jamb_studs": {
+                "size": "90x45",
+                "quantity": 2,
+                "specification": "2/90x45 SG8 (one each side)",
+                "note": "Full-height studs at opening jambs per S8.6"
+              },
+              "trimmer_studs": {
+                "size": "90x45",
+                "count_per_side": 2,
+                "total_count": 4,
+                "specification": "2/90x45 SG8 each side",
+                "required_thickness_mm": 70,
+                "table_ref": "Table 8.5"
+              },
+              "head_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member above opening head"
+              },
+              "sill_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member under window sill"
+              },
+              "cripple_studs_below_sill": {
+                "size": "90x45",
+                "quantity": 3,
+                "length_mm": 1300,
+                "specification": "3/90x45 SG8 @ 600mm crs",
+                "note": "Short studs below window sill, 1300mm long"
+              },
+              "cripple_studs_above_head": {
+                "size": "90x45",
+                "quantity": 3,
+                "length_mm": 200,
+                "specification": "3/90x45 SG8 @ 600mm crs",
+                "note": "Short studs above lintel, 200mm long"
+              },
+              "total_pieces": 15
+            },
+            {
+              "opening_ref": "O1",
+              "opening_type": "door",
+              "width_mm": 1800,
+              "height_mm": 2100,
+              "span_m": 1.8,
+              "lintel": {
+                "size": "140x70",
+                "quantity": 1,
+                "specification": "140x70 SG8",
+                "max_span_m": 2.0,
+                "load_case": "roof_only",
+                "table_ref": "Table 8.9"
+              },
+              "lintel_fixing": {
+                "fixing_type": "F (no uplift)",
+                "no_uplift_max_span": 2.4,
+                "uplift_max_span": 5.0,
+                "table_ref": "Table 8.14"
+              },
+              "jamb_studs": {
+                "size": "90x45",
+                "quantity": 2,
+                "specification": "2/90x45 SG8 (one each side)",
+                "note": "Full-height studs at opening jambs per S8.6"
+              },
+              "trimmer_studs": {
+                "size": "90x45",
+                "count_per_side": 1,
+                "total_count": 2,
+                "specification": "90x45 SG8 each side",
+                "required_thickness_mm": 45,
+                "table_ref": "Table 8.5"
+              },
+              "head_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member above opening head"
+              },
+              "cripple_studs_above_head": {
+                "size": "90x45",
+                "quantity": 2,
+                "length_mm": 600,
+                "specification": "2/90x45 SG8 @ 600mm crs",
+                "note": "Short studs above lintel, 600mm long"
+              },
+              "total_pieces": 8
+            }
+          ],
+          "estimated_studs": 25,
+          "wall_length_mm": 12000,
+          "height_mm": 2700
+        },
+        {
+          "wall_name": "Left Wall (West)",
+          "wall_type": "external_loadbearing",
+          "position": "sot",
+          "loaded_dim_m": 2.0,
+          "stud": {
+            "size": "90x45",
+            "spacing": 600,
+            "height_m": 2.7,
+            "table_ref": "Table 8.2"
+          },
+          "top_plate": {
+            "size": "90x45",
+            "joint_location": "anywhere",
+            "max_loaded_dim": 6.0,
+            "table_ref": "Table 8.16"
+          },
+          "bottom_plate": {
+            "size": "90x45",
+            "max_loaded_dim": 6.0,
+            "table_ref": "Table 8.17"
+          },
+          "dwang_positions_mm": [
+            1200,
+            1350,
+            2400
+          ],
+          "dwang_size": "90x45",
+          "openings": [
+            {
+              "opening_ref": "O1",
+              "opening_type": "window",
+              "width_mm": 1200,
+              "height_mm": 1200,
+              "span_m": 1.2,
+              "lintel": {
+                "size": "90x70",
+                "quantity": 1,
+                "specification": "90x70 SG8",
+                "max_span_m": 1.2,
+                "load_case": "roof_only",
+                "table_ref": "Table 8.9"
+              },
+              "lintel_fixing": {
+                "fixing_type": "F (no uplift)",
+                "no_uplift_max_span": 2.4,
+                "uplift_max_span": 5.0,
+                "table_ref": "Table 8.14"
+              },
+              "jamb_studs": {
+                "size": "90x45",
+                "quantity": 2,
+                "specification": "2/90x45 SG8 (one each side)",
+                "note": "Full-height studs at opening jambs per S8.6"
+              },
+              "trimmer_studs": {
+                "size": "90x45",
+                "count_per_side": 1,
+                "total_count": 2,
+                "specification": "90x45 SG8 each side",
+                "required_thickness_mm": 45,
+                "table_ref": "Table 8.5"
+              },
+              "head_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member above opening head"
+              },
+              "sill_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member under window sill"
+              },
+              "cripple_studs_below_sill": {
+                "size": "90x45",
+                "quantity": 1,
+                "length_mm": 1300,
+                "specification": "1/90x45 SG8 @ 600mm crs",
+                "note": "Short studs below window sill, 1300mm long"
+              },
+              "cripple_studs_above_head": {
+                "size": "90x45",
+                "quantity": 1,
+                "length_mm": 200,
+                "specification": "1/90x45 SG8 @ 600mm crs",
+                "note": "Short studs above lintel, 200mm long"
+              },
+              "total_pieces": 9
+            }
+          ],
+          "estimated_studs": 17,
+          "wall_length_mm": 8000,
+          "height_mm": 2700
+        },
+        {
+          "wall_name": "Right Wall (East)",
+          "wall_type": "external_loadbearing",
+          "position": "sot",
+          "loaded_dim_m": 2.0,
+          "stud": {
+            "size": "90x45",
+            "spacing": 600,
+            "height_m": 2.7,
+            "table_ref": "Table 8.2"
+          },
+          "top_plate": {
+            "size": "90x45",
+            "joint_location": "anywhere",
+            "max_loaded_dim": 6.0,
+            "table_ref": "Table 8.16"
+          },
+          "bottom_plate": {
+            "size": "90x45",
+            "max_loaded_dim": 6.0,
+            "table_ref": "Table 8.17"
+          },
+          "dwang_positions_mm": [
+            1200,
+            1350,
+            2400
+          ],
+          "dwang_size": "90x45",
+          "openings": [
+            {
+              "opening_ref": "O1",
+              "opening_type": "window",
+              "width_mm": 1200,
+              "height_mm": 1200,
+              "span_m": 1.2,
+              "lintel": {
+                "size": "90x70",
+                "quantity": 1,
+                "specification": "90x70 SG8",
+                "max_span_m": 1.2,
+                "load_case": "roof_only",
+                "table_ref": "Table 8.9"
+              },
+              "lintel_fixing": {
+                "fixing_type": "F (no uplift)",
+                "no_uplift_max_span": 2.4,
+                "uplift_max_span": 5.0,
+                "table_ref": "Table 8.14"
+              },
+              "jamb_studs": {
+                "size": "90x45",
+                "quantity": 2,
+                "specification": "2/90x45 SG8 (one each side)",
+                "note": "Full-height studs at opening jambs per S8.6"
+              },
+              "trimmer_studs": {
+                "size": "90x45",
+                "count_per_side": 1,
+                "total_count": 2,
+                "specification": "90x45 SG8 each side",
+                "required_thickness_mm": 45,
+                "table_ref": "Table 8.5"
+              },
+              "head_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member above opening head"
+              },
+              "sill_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member under window sill"
+              },
+              "cripple_studs_below_sill": {
+                "size": "90x45",
+                "quantity": 1,
+                "length_mm": 1300,
+                "specification": "1/90x45 SG8 @ 600mm crs",
+                "note": "Short studs below window sill, 1300mm long"
+              },
+              "cripple_studs_above_head": {
+                "size": "90x45",
+                "quantity": 1,
+                "length_mm": 200,
+                "specification": "1/90x45 SG8 @ 600mm crs",
+                "note": "Short studs above lintel, 200mm long"
+              },
+              "total_pieces": 9
+            },
+            {
+              "opening_ref": "O1",
+              "opening_type": "door",
+              "width_mm": 900,
+              "height_mm": 2100,
+              "span_m": 0.9,
+              "lintel": {
+                "size": "90x70",
+                "quantity": 1,
+                "specification": "90x70 SG8",
+                "max_span_m": 1.2,
+                "load_case": "roof_only",
+                "table_ref": "Table 8.9"
+              },
+              "lintel_fixing": {
+                "fixing_type": "F (no uplift)",
+                "no_uplift_max_span": 2.4,
+                "uplift_max_span": 5.0,
+                "table_ref": "Table 8.14"
+              },
+              "jamb_studs": {
+                "size": "90x45",
+                "quantity": 2,
+                "specification": "2/90x45 SG8 (one each side)",
+                "note": "Full-height studs at opening jambs per S8.6"
+              },
+              "trimmer_studs": {
+                "size": "90x45",
+                "count_per_side": 1,
+                "total_count": 2,
+                "specification": "90x45 SG8 each side",
+                "required_thickness_mm": 45,
+                "table_ref": "Table 8.5"
+              },
+              "head_trimmer": {
+                "size": "90x45",
+                "quantity": 1,
+                "specification": "90x45 SG8",
+                "table_ref": "Table 8.15",
+                "note": "Horizontal member above opening head"
+              },
+              "cripple_studs_above_head": null,
+              "total_pieces": 6
+            }
+          ],
+          "estimated_studs": 19,
+          "wall_length_mm": 8000,
+          "height_mm": 2700
+        }
+      ],
+      "floor": {
+        "type": "suspended_timber",
+        "zones": [
+          {
+            "zone": "Main",
+            "joist": {
+              "size": "240x45",
+              "spacing": 450,
+              "max_span_m": 4.3,
+              "ref": "NZS 3604 Table 7.1"
+            },
+            "bearer": {
+              "size": "140x70",
+              "bearer_span_m": 1.65,
+              "max_loaded_dim_m": 2.2,
+              "ref": "NZS 3604 Table 6.4"
+            },
+            "flooring": {
+              "strip": {
+                "min_thickness_mm": {
+                  "A": 19,
+                  "B": 16
+                },
+                "ref": "NZS 3604 Table 7.3"
+              },
+              "plywood": {
+                "min_thickness_mm": 15,
+                "ref": "NZS 3604 Table 7.4"
+              }
+            },
+            "pile_footing": {
+              "square_mm": 300,
+              "circular_mm": 340,
+              "ref": "NZS 3604 Table 6.1"
+            }
+          }
+        ],
+        "ref": "NZS 3604 Sections 6 & 7"
+      },
+      "roof": {
+        "roof_form": "gable",
+        "pitch": 22.5,
+        "rafter": {
+          "size": "190x45",
+          "spacing": 600,
+          "max_span_m": 4.29,
+          "fixing": "E",
+          "zone_multiplier": 1.3,
+          "ref": "NZS 3604 Table 10.1"
+        },
+        "ceiling_joist": {
+          "size": "190x45",
+          "spacing": 600,
+          "max_span_m": 4.6,
+          "ref": "NZS 3604 Table 10.3"
+        },
+        "purlins": {
+          "ref": "NZS 3604 Tables 10.10/10.11",
+          "flat": [
+            {
+              "size": "70x45",
+              "orientation": "flat",
+              "max_purlin_spacing_mm": 1800,
+              "fixing": "U",
+              "max_rafter_spacing_mm": 900
+            },
+            {
+              "size": "90x45",
+              "orientation": "flat",
+              "max_purlin_spacing_mm": 1450,
+              "fixing": "U",
+              "max_rafter_spacing_mm": 1200
+            }
+          ],
+          "edge": [
+            {
+              "size": "140x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 600,
+              "max_span_m": 2.6,
+              "fixing": "E"
+            },
+            {
+              "size": "140x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 900,
+              "max_span_m": 2.2,
+              "fixing": "E"
+            },
+            {
+              "size": "140x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 1200,
+              "max_span_m": 2.0,
+              "fixing": "F"
+            },
+            {
+              "size": "140x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 1800,
+              "max_span_m": 1.7,
+              "fixing": "E"
+            },
+            {
+              "size": "190x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 600,
+              "max_span_m": 3.5,
+              "fixing": "E"
+            },
+            {
+              "size": "190x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 900,
+              "max_span_m": 3.1,
+              "fixing": "F"
+            },
+            {
+              "size": "190x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 1200,
+              "max_span_m": 2.8,
+              "fixing": "F"
+            },
+            {
+              "size": "190x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 1800,
+              "max_span_m": 2.4,
+              "fixing": "F"
+            },
+            {
+              "size": "240x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 600,
+              "max_span_m": 4.4,
+              "fixing": "F"
+            },
+            {
+              "size": "240x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 900,
+              "max_span_m": 3.9,
+              "fixing": "F"
+            },
+            {
+              "size": "240x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 1200,
+              "max_span_m": 3.5,
+              "fixing": "F"
+            },
+            {
+              "size": "240x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 1800,
+              "max_span_m": 3.0,
+              "fixing": "SED"
+            },
+            {
+              "size": "290x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 600,
+              "max_span_m": 5.4,
+              "fixing": "E"
+            },
+            {
+              "size": "290x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 900,
+              "max_span_m": 4.7,
+              "fixing": "F"
+            },
+            {
+              "size": "290x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 1200,
+              "max_span_m": 4.1,
+              "fixing": "SED"
+            },
+            {
+              "size": "290x45",
+              "orientation": "edge",
+              "purlin_spacing_mm": 1800,
+              "max_span_m": 3.4,
+              "fixing": "SED"
+            }
+          ]
+        },
+        "truss_fixing": {
+          "fixing_type": "E",
+          "ref": "NZS 3604 Table 10.14"
+        },
+        "roof_bracing": {
+          "system": {
+            "roof_plane_brace": "one per 50m2",
+            "roof_space_brace": "continuous"
+          },
+          "diagonal_braces": {
+            "_ref": "Table 10.17",
+            "90x45": {
+              "max_length_m": 1.85
+            },
+            "2x90x45_spaced": {
+              "max_length_m": 4.8
+            }
+          },
+          "ref": "NZS 3604 Tables 10.16/10.17"
+        },
+        "ref": "NZS 3604 Section 10",
+        "ridge_beam": {
+          "size": "SED",
+          "max_span_m": null,
+          "loaded_width_m": 4.2,
+          "fixing": "SED",
+          "ref": "NZS 3604 Table 10.2",
+          "_note": "No SG8 ridge beam spans 8.0m at 4.2m loaded width"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "ref": "NZS 3604 Nailing Schedules (Tables 6.6, 7.5, 8.19, 10.18, 13.3)",
+    "subfloor": {
+      "ref": "NZS 3604 Table 6.6",
+      "joints": {
+        "bearer_to_jack_stud": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 2,
+            "location": "skewed"
+          }
+        },
+        "bearer_end_to_cut_between_plates": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 4,
+            "location": "skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 4,
+            "location": "skewed"
+          }
+        },
+        "bearer_to_top_plate_of_wall": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 4,
+            "location": "skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 6,
+            "location": "skewed"
+          }
+        },
+        "stud_or_jack_stud_to_plate": {
+          "hand": {
+            "nail": "100x3.75 or 75x3.15",
+            "qty": "2 end-nailed or 4 skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "location": "end-nailed"
+          }
+        }
+      }
+    },
+    "floor": {
+      "ref": "NZS 3604 Table 7.5",
+      "joints": {
+        "boundary_joist_to_end_of_joist": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "end-nailed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 2,
+            "location": "end-nailed"
+          }
+        },
+        "curtailed_joist_to_trimmer_max_3m": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 3,
+            "location": "end-nailed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 5,
+            "location": "end-nailed"
+          }
+        },
+        "curtailed_joist_to_trimmer_half_housed": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "end-nailed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "location": "end-nailed"
+          }
+        },
+        "flitched_joint_in_joist": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 4,
+            "location": "each end"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 6,
+            "location": "each end"
+          }
+        },
+        "herringbone_strutting_to_joist": {
+          "hand": {
+            "nail": "60x2.8",
+            "qty": 2,
+            "location": "skewed"
+          },
+          "power": {
+            "nail": "60x2.8",
+            "qty": 2,
+            "location": "skewed"
+          }
+        },
+        "joist_to_plate_on_foundation_wall": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": "12 skewed per 1.5m"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": "18 skewed per 1.5m"
+          }
+        },
+        "joist_to_plate_or_bearer": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "location": "skewed"
+          }
+        },
+        "lapped_joint_in_joist": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "each side"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "location": "each side"
+          }
+        },
+        "solid_blocking_to_plate_bearer_stringer": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 4,
+            "location": "skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 6,
+            "location": "skewed"
+          }
+        },
+        "solid_blocking_to_joist": {
+          "hand": {
+            "nail": "100x3.75 or 75x3.15",
+            "qty": "2 end-nailed or 4 skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 2,
+            "location": "end-nailed"
+          }
+        },
+        "sheet_decking_at_edges": {
+          "hand": {
+            "nail": "60x3.06 ring-shank galv or 60x2.8",
+            "qty": "150mm centres"
+          },
+          "power": {
+            "nail": "60x2.8 ring-shank galv",
+            "qty": "150mm centres"
+          }
+        },
+        "sheet_decking_intermediate": {
+          "hand": {
+            "nail": "60x3.06 ring-shank galv or 60x2.8",
+            "qty": "300mm centres"
+          },
+          "power": {
+            "nail": "60x2.8 ring-shank galv",
+            "qty": "300mm centres"
+          }
+        },
+        "strip_flooring_75mm_to_joist": {
+          "hand": {
+            "nail": "2.5x finished thickness",
+            "qty": 1
+          },
+          "power": null
+        },
+        "strip_flooring_100mm_to_joist": {
+          "hand": {
+            "nail": "2.5x finished thickness",
+            "qty": 2
+          },
+          "power": null
+        }
+      }
+    },
+    "walls": {
+      "ref": "NZS 3604 Table 8.19",
+      "joints": {
+        "bottom_plate_external": {
+          "_note": "Bottom plate to floor framing at external walls and internal bracing elements",
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "at 600mm centres"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "location": "at 600mm centres"
+          }
+        },
+        "bottom_plate_internal": {
+          "_note": "Bottom plate to floor framing at internal walls (may be nailed to floor decking)",
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 1,
+            "location": "at 600mm centres"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 1,
+            "location": "at 600mm centres"
+          }
+        },
+        "bottom_plate_trimmer": {
+          "_note": "Bottom plate to trimmer not exceeding 4.2m long",
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 4,
+            "location": "end nailed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 6,
+            "location": "end nailed"
+          }
+        },
+        "dwang_to_stud": {
+          "hand": [
+            {
+              "nail": "75x3.15",
+              "qty": 2,
+              "location": "skewed"
+            },
+            {
+              "nail": "100x3.75",
+              "qty": 2,
+              "location": "end nailed"
+            }
+          ],
+          "power": [
+            {
+              "nail": "75x3.06",
+              "qty": 2,
+              "location": "skewed"
+            },
+            {
+              "nail": "90x3.15",
+              "qty": 2,
+              "location": "end nailed"
+            }
+          ]
+        },
+        "fishplate_to_stud": {
+          "hand": {
+            "nail": "60x2.8",
+            "qty": 4,
+            "location": "each side of cut"
+          },
+          "power": {
+            "nail": "60x2.8",
+            "qty": 4,
+            "location": "each side of cut"
+          }
+        },
+        "half_joint_top_plate": {
+          "hand": {
+            "nail": "75x3.15",
+            "qty": 3,
+            "location": null
+          },
+          "power": {
+            "nail": "75x3.06",
+            "qty": 4,
+            "location": null
+          }
+        },
+        "lintel_to_trimming_stud": {
+          "hand": [
+            {
+              "nail": "75x3.15",
+              "qty": 4,
+              "location": "skewed"
+            },
+            {
+              "nail": "100x3.75",
+              "qty": 2,
+              "location": "end nailed"
+            }
+          ],
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "location": "end nailed"
+          }
+        },
+        "ribbon_board_to_stud": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": null
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "location": null
+          }
+        },
+        "sill_header_trimmer_2400": {
+          "_note": "Sill/header trimmer to trimming stud, trimmer <= 2.4m",
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "end nailed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "location": "end nailed"
+          }
+        },
+        "sill_header_trimmer_3000": {
+          "_note": "Sill/header trimmer to trimming stud, trimmer <= 3.0m",
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 3,
+            "location": "end nailed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 5,
+            "location": "end nailed"
+          }
+        },
+        "sill_header_trimmer_3600": {
+          "_note": "Sill/header trimmer to trimming stud, trimmer <= 3.6m",
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 4,
+            "location": "end nailed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 6,
+            "location": "end nailed"
+          }
+        },
+        "plaster_batten_to_stud": {
+          "hand": {
+            "nail": "60x2.8 galv",
+            "qty": null,
+            "location": "500mm centres"
+          },
+          "power": {
+            "nail": "60x2.8 galv",
+            "qty": null,
+            "location": "500mm centres"
+          }
+        },
+        "stud_to_plate": {
+          "hand": [
+            {
+              "nail": "75x3.15",
+              "qty": 4,
+              "location": "skewed"
+            },
+            {
+              "nail": "100x3.75",
+              "qty": 2,
+              "location": "end nailed"
+            }
+          ],
+          "power": [
+            {
+              "nail": "75x3.06",
+              "qty": 4,
+              "location": "skewed"
+            },
+            {
+              "nail": "90x3.15",
+              "qty": 3,
+              "location": "end nailed"
+            }
+          ],
+          "_note_short_studs": "For studs up to 2.7m, 2/90x3.15 power-driven end nails are sufficient"
+        },
+        "top_plate_140x35_to_90x45": {
+          "_note": "Top plate 140x35 to 90x45 and top plate to lintel",
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "at 500mm centres"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "location": "at 500mm centres"
+          }
+        },
+        "trimming_studs_blocking": {
+          "_note": "Trimming studs at openings, blocking, and studs at wall intersections",
+          "hand": {
+            "nail": "100x3.75",
+            "qty": null,
+            "location": "600mm centres"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": null,
+            "location": "600mm centres"
+          }
+        },
+        "trimming_stud_to_doubled_stud": {
+          "_note": "Trimming stud to doubled stud immediately under lintel",
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": null
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 2,
+            "location": null
+          }
+        },
+        "waling_to_stud": {
+          "hand": {
+            "nail": "60x2.8",
+            "qty": 2,
+            "location": null
+          },
+          "power": {
+            "nail": "60x2.8",
+            "qty": 2,
+            "location": null
+          }
+        }
+      }
+    },
+    "roof": {
+      "ref": "NZS 3604 Table 10.18",
+      "joints": {
+        "rafter_to_ridge_or_top_plate": {
+          "_see": "Table 10.1"
+        },
+        "truss_to_external_wall_top_plate": {
+          "_see": "Tables 10.14 and 10.15"
+        },
+        "truss_to_internal_wall_top_plate": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 2
+          }
+        },
+        "ceiling_batten_to_bracing_top_plate": {
+          "hand": {
+            "nail": "75x3.15",
+            "qty": "2 at 400mm centres"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": "2 at 400mm centres"
+          }
+        },
+        "collar_tie_to_rafter": {
+          "hand": {
+            "nail": "75x3.15",
+            "qty": 4
+          },
+          "power": {
+            "nail": "75x3.06",
+            "qty": 4
+          }
+        },
+        "flitches_to_ridge_and_roof_members": {
+          "hand": {
+            "nail": "60x2.8",
+            "qty": "3 each side both joints"
+          },
+          "power": {
+            "nail": "60x2.8",
+            "qty": "3 each side both joints"
+          }
+        },
+        "hip_rafter_to_top_plate": {
+          "_see": "Table 10.1"
+        },
+        "underpurlin_strut_to_underpurlin_or_plate": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "_note": "plus fixing types per Table 10.5"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "_note": "plus fixing types per Table 10.5"
+          }
+        },
+        "strutting_beam_to_top_plate": {
+          "_see": "Table 10.7"
+        },
+        "roof_brace_90x19": {
+          "hand": {
+            "nail": "75x3.15",
+            "qty": 3
+          },
+          "power": {
+            "nail": "75x3.15",
+            "qty": 3
+          }
+        },
+        "roof_brace_70x45_runner": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3
+          }
+        },
+        "roof_brace_90x45": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 3
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 5
+          }
+        },
+        "roof_brace_steel_strip_ends": {
+          "hand": {
+            "nail": "60x3.15",
+            "qty": 3
+          },
+          "power": null
+        },
+        "roof_brace_steel_strip_other": {
+          "hand": {
+            "nail": "60x3.15",
+            "qty": 2
+          },
+          "power": null
+        },
+        "blocking_between_rafters_90x45": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "end-nailed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 2,
+            "location": "end-nailed"
+          }
+        },
+        "outrigger_to_gable_top_plate": {
+          "_see": "Tables 10.10 and 10.11"
+        },
+        "outrigger_to_rafter": {
+          "hand": {
+            "nail": "100x3.75 or 75x3.15",
+            "qty": "2 end-nailed or 4 skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "location": "end-nailed"
+          }
+        },
+        "flying_rafter_to_outrigger": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3
+          }
+        },
+        "outrigger_blocking_to_top_plate": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 4,
+            "location": "skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 4,
+            "location": "skewed"
+          }
+        },
+        "purlin_or_batten_to_rafter": {
+          "_see": "Tables 10.10 and 10.11"
+        },
+        "board_sarking_75mm_to_rafter": {
+          "hand": {
+            "nail": "2.5x finished thickness",
+            "qty": 1
+          },
+          "power": null
+        },
+        "board_sarking_over_75mm_to_rafter": {
+          "hand": {
+            "nail": "2.5x finished thickness",
+            "qty": 2
+          },
+          "power": null
+        },
+        "sheet_sarking_at_edges": {
+          "hand": {
+            "nail": "30x2.5 FH",
+            "qty": "150mm centres"
+          },
+          "power": null
+        },
+        "sheet_sarking_intermediate": {
+          "hand": {
+            "nail": "30x2.5 FH",
+            "qty": "300mm centres"
+          },
+          "power": null
+        },
+        "purlins_through_sarking": {
+          "_see": "Table 10.15"
+        }
+      }
+    },
+    "ceiling": {
+      "ref": "NZS 3604 Table 13.3",
+      "joints": {
+        "ceiling_batten_to_top_plate": {
+          "hand": {
+            "nail": "75x3.15",
+            "qty": 1
+          },
+          "power": {
+            "nail": "75x3.06",
+            "qty": 1
+          }
+        },
+        "ceiling_joist_to_top_plate": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3,
+            "location": "skewed"
+          }
+        },
+        "ceiling_joist_to_rafter": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 3
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 4
+          }
+        },
+        "lapped_joint_in_ceiling_joist": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "each side"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 4,
+            "location": "each side"
+          }
+        },
+        "flitched_joint_in_ceiling_joist": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 4,
+            "location": "each end"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 6,
+            "location": "each end"
+          }
+        },
+        "ceiling_runner_to_top_plate_packer": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 2,
+            "location": "skewed"
+          }
+        },
+        "ceiling_runner_to_ceiling_joist": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2,
+            "location": "skewed"
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 4,
+            "location": "skewed"
+          }
+        },
+        "hanger_to_runner_or_joist": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 3
+          }
+        },
+        "ceiling_batten_45x19_to_joist": {
+          "hand": {
+            "nail": "60x2.8 or 57x11.1x1.8 staple",
+            "qty": 1
+          },
+          "power": {
+            "nail": "60x2.8",
+            "qty": 1
+          }
+        },
+        "ceiling_batten_70x35_to_joist": {
+          "hand": {
+            "nail": "75x3.15",
+            "qty": 2
+          },
+          "power": {
+            "nail": "75x3.06",
+            "qty": 2
+          }
+        },
+        "dragon_tie_90x35_to_top_plate": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 3
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 5
+          }
+        },
+        "dragon_tie_90x35_to_joist_truss_rafter": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 2
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 2
+          }
+        },
+        "blocking_piece_to_top_plate_truss_joist_rafter": {
+          "hand": {
+            "nail": "100x3.75",
+            "qty": 4
+          },
+          "power": {
+            "nail": "90x3.15",
+            "qty": 6
+          }
+        }
+      }
+    },
+    "top_plate_fixing": [
+      {
+        "level": "Ground Floor",
+        "fixing_type": "B",
+        "description": "2/90x3.15 end nails + 2 wire dogs",
+        "capacity_kN": 4.7,
+        "ref": "NZS 3604 Table 8.18"
+      }
+    ],
+    "fixing_types_reference": {
+      "ref": "NZS 3604 Table 10.15",
+      "types": {
+        "A": {
+          "description": "2/90x3.15 end nails",
+          "capacity_kN": 0.7,
+          "see_tables": [
+            "8.18"
+          ]
+        },
+        "B": {
+          "description": "2/90x3.15 end nails + 2 wire dogs",
+          "capacity_kN": 4.7
+        },
+        "C": {
+          "description": "2/90x3.15 end nails + strap fixing (figure 8.12)",
+          "capacity_kN": 8.5
+        },
+        "D": {
+          "description": "4/90x3.15 end nails + 2 strap fixing (double stud)",
+          "capacity_kN": 16.0
+        },
+        "E": {
+          "description": "2/90x3.15 skew nails + 2 wire dogs",
+          "capacity_kN": 4.7,
+          "see_tables": [
+            "10.1",
+            "10.7",
+            "10.11",
+            "10.14",
+            "10.15"
+          ]
+        },
+        "F": {
+          "description": "2/90x3.15 skew nails + strap fixing (figure 10.6)",
+          "capacity_kN": 7.0
+        },
+        "G": {
+          "description": "10/90x3.15 nails (5 each side)",
+          "capacity_kN": 4.7,
+          "see_tables": [
+            "10.2"
+          ]
+        },
+        "H": {
+          "description": "1/M12 bolt",
+          "capacity_kN": 8.5
+        },
+        "I": {
+          "description": "2/M12 bolts",
+          "capacity_kN": 16.0
+        },
+        "J": {
+          "description": "2/M16 bolts",
+          "capacity_kN": 24.0
+        },
+        "K": {
+          "description": "6/90x3.15 nails",
+          "capacity_kN": 3.0,
+          "see_tables": [
+            "10.5"
+          ]
+        },
+        "L": {
+          "description": "2/M12 bolts",
+          "capacity_kN": 9.8
+        },
+        "M": {
+          "description": "2/M16 bolts",
+          "capacity_kN": 13.0
+        },
+        "N": {
+          "description": "6/100x4.0 HDG nails (hand driven)",
+          "capacity_kN": 4.7,
+          "see_tables": [
+            "10.8"
+          ]
+        },
+        "O": {
+          "description": "2/M12 bolts (figure 9.3C)",
+          "capacity_kN": 6.8
+        },
+        "P": {
+          "description": "2 HDG flat straps (figure 9.3B)",
+          "capacity_kN": 13.7
+        },
+        "Q": {
+          "description": "2 HDG tee straps (figure 9.3A)",
+          "capacity_kN": 25.5
+        },
+        "R": {
+          "description": "1/90x3.15 nail",
+          "capacity_kN": 0.55,
+          "see_tables": [
+            "10.10",
+            "10.12"
+          ]
+        },
+        "S": {
+          "description": "2/90x3.15 nails",
+          "capacity_kN": 0.8
+        },
+        "T": {
+          "description": "1/10g self-drilling screw 80mm",
+          "capacity_kN": 2.4
+        },
+        "U": {
+          "description": "1/14g self-drilling Type 17 screw 100mm",
+          "capacity_kN": 5.5
+        }
+      }
+    }
+  },
+  "compliance_notes": [
+    {
+      "element": "Site classification",
+      "clause": "NZS 3604 S5.2\u20135.4",
+      "note": "Wind zone per Table 5.4, EQ zone per Figure 5.4"
+    },
+    {
+      "element": "Bracing demand",
+      "clause": "NZS 3604 S5.5\u20135.10",
+      "note": "Wind bracing per Tables 5.5\u20135.7, EQ bracing per Tables 5.8\u20135.10"
+    },
+    {
+      "element": "Ground Floor \u2014 Wall Front Wall (North) studs",
+      "clause": "NZS 3604 S8.5, Tables 8.2/8.4",
+      "note": "Loadbearing studs per Table 8.2, NLB per Table 8.4"
+    },
+    {
+      "element": "Ground Floor \u2014 Wall Rear Wall (South) studs",
+      "clause": "NZS 3604 S8.5, Tables 8.2/8.4",
+      "note": "Loadbearing studs per Table 8.2, NLB per Table 8.4"
+    },
+    {
+      "element": "Ground Floor \u2014 Wall Left Wall (West) studs",
+      "clause": "NZS 3604 S8.5, Tables 8.2/8.4",
+      "note": "Loadbearing studs per Table 8.2, NLB per Table 8.4"
+    },
+    {
+      "element": "Ground Floor \u2014 Wall Right Wall (East) studs",
+      "clause": "NZS 3604 S8.5, Tables 8.2/8.4",
+      "note": "Loadbearing studs per Table 8.2, NLB per Table 8.4"
+    },
+    {
+      "element": "Ground Floor \u2014 Floor joists",
+      "clause": "NZS 3604 S7.3, Table 7.1",
+      "note": "Floor joist sizing per Table 7.1"
+    },
+    {
+      "element": "Ground Floor \u2014 Bearers",
+      "clause": "NZS 3604 S6.6, Table 6.4",
+      "note": "Bearer sizing per Table 6.4"
+    },
+    {
+      "element": "Ground Floor \u2014 Pile footings",
+      "clause": "NZS 3604 S6.4, Table 6.1",
+      "note": "Pile footing sizing per Table 6.1"
+    },
+    {
+      "element": "Ground Floor \u2014 Rafters",
+      "clause": "NZS 3604 S10.3, Table 10.1",
+      "note": "Rafter sizing per Table 10.1 with zone multipliers"
+    },
+    {
+      "element": "Ground Floor \u2014 Ceiling joists",
+      "clause": "NZS 3604 S10.5, Table 10.3",
+      "note": "Ceiling joist sizing per Table 10.3"
+    },
+    {
+      "element": "Ground Floor \u2014 Truss/rafter fixing",
+      "clause": "NZS 3604 S10.8, Table 10.14",
+      "note": "Fixing per Table 10.14, types per Table 10.15"
+    },
+    {
+      "element": "Nailing schedules",
+      "clause": "NZS 3604 Tables 6.6, 7.5, 8.19, 10.18, 13.3",
+      "note": "All nailing per relevant section nailing schedule"
+    }
+  ]
+}

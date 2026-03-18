@@ -1,0 +1,264 @@
+{
+  "_meta": {
+    "report_type": "NZS 3604 Stickframe vs DEVPRO SIP Comparison",
+    "standard": "NZS 3604:2011",
+    "grade": "SG8"
+  },
+  "site": {
+    "wind_zone": "M",
+    "eq_zone": 1,
+    "soil_type": "C",
+    "wind_region": "A",
+    "territorial_authority": "Whangarei District"
+  },
+  "walls": [
+    {
+      "element": "Wall Front Wall (North)",
+      "stickframe": {
+        "component_count": 77,
+        "components": {
+          "studs": 24,
+          "plates": 2,
+          "dwangs": 40,
+          "lintels": 3,
+          "trimming_studs": 6,
+          "sill_trimmers": 2,
+          "total_pieces": 77
+        },
+        "stud_size": "90x45",
+        "stud_spacing_mm": 600,
+        "top_plate": "90x45",
+        "bottom_plate": "90x45",
+        "insulation": "R2.0 polyester/glasswool batts (~18% thermal bridging at studs)",
+        "building_wrap": "Required (building paper or flexible underlay)",
+        "interior_lining": "10mm GIB plasterboard",
+        "exterior_cladding_substrate": "Cavity battens + building wrap",
+        "trades_required": [
+          "Framer (studs, plates, dwangs, lintels)",
+          "Insulator (batt installation)",
+          "Wrapper (building paper/wrap)",
+          "Plasterer (GIB fixing, stopping, finishing)",
+          "Painter"
+        ]
+      },
+      "devpro_sip": {
+        "component_count": null,
+        "_note": "No matching SIP wall found \u2014 comparison not available"
+      },
+      "advantages": [],
+      "winner": "DEVPRO SIP"
+    },
+    {
+      "element": "Wall Rear Wall (South)",
+      "stickframe": {
+        "component_count": 69,
+        "components": {
+          "studs": 20,
+          "plates": 2,
+          "dwangs": 40,
+          "lintels": 2,
+          "trimming_studs": 4,
+          "sill_trimmers": 1,
+          "total_pieces": 69
+        },
+        "stud_size": "90x45",
+        "stud_spacing_mm": 600,
+        "top_plate": "90x45",
+        "bottom_plate": "90x45",
+        "insulation": "R2.0 polyester/glasswool batts (~18% thermal bridging at studs)",
+        "building_wrap": "Required (building paper or flexible underlay)",
+        "interior_lining": "10mm GIB plasterboard",
+        "exterior_cladding_substrate": "Cavity battens + building wrap",
+        "trades_required": [
+          "Framer (studs, plates, dwangs, lintels)",
+          "Insulator (batt installation)",
+          "Wrapper (building paper/wrap)",
+          "Plasterer (GIB fixing, stopping, finishing)",
+          "Painter"
+        ]
+      },
+      "devpro_sip": {
+        "component_count": null,
+        "_note": "No matching SIP wall found \u2014 comparison not available"
+      },
+      "advantages": [],
+      "winner": "DEVPRO SIP"
+    },
+    {
+      "element": "Wall Left Wall (West)",
+      "stickframe": {
+        "component_count": 47,
+        "components": {
+          "studs": 15,
+          "plates": 2,
+          "dwangs": 26,
+          "lintels": 1,
+          "trimming_studs": 2,
+          "sill_trimmers": 1,
+          "total_pieces": 47
+        },
+        "stud_size": "90x45",
+        "stud_spacing_mm": 600,
+        "top_plate": "90x45",
+        "bottom_plate": "90x45",
+        "insulation": "R2.0 polyester/glasswool batts (~18% thermal bridging at studs)",
+        "building_wrap": "Required (building paper or flexible underlay)",
+        "interior_lining": "10mm GIB plasterboard",
+        "exterior_cladding_substrate": "Cavity battens + building wrap",
+        "trades_required": [
+          "Framer (studs, plates, dwangs, lintels)",
+          "Insulator (batt installation)",
+          "Wrapper (building paper/wrap)",
+          "Plasterer (GIB fixing, stopping, finishing)",
+          "Painter"
+        ]
+      },
+      "devpro_sip": {
+        "component_count": null,
+        "_note": "No matching SIP wall found \u2014 comparison not available"
+      },
+      "advantages": [],
+      "winner": "DEVPRO SIP"
+    },
+    {
+      "element": "Wall Right Wall (East)",
+      "stickframe": {
+        "component_count": 52,
+        "components": {
+          "studs": 17,
+          "plates": 2,
+          "dwangs": 26,
+          "lintels": 2,
+          "trimming_studs": 4,
+          "sill_trimmers": 1,
+          "total_pieces": 52
+        },
+        "stud_size": "90x45",
+        "stud_spacing_mm": 600,
+        "top_plate": "90x45",
+        "bottom_plate": "90x45",
+        "insulation": "R2.0 polyester/glasswool batts (~18% thermal bridging at studs)",
+        "building_wrap": "Required (building paper or flexible underlay)",
+        "interior_lining": "10mm GIB plasterboard",
+        "exterior_cladding_substrate": "Cavity battens + building wrap",
+        "trades_required": [
+          "Framer (studs, plates, dwangs, lintels)",
+          "Insulator (batt installation)",
+          "Wrapper (building paper/wrap)",
+          "Plasterer (GIB fixing, stopping, finishing)",
+          "Painter"
+        ]
+      },
+      "devpro_sip": {
+        "component_count": null,
+        "_note": "No matching SIP wall found \u2014 comparison not available"
+      },
+      "advantages": [],
+      "winner": "DEVPRO SIP"
+    }
+  ],
+  "floor": {
+    "element": "Floor (suspended timber)",
+    "stickframe": {
+      "type": "Timber joists + bearers on piles",
+      "joists": [
+        "240x45"
+      ],
+      "bearers": [
+        "140x70"
+      ],
+      "insulation": "Underfloor batts (R1.3 minimum) \u2014 often poorly installed",
+      "trades": [
+        "Piling contractor",
+        "Framer",
+        "Plumber (under-slab)",
+        "Insulator"
+      ]
+    },
+    "devpro_sip": {
+      "type": "DEVPRO SIP floor panels on bearers/piles",
+      "insulation": "R2.5+ continuous EPS (factory installed)",
+      "advantages": [
+        "Pre-insulated (no underfloor batts needed)",
+        "Faster installation (fewer pieces)",
+        "Airtight floor platform",
+        "Consistent insulation performance"
+      ],
+      "trades": [
+        "Piling contractor",
+        "SIP installer"
+      ]
+    },
+    "winner": "DEVPRO SIP"
+  },
+  "roof": {
+    "element": "Roof",
+    "stickframe": {
+      "type": "Timber rafters/trusses",
+      "rafter_size": "190x45",
+      "rafter_spacing_mm": 600,
+      "ceiling_joist": "190x45",
+      "insulation": "R3.3 ceiling batts (draped between trusses/joists)",
+      "components": "Rafters, purlins, ceiling joists, bracing, battens",
+      "trades": [
+        "Framer",
+        "Roofer",
+        "Insulator",
+        "Plasterer (ceiling GIB)"
+      ]
+    },
+    "devpro_sip": {
+      "type": "DEVPRO SIP roof panels",
+      "insulation": "R3.0+ continuous EPS (factory installed)",
+      "advantages": [
+        "Cathedral ceiling achievable without additional structure",
+        "No ceiling batts to install",
+        "Fewer components \u2014 panels replace rafters + purlins + insulation",
+        "Immediate weather tightness once panels placed",
+        "Better thermal performance (no sagging insulation)"
+      ],
+      "trades": [
+        "SIP installer",
+        "Roofer"
+      ]
+    },
+    "winner": "DEVPRO SIP"
+  },
+  "summary": {
+    "stickframe": {
+      "total_wall_components": 245,
+      "trades_required": [
+        "Framer",
+        "Insulator",
+        "Painter",
+        "Piling contractor",
+        "Plasterer",
+        "Plasterer (ceiling GIB)",
+        "Plumber (under-slab)",
+        "Roofer",
+        "Wrapper"
+      ],
+      "trade_count": 9
+    },
+    "devpro_sip": {
+      "total_wall_panels": 0,
+      "trades_required": [
+        "Piling contractor",
+        "Roofer",
+        "SIP installer"
+      ],
+      "trade_count": 3
+    },
+    "component_reduction": null,
+    "component_reduction_pct": null,
+    "trade_reduction": 6,
+    "key_advantages": [
+      "Fewer components = faster build time",
+      "Continuous insulation = better thermal performance",
+      "No building wrap = material + labour saving",
+      "Fewer trades = simpler project management",
+      "Factory precision = consistent quality",
+      "Immediate weather tightness = reduced weather delays"
+    ]
+  }
+}

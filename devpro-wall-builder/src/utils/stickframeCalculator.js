@@ -25,7 +25,7 @@ import {
   WALL_THICKNESS,
 } from './constants.js';
 
-import { getTrimmingStudSize, validateDoublingStud } from './nzs3604/walls.js';
+import { getTrimmingStudSize, validateDoublingStud, getLintelSize } from './nzs3604/walls.js';
 
 // ─────────────────────────────────────────────────────────────
 // Remap SIP deductions (162mm) to stickframe (90mm)
@@ -94,6 +94,13 @@ export function calculateStickframeLayout(wall) {
     length_mm: netLength,
   });
 
+  // ── NZS 3604 lintel sizing (when site params available) ──
+  const siteParams = wall.siteParams || null;
+  const loadCase = wall.lintelLoadCase || 'roof_only';
+  const roofWeight = siteParams?.roofWeight || 'light';
+  const wallWeight = siteParams?.claddingWeight || 'light';
+  const loadedDimM = wall.loadedDimM || 2.0;
+
   // ── Process openings — build exclusion zones and framing ──
   const openings = (wall.openings || []).map(op => {
     const posFromLeft = op.position_from_left_mm || 0;
@@ -102,8 +109,14 @@ export function calculateStickframeLayout(wall) {
     const opW = op.width_mm || 0;
     const opH = op.height_mm || 0;
     const sillH = op.type === 'door' || op.type === 'single_garage' || op.type === 'double_garage' ? 0 : (op.sill_mm || 0);
-    const lintelH = op.lintel_height_mm || 200;
     const isDoor = op.type === 'door' || op.type === 'single_garage' || op.type === 'double_garage';
+
+    // Try NZS 3604 lintel sizing — use depth from table if available
+    const lintelSpanM = (opW + SF_STUD_WIDTH * 2) / 1000;
+    const lintelResult = getLintelSize(loadCase, loadedDimM, lintelSpanM, roofWeight, wallWeight);
+    const lintelH = lintelResult
+      ? parseInt(lintelResult.size.split('x')[0], 10) // e.g. "190x70" → 190mm depth
+      : (op.lintel_height_mm || 200);
 
     return {
       ref: op.ref || '',
@@ -113,6 +126,7 @@ export function calculateStickframeLayout(wall) {
       height: opH,
       sill: sillH,
       lintelHeight: lintelH,
+      lintelSizing: lintelResult, // NZS 3604 result or null
       isDoor,
       // Computed positions (Y from top, 0 = top of wall)
       // Bottom of opening = wallHeight - plateH - sillH - opH
@@ -267,6 +281,7 @@ export function calculateStickframeLayout(wall) {
       height: op.lintelHeight,
       label: `Lintel (${ref})`,
       length_mm: lintelSpan,
+      nzs3604: op.lintelSizing, // { size, maxSpanM, tableRef } or null
     });
 
     // Sill trimmer (windows only — not doors)

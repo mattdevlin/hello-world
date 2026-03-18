@@ -11,6 +11,8 @@ import {
   updateProjectDetails, saveWall,
 } from '../utils/storage.js';
 import { TERRITORIAL_AUTHORITIES, TA_CLIMATE_ZONES, DEVPRO_WALL_R, DEVPRO_FLOOR_R, DEVPRO_ROOF_R, REFERENCE_R_VALUES, REFERENCE_TIMBER_FRACTION, getClimateZone } from '../utils/h1Constants.js';
+import SiteParamsForm from '../components/SiteParamsForm.jsx';
+import { getSiteClassification } from '../utils/nzs3604/site.js';
 import { computeWallTimberRatio } from '../utils/timberCalculator.js';
 import { calculateFloorLayout } from '../utils/floorCalculator.js';
 import { calculateRoofLayout } from '../utils/roofCalculator.js';
@@ -53,6 +55,7 @@ export default function ProjectPage() {
   const [projectPrice, setProjectPrice] = useState(null);
   const [buildingStats, setBuildingStats] = useState(null);
   const [otherProjects, setOtherProjects] = useState([]);
+  const [siteParams, setSiteParams] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -281,6 +284,11 @@ export default function ProjectPage() {
     }
   };
 
+  const handleSiteParamsChange = (newParams) => {
+    setSiteParams(newParams);
+    updateProjectDetails(projectId, { siteParams: newParams });
+  };
+
   if (!project) return null;
 
   return (
@@ -469,6 +477,15 @@ export default function ProjectPage() {
               </div>
             )}
           </div>
+
+          {/* Site Parameters (NZS 3604) */}
+          <CollapsibleSection sectionKey="project-site-params" title="Site Parameters (NZS 3604)" defaultCollapsed={!siteParams}>
+            <SiteParamsForm
+              value={siteParams || {}}
+              onChange={handleSiteParamsChange}
+              territorialAuthority={ta}
+            />
+          </CollapsibleSection>
 
           {/* 3D Model Viewer */}
           {walls.length > 0 && (
