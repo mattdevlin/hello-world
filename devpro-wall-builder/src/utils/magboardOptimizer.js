@@ -433,3 +433,283 @@ export function computeProjectMagboardSheetsWithRoofs(walls, floors, roofs) {
     hasRoofs: true,
   };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Unified optimizer with remnant harvesting
+// ─────────────────────────────────────────────────────────────
+
+const MIN_REMNANT_HEIGHT = 100; // minimum usable remnant strip height (mm)
+
+/**
+ * Compute unified magboard sheets across walls, floors, and roofs.
+ * Combines all cut pieces into a single pool, harvests remnant strips from
+ * panel face sheets, and returns placement coordinates for visualization.
+ */
+export function computeProjectMagboardSheetsUnified(walls, floors, roofs) {
+  const allPanelSheets = [];  // { sheetHeight, panelHeight, label, sourceName, sourceType }
+  const allCutPieces = [];
+  const perWall = [];
+  const perFloor = [];
+  const perRoof = [];
+
+  // ── Extract wall pieces ──
+  for (const wall of (walls || [])) {
+    const layout = calculateWallLayout(wall);
+    const { panelSheets, cutPieces } = extractMagboardPieces(layout, wall.name);
+
+    // Enrich panel sheets with actual panel height for remnant calculation
+    for (const ps of panelSheets) {
+      const panelHeight = layout.height;
+      allPanelSheets.push({
+        ...ps,
+        panelHeight,
+        sourceName: wall.name,
+        sourceType: 'wall',
+      });
+    }
+    allCutPieces.push(...cutPieces);
+    perWall.push({
+      wallName: wall.name,
+      wallId: wall.id,
+      panelSheetCount: panelSheets.length,
+      cutPieceCount: cutPieces.length,
+      lintelPanelCount: cutPieces.filter(p => p.type === 'lintelPanel').length,
+      footerPanelCount: cutPieces.filter(p => p.type === 'footerPanel').length,
+      splineCount: cutPieces.filter(p => p.type === 'spline').length,
+      deductionCount: cutPieces.filter(p => p.type === 'deduction').length,
+      hsplineCount: cutPieces.filter(p => p.type === 'hspline').length,
+    });
+  }
+
+  // ── Extract floor pieces ──
+  for (const floor of (floors || [])) {
+    const layout = calculateFloorLayout(floor);
+    if (layout.error) continue;
+    const { panelSheets, cutPieces } = extractFloorMagboardPieces(layout, floor.name);
+    for (const ps of panelSheets) {
+      allPanelSheets.push({
+        ...ps,
+        panelHeight: 2745, // floor panels use full sheet
+        sourceName: floor.name,
+        sourceType: 'floor',
+      });
+    }
+    allCutPieces.push(...cutPieces);
+    perFloor.push({
+      floorName: floor.name,
+      floorId: floor.id,
+      panelSheetCount: panelSheets.length,
+      splineCount: cutPieces.filter(p => p.type === 'spline').length,
+    });
+  }
+
+  // ── Extract roof pieces ──
+  for (const roof of (roofs || [])) {
+    const layout = calculateRoofLayout(roof);
+    if (layout.error) continue;
+    const { panelSheets, cutPieces } = extractRoofMagboardPieces(layout, roof.name);
+    for (const ps of panelSheets) {
+      allPanelSheets.push({
+        ...ps,
+        panelHeight: 2745, // roof panels use full sheet
+        sourceName: roof.name,
+        sourceType: 'roof',
+      });
+    }
+    allCutPieces.push(...cutPieces);
+    perRoof.push({
+      roofName: roof.name,
+      roofId: roof.id,
+      panelSheetCount: panelSheets.length,
+      splineCount: cutPieces.filter(p => p.type === 'spline').length,
+    });
+  }
+
+  // ── Compute panel sheet remnants ──
+  const panelFaceSheets = [];
+  const remnantSlots = []; // { index, remnantWidth (=1200), remnantHeight }
+  for (let i = 0; i < allPanelSheets.length; i++) {
+    const ps = allPanelSheets[i];
+    const remnantHeight = ps.sheetHeight - ps.panelHeight;
+    const entry = {
+      sheetHeight: ps.sheetHeight,
+      panelHeight: ps.panelHeight,
+      label: ps.label,
+      sourceName: ps.sourceName,
+      sourceType: ps.sourceType,
+      remnantHeight: Math.max(0, remnantHeight),
+      remnantPieces: [],
+      remnantUtilization: 0,
+    };
+    panelFaceSheets.push(entry);
+    if (remnantHeight >= MIN_REMNANT_HEIGHT) {
+      remnantSlots.push({ index: i, remnantWidth: 1200, remnantHeight });
+    }
+  }
+
+  // ── Harvest remnants: try to place small cut pieces into panel sheet remnants ──
+  // Sort cut pieces by area descending (large-first heuristic)
+  const indexedPieces = allCutPieces.map((p, idx) => ({ ...p, _origIdx: idx }));
+  indexedPieces.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+
+  const placedInRemnant = new Set();
+
+  for (const slot of remnantSlots) {
+    const { remnantWidth, remnantHeight } = slot;
+    // Use shelfPack on pieces that fit this remnant — but we do a greedy pass instead
+    // to avoid re-sorting. Build a mini shelf for this remnant.
+    const shelves = [];
+    const pfs = panelFaceSheets[slot.index];
+
+    for (const piece of indexedPieces) {
+      if (placedInRemnant.has(piece._origIdx)) continue;
+
+      // Try both orientations
+      const orients = [{ w: piece.width, h: piece.height }];
+      if (piece.width !== piece.height) {
+        orients.push({ w: piece.height, h: piece.width });
+      }
+      orients.sort((a, b) => a.h - b.h);
+
+      let fitted = false;
+      for (const o of orients) {
+        if (o.w > remnantWidth || o.h > remnantHeight) continue;
+
+        // Try existing shelf
+        for (let si = 0; si < shelves.length; si++) {
+          const shelf = shelves[si];
+          if (shelf.remainingW >= o.w && shelf.h >= o.h) {
+            const placedX = remnantWidth - shelf.remainingW;
+            const placedY = shelves.slice(0, si).reduce((s, sh) => s + sh.h, 0);
+            pfs.remnantPieces.push({
+              ...piece, placedW: o.w, placedH: o.h, placedX, placedY,
+            });
+            shelf.remainingW -= o.w;
+            placedInRemnant.add(piece._origIdx);
+            fitted = true;
+            break;
+          }
+        }
+        if (fitted) break;
+
+        // Try new shelf
+        const usedH = shelves.reduce((s, sh) => s + sh.h, 0);
+        if (usedH + o.h <= remnantHeight) {
+          pfs.remnantPieces.push({
+            ...piece, placedW: o.w, placedH: o.h, placedX: 0, placedY: usedH,
+          });
+          shelves.push({ h: o.h, remainingW: remnantWidth - o.w });
+          placedInRemnant.add(piece._origIdx);
+          fitted = true;
+        }
+        if (fitted) break;
+      }
+    }
+
+    // Compute remnant utilization
+    if (pfs.remnantPieces.length > 0) {
+      const usedArea = pfs.remnantPieces.reduce((s, p) => s + p.placedW * p.placedH, 0);
+      pfs.remnantUtilization = usedArea / (remnantWidth * remnantHeight);
+    }
+  }
+
+  // ── Unified bin-pack remaining pieces ──
+  const remainingPieces = allCutPieces.filter((_, idx) => !placedInRemnant.has(idx));
+
+  const fitsOnSheet = (p, maxH) =>
+    (p.width <= 1200 && p.height <= maxH) || (p.height <= 1200 && p.width <= maxH);
+
+  const fitsMedium = remainingPieces.filter(p => fitsOnSheet(p, 2745));
+  const needsLarge = remainingPieces.filter(p => !fitsOnSheet(p, 2745));
+
+  const packedMediumSlabs = shelfPack(fitsMedium, 1200, 2745);
+  const packedLargeSlabs = shelfPack(needsLarge, 1200, 3050);
+
+  // Build packedSheets with placement data
+  const packedSheets = [];
+  for (const slab of packedMediumSlabs) {
+    const pieces = slab.shelves.flatMap(sh => sh.pieces);
+    const usedArea = pieces.reduce((s, p) => s + p.placedW * p.placedH, 0);
+    packedSheets.push({
+      sheetWidth: 1200,
+      sheetHeight: 2745,
+      pieces,
+      utilization: usedArea / (1200 * 2745),
+    });
+  }
+  for (const slab of packedLargeSlabs) {
+    const pieces = slab.shelves.flatMap(sh => sh.pieces);
+    const usedArea = pieces.reduce((s, p) => s + p.placedW * p.placedH, 0);
+    packedSheets.push({
+      sheetWidth: 1200,
+      sheetHeight: 3050,
+      pieces,
+      utilization: usedArea / (1200 * 3050),
+    });
+  }
+
+  // ── Compute savings vs separate packing ──
+  const separateWallCut = allCutPieces.filter(p => p.wallName);
+  const separateFloorCut = allCutPieces.filter(p => p.floorName);
+  const separateRoofCut = allCutPieces.filter(p => p.roofName);
+  const separateSheetCount =
+    shelfPack(separateWallCut.filter(p => fitsOnSheet(p, 2745)), 1200, 2745).length +
+    shelfPack(separateWallCut.filter(p => !fitsOnSheet(p, 2745)), 1200, 3050).length +
+    shelfPack(separateFloorCut, 1200, 2745).length +
+    shelfPack(separateRoofCut, 1200, 2745).length;
+  const unifiedSheetCount = packedSheets.length;
+  const savingsVsSeparate = Math.max(0, separateSheetCount - unifiedSheetCount);
+
+  // ── Summary fields (backward compatible) ──
+  const sheets2745 = allPanelSheets.filter(s => s.sheetHeight === 2745).length;
+  const sheets3050 = allPanelSheets.filter(s => s.sheetHeight === 3050).length;
+  const extraSheets2745 = packedMediumSlabs.length;
+  const extraSheets3050 = packedLargeSlabs.length;
+  const total2745 = sheets2745 + extraSheets2745;
+  const total3050 = sheets3050 + extraSheets3050;
+
+  const cutPieceArea = allCutPieces.reduce((s, p) => s + p.width * p.height, 0);
+  const cutSheetTotalArea =
+    extraSheets2745 * (1200 * 2745) +
+    extraSheets3050 * (1200 * 3050);
+  const cutUtilization = cutSheetTotalArea > 0 ? cutPieceArea / cutSheetTotalArea : 0;
+
+  const piecesInRemnants = placedInRemnant.size;
+
+  return {
+    // Panel sheets
+    panelSheetCount: allPanelSheets.length,
+    panelSheets2745: sheets2745,
+    panelSheets3050: sheets3050,
+
+    // Cut piece sheets
+    cutPieceCount: allCutPieces.length,
+    cutSheets2745: extraSheets2745,
+    cutSheets3050: extraSheets3050,
+    cutUtilization,
+
+    // Totals
+    total2745,
+    total3050,
+    totalSheets: total2745 + total3050,
+
+    // Breakdown
+    totalLintelPanels: allCutPieces.filter(p => p.type === 'lintelPanel').length,
+    totalFooterPanels: allCutPieces.filter(p => p.type === 'footerPanel').length,
+    totalSplines: allCutPieces.filter(p => p.type === 'spline').length,
+    totalDeductions: allCutPieces.filter(p => p.type === 'deduction').length,
+    totalHsplines: allCutPieces.filter(p => p.type === 'hspline').length,
+
+    perWall,
+    perFloor: perFloor.length > 0 ? perFloor : undefined,
+    perRoof: perRoof.length > 0 ? perRoof : undefined,
+    hasFloors: perFloor.length > 0,
+    hasRoofs: perRoof.length > 0,
+
+    // Unified packing data (for visualization)
+    packedSheets,
+    panelFaceSheets: panelFaceSheets.filter(pf => pf.remnantPieces.length > 0),
+    savingsVsSeparate,
+    piecesInRemnants,
+  };
+}

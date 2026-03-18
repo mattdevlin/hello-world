@@ -204,6 +204,29 @@ db.exec(`
     year INTEGER PRIMARY KEY,
     last_seq INTEGER NOT NULL DEFAULT 0
   );
+
+  CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    address TEXT DEFAULT '',
+    territorial_authority TEXT DEFAULT '',
+    wall_count INTEGER DEFAULT 0,
+    floor_count INTEGER DEFAULT 0,
+    roof_count INTEGER DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS project_data (
+    project_id TEXT NOT NULL,
+    data_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL DEFAULT '_',
+    data TEXT NOT NULL,
+    created_at INTEGER,
+    updated_at INTEGER,
+    PRIMARY KEY (project_id, data_type, entity_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+  );
 `);
 
 export default db;

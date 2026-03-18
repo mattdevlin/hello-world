@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   ROOF_TYPES, ROOF_PANEL_DIRECTIONS, ROOF_THICKNESS_OPTIONS,
-  DEFAULT_EAVE_OVERHANG, DEFAULT_GABLE_OVERHANG,
+  DEFAULT_EAVE_OVERHANG, DEFAULT_GABLE_OVERHANG, RIDGE_ORIENTATIONS,
 } from '../utils/constants.js';
 import { boundingBox } from '../utils/polygonUtils.js';
 import { BRAND, NEUTRAL } from '../utils/designTokens.js';
+import CalcInput from './CalcInput.jsx';
 
 /**
  * Compute floor bounding-box extents from the first floor's polygon.
@@ -46,10 +47,14 @@ function buildDefaultRoof(detectedType, projectWalls, projectFloors) {
     pitch_deg: isFlat ? 0 : 20,
     ridgeOffset_mm: 0,
     highEdge: 'left',
+    ridgeOrientation: RIDGE_ORIENTATIONS.ALONG_LENGTH,
     panelDirection: ROOF_PANEL_DIRECTIONS.ALONG_RIDGE,
     thickness: 'roof',
     eaveOverhang_mm: DEFAULT_EAVE_OVERHANG,
+    eaveOverhangHigh_mm: DEFAULT_EAVE_OVERHANG,
+    eaveOverhangLow_mm: DEFAULT_EAVE_OVERHANG,
     gableOverhang_mm: DEFAULT_GABLE_OVERHANG,
+    boundaryJoistCount: 1,
     penetrations: [],
   };
 }
@@ -143,24 +148,26 @@ export default function RoofForm({ onCalculate, onChange, initialRoof, detectedT
       {/* Dimensions */}
       <div style={styles.row}>
         <div style={styles.field}>
-          <label style={styles.label}>Length (along ridge) mm</label>
-          <input
-            type="number"
-            value={roof.length_mm}
-            onChange={e => updateField('length_mm', Number(e.target.value))}
-            min={1}
-            style={styles.input}
-          />
+          <label style={styles.label}>
+            Length mm
+            {roof.type === 'gable' && (
+              <span style={styles.hint}>
+                {' '}({roof.ridgeOrientation === RIDGE_ORIENTATIONS.ALONG_WIDTH ? 'eave-to-eave' : 'along ridge'})
+              </span>
+            )}
+          </label>
+          <CalcInput value={roof.length_mm} onChange={v => updateField('length_mm', v)} style={styles.input} />
         </div>
         <div style={styles.field}>
-          <label style={styles.label}>Width (eave-to-eave) mm</label>
-          <input
-            type="number"
-            value={roof.width_mm}
-            onChange={e => updateField('width_mm', Number(e.target.value))}
-            min={1}
-            style={styles.input}
-          />
+          <label style={styles.label}>
+            Width mm
+            {roof.type === 'gable' && (
+              <span style={styles.hint}>
+                {' '}({roof.ridgeOrientation === RIDGE_ORIENTATIONS.ALONG_WIDTH ? 'along ridge' : 'eave-to-eave'})
+              </span>
+            )}
+          </label>
+          <CalcInput value={roof.width_mm} onChange={v => updateField('width_mm', v)} style={styles.input} />
         </div>
       </div>
 
@@ -180,15 +187,23 @@ export default function RoofForm({ onCalculate, onChange, initialRoof, detectedT
             />
           </div>
           {roof.type === 'gable' && (
-            <div style={styles.field}>
-              <label style={styles.label}>Ridge Offset mm (0 = symmetric)</label>
-              <input
-                type="number"
-                value={roof.ridgeOffset_mm}
-                onChange={e => updateField('ridgeOffset_mm', Number(e.target.value))}
-                style={styles.input}
-              />
-            </div>
+            <>
+              <div style={styles.field}>
+                <label style={styles.label}>Ridge Orientation</label>
+                <select
+                  value={roof.ridgeOrientation || RIDGE_ORIENTATIONS.ALONG_LENGTH}
+                  onChange={e => updateField('ridgeOrientation', e.target.value)}
+                  style={styles.input}
+                >
+                  <option value={RIDGE_ORIENTATIONS.ALONG_LENGTH}>Along Length ({roof.length_mm}mm)</option>
+                  <option value={RIDGE_ORIENTATIONS.ALONG_WIDTH}>Along Width ({roof.width_mm}mm)</option>
+                </select>
+              </div>
+              <div style={styles.field}>
+                <label style={styles.label}>Ridge Offset mm (0 = symmetric)</label>
+                <CalcInput value={roof.ridgeOffset_mm} onChange={v => updateField('ridgeOffset_mm', v)} style={styles.input} />
+              </div>
+            </>
           )}
           {roof.type === 'skillion' && (
             <div style={styles.field}>
@@ -236,28 +251,59 @@ export default function RoofForm({ onCalculate, onChange, initialRoof, detectedT
       {/* Overhangs */}
       {roof.type !== 'flat' && (
         <div style={styles.row}>
-          <div style={styles.field}>
-            <label style={styles.label}>Eave Overhang mm</label>
-            <input
-              type="number"
-              value={roof.eaveOverhang_mm}
-              onChange={e => updateField('eaveOverhang_mm', Number(e.target.value))}
-              min={0}
-              style={styles.input}
-            />
-          </div>
+          {roof.type === 'skillion' ? (
+            <>
+              <div style={styles.field}>
+                <label style={styles.label}>High-Side Eave Overhang mm</label>
+                <CalcInput value={roof.eaveOverhangHigh_mm ?? roof.eaveOverhang_mm ?? DEFAULT_EAVE_OVERHANG} onChange={v => updateField('eaveOverhangHigh_mm', v)} style={styles.input} />
+              </div>
+              <div style={styles.field}>
+                <label style={styles.label}>Low-Side Eave Overhang mm</label>
+                <CalcInput value={roof.eaveOverhangLow_mm ?? roof.eaveOverhang_mm ?? DEFAULT_EAVE_OVERHANG} onChange={v => updateField('eaveOverhangLow_mm', v)} style={styles.input} />
+              </div>
+            </>
+          ) : (
+            <div style={styles.field}>
+              <label style={styles.label}>Eave Overhang mm</label>
+              <CalcInput value={roof.eaveOverhang_mm} onChange={v => updateField('eaveOverhang_mm', v)} style={styles.input} />
+            </div>
+          )}
           <div style={styles.field}>
             <label style={styles.label}>Gable Overhang mm</label>
-            <input
-              type="number"
-              value={roof.gableOverhang_mm}
-              onChange={e => updateField('gableOverhang_mm', Number(e.target.value))}
-              min={0}
-              style={styles.input}
-            />
+            <CalcInput value={roof.gableOverhang_mm} onChange={v => updateField('gableOverhang_mm', v)} style={styles.input} />
           </div>
         </div>
       )}
+
+      {/* Boundary Joists */}
+      <div style={styles.section}>
+        <h4 style={styles.sectionTitle}>Boundary Joists</h4>
+        <div style={styles.row}>
+          <div style={styles.field}>
+            <label style={styles.label}>Number of Boundary Joists</label>
+            <select
+              value={roof.boundaryJoistCount || 1}
+              onChange={e => updateField('boundaryJoistCount', parseInt(e.target.value))}
+              style={styles.input}
+            >
+              <option value={1}>1 (single)</option>
+              <option value={2}>2 (double)</option>
+            </select>
+          </div>
+          <div style={styles.field}>
+            <label style={styles.label}>Width</label>
+            <input type="text" value="45 mm" disabled style={{ ...styles.input, background: '#f0f0f0', color: '#666' }} />
+          </div>
+          <div style={styles.field}>
+            <label style={styles.label}>Depth</label>
+            <input type="text" value="170 mm" disabled style={{ ...styles.input, background: '#f0f0f0', color: '#666' }} />
+          </div>
+        </div>
+        <p style={{ fontSize: 12, color: '#636363', margin: '8px 0 0', fontStyle: 'italic' }}>
+          Outer joist aligns with panel edge. EPS recessed to fit.
+          {(roof.boundaryJoistCount || 1) === 2 && ' Inner joist offset with standard gap to EPS.'}
+        </p>
+      </div>
 
       {/* Penetrations */}
       <div style={styles.section}>
@@ -288,26 +334,26 @@ export default function RoofForm({ onCalculate, onChange, initialRoof, detectedT
               <>
                 <div style={styles.field}>
                   <label style={styles.label}>Width mm</label>
-                  <input type="number" value={pen.width_mm} onChange={e => updatePenetration(i, 'width_mm', Number(e.target.value))} min={0} style={styles.input} />
+                  <CalcInput value={pen.width_mm} onChange={v => updatePenetration(i, 'width_mm', v)} style={styles.input} />
                 </div>
                 <div style={styles.field}>
                   <label style={styles.label}>Length mm</label>
-                  <input type="number" value={pen.length_mm} onChange={e => updatePenetration(i, 'length_mm', Number(e.target.value))} min={0} style={styles.input} />
+                  <CalcInput value={pen.length_mm} onChange={v => updatePenetration(i, 'length_mm', v)} style={styles.input} />
                 </div>
               </>
             ) : (
               <div style={styles.field}>
                 <label style={styles.label}>Diameter mm</label>
-                <input type="number" value={pen.diameter_mm} onChange={e => updatePenetration(i, 'diameter_mm', Number(e.target.value))} min={0} style={styles.input} />
+                <CalcInput value={pen.diameter_mm} onChange={v => updatePenetration(i, 'diameter_mm', v)} style={styles.input} />
               </div>
             )}
             <div style={styles.field}>
               <label style={styles.label}>X mm</label>
-              <input type="number" value={pen.position_x_mm} onChange={e => updatePenetration(i, 'position_x_mm', Number(e.target.value))} style={styles.input} />
+              <CalcInput value={pen.position_x_mm} onChange={v => updatePenetration(i, 'position_x_mm', v)} style={styles.input} />
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Y mm</label>
-              <input type="number" value={pen.position_y_mm} onChange={e => updatePenetration(i, 'position_y_mm', Number(e.target.value))} style={styles.input} />
+              <CalcInput value={pen.position_y_mm} onChange={v => updatePenetration(i, 'position_y_mm', v)} style={styles.input} />
             </div>
             {roof.type === 'gable' && (
               <div style={styles.field}>

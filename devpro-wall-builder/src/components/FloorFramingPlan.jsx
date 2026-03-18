@@ -42,10 +42,10 @@ export default function FloorFramingPlan({ layout, floorName, projectName }) {
   return (
     <div ref={sectionRef} data-print-section style={{ background: '#fff', borderRadius: 8, padding: 16, border: '1px solid #e0e0e0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>Framing Plan — {floorName}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>Floor Framing Plan — {floorName}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <ZoomControls zoomIdx={zoomIdx} setZoomIdx={setZoomIdx} zoom={zoom} />
-          <PrintButton sectionRef={sectionRef} label="Framing Plan" projectName={projectName} wallName={floorName} />
+          <PrintButton sectionRef={sectionRef} label="Floor Framing Plan" projectName={projectName} wallName={floorName} />
         </div>
       </div>
 

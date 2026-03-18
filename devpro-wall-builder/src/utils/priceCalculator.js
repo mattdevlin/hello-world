@@ -117,6 +117,15 @@ async function fetchLivePricing() {
 }
 
 /**
+ * Fetch unit pricing (live from API, or defaults).
+ * Returns an object like { magboard: { unit_cost: 85 }, eps: { unit_cost: 45 }, ... }
+ */
+export async function fetchUnitPricing() {
+  const live = await fetchLivePricing();
+  return live?.pricing || DEFAULT_PRICING;
+}
+
+/**
  * Calculate the project price from walls, floors, and roofs.
  *
  * Tries live pricing from the API first, falls back to defaults.

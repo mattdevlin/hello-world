@@ -1,42 +1,38 @@
 import { useState, useMemo, useEffect } from 'react';
-import { calculateWallLayout } from '../utils/calculator.js';
-import { computeWallTimberRatio } from '../utils/timberCalculator.js';
+import { calculateRoofLayout } from '../utils/roofCalculator.js';
 import { calculateProjectPrice } from '../utils/priceCalculator.js';
-import { exportCombinedElevationDxf } from '../utils/combinedElevationDxf.js';
 
-export default function ProjectWallSummary({ walls, projectName }) {
-  const wallData = useMemo(() => {
-    return walls.map(w => {
-      const layout = calculateWallLayout(w);
+export default function ProjectRoofSummary({ roofs }) {
+  const roofData = useMemo(() => {
+    return roofs.map(r => {
+      const layout = calculateRoofLayout(r);
       return {
-        name: w.name,
-        length: w.length_mm,
-        height: w.height_mm,
-        profile: w.profile === 'raked' ? 'Raked' : w.profile === 'gable' ? 'Gable' : 'Standard',
-        openings: w.openings?.length || 0,
-        panels: layout.totalPanels,
+        name: r.name,
+        length: r.length_mm,
+        width: r.width_mm,
+        type: r.type === 'gable' ? 'Gable' : r.type === 'skillion' ? 'Skillion' : 'Flat',
+        pitch: r.pitch_deg,
+        penetrations: r.penetrations?.length || 0,
+        panels: layout.error ? 0 : layout.totalPanels,
+        planArea: layout.error ? 0 : layout.totalPlanArea,
       };
     });
-  }, [walls]);
+  }, [roofs]);
 
   const totalAreaM2 = useMemo(() => {
-    const totalMm2 = walls.reduce((sum, w) => {
-      const ratio = computeWallTimberRatio(w);
-      return sum + ratio.effectiveWallArea;
-    }, 0);
-    return totalMm2 / 1e6;
-  }, [walls]);
+    return roofData.reduce((sum, r) => sum + r.planArea, 0) / 1e6;
+  }, [roofData]);
 
   const [price, setPrice] = useState(null);
 
   useEffect(() => {
-    if (walls.length === 0) return;
+    if (roofs.length === 0) return;
     let cancelled = false;
-    calculateProjectPrice(walls, [], []).then(result => {
+    calculateProjectPrice([], [], roofs).then(result => {
       if (!cancelled) setPrice(result);
     });
     return () => { cancelled = true; };
-  }, [walls]);
+  }, [roofs]);
 
   const dollarPerSqm = price && totalAreaM2 > 0
     ? (price.totalExGst / totalAreaM2).toFixed(2)
@@ -47,34 +43,36 @@ export default function ProjectWallSummary({ walls, projectName }) {
       <table style={styles.table}>
         <thead>
           <tr>
-            <th style={styles.th}>Wall Name</th>
-            <th style={styles.th}>Dimensions (L x H)</th>
-            <th style={styles.th}>Profile</th>
-            <th style={styles.thCenter}>Openings</th>
+            <th style={styles.th}>Roof Name</th>
+            <th style={styles.th}>Dimensions (L x W)</th>
+            <th style={styles.th}>Type</th>
+            <th style={styles.thCenter}>Pitch</th>
+            <th style={styles.thCenter}>Penetrations</th>
             <th style={styles.thCenter}>Panels</th>
           </tr>
         </thead>
         <tbody>
-          {wallData.map((w, i) => (
+          {roofData.map((r, i) => (
             <tr key={i}>
-              <td style={styles.td}>{w.name}</td>
-              <td style={styles.td}>{w.length} x {w.height} mm</td>
-              <td style={styles.td}>{w.profile}</td>
-              <td style={styles.tdCenter}>{w.openings}</td>
-              <td style={styles.tdCenter}>{w.panels}</td>
+              <td style={styles.td}>{r.name}</td>
+              <td style={styles.td}>{r.length} x {r.width} mm</td>
+              <td style={styles.td}>{r.type}</td>
+              <td style={styles.tdCenter}>{r.pitch}°</td>
+              <td style={styles.tdCenter}>{r.penetrations}</td>
+              <td style={styles.tdCenter}>{r.panels}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {walls.length > 0 && (
+      {roofs.length > 0 && (
         <div style={styles.totalsRow}>
           <div style={styles.statBlock}>
-            <div style={styles.statLabel}>Total Wall Area</div>
+            <div style={styles.statLabel}>Total Roof Area</div>
             <div style={styles.statValue}>{totalAreaM2.toFixed(1)} m²</div>
           </div>
           <div style={styles.statBlock}>
-            <div style={styles.statLabel}>Total Wall Price (incl GST)</div>
+            <div style={styles.statLabel}>Total Roof Price (incl GST)</div>
             <div style={styles.statValue}>
               {price ? `$${price.totalIncGst.toLocaleString()}` : '...'}
             </div>
@@ -87,15 +85,6 @@ export default function ProjectWallSummary({ walls, projectName }) {
           </div>
         </div>
       )}
-
-      <div style={styles.actions}>
-        <button
-          onClick={() => exportCombinedElevationDxf(walls, projectName)}
-          style={styles.exportBtn}
-        >
-          Export Combined DXF
-        </button>
-      </div>
     </div>
   );
 }
@@ -162,21 +151,6 @@ const styles = {
   statValue: {
     fontSize: 18,
     fontWeight: 700,
-    color: '#2C5F8A',
-  },
-  actions: {
-    marginTop: 16,
-    display: 'flex',
-    justifyContent: 'flex-end',
-  },
-  exportBtn: {
-    padding: '8px 16px',
-    background: '#2C5F8A',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 6,
-    cursor: 'pointer',
-    fontSize: 13,
-    fontWeight: 600,
+    color: '#8D6E63',
   },
 };

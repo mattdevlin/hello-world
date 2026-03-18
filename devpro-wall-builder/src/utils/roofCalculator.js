@@ -16,10 +16,11 @@
 import {
   PANEL_PITCH, PANEL_WIDTH, PANEL_GAP, MIN_PANEL,
   MAX_SHEET_HEIGHT, SPLINE_WIDTH,
-  ROOF_TYPES, ROOF_PANEL_DIRECTIONS,
+  ROOF_TYPES, ROOF_PANEL_DIRECTIONS, RIDGE_ORIENTATIONS,
   ROOF_THICKNESS_OPTIONS,
   DEFAULT_EAVE_OVERHANG, DEFAULT_GABLE_OVERHANG,
-  MAGBOARD, WALL_THICKNESS,
+  MAGBOARD, WALL_THICKNESS, PLY_SHEET_HEIGHT,
+  HSPLINE_CLEARANCE, DEFAULT_PERIMETER_PLATE_WIDTH,
 } from './constants.js';
 
 /**
@@ -37,6 +38,18 @@ export function detectRoofType(walls) {
   if (hasGable) return ROOF_TYPES.GABLE;
   if (hasRaked) return ROOF_TYPES.SKILLION;
   return ROOF_TYPES.FLAT;
+}
+
+/**
+ * Resolve high/low eave overhangs for skillion roofs.
+ * Falls back to the single eaveOverhang_mm for backward compat.
+ */
+export function resolveEaveOverhangs(roof) {
+  const eave = roof.eaveOverhang_mm ?? DEFAULT_EAVE_OVERHANG;
+  return {
+    highEave: roof.eaveOverhangHigh_mm ?? eave,
+    lowEave: roof.eaveOverhangLow_mm ?? eave,
+  };
 }
 
 /**
@@ -61,16 +74,24 @@ export function computeRoofPlanes(roof) {
     gableOverhang_mm = DEFAULT_GABLE_OVERHANG,
   } = roof;
 
+  // For gable: if ridge runs along width, swap so U axis = ridge
+  let effectiveLength = length_mm;
+  let effectiveWidth = width_mm;
+  if (type === ROOF_TYPES.GABLE && roof.ridgeOrientation === RIDGE_ORIENTATIONS.ALONG_WIDTH) {
+    effectiveLength = width_mm;
+    effectiveWidth = length_mm;
+  }
+
   const pitchRad = (pitch_deg * Math.PI) / 180;
   const cosPitch = Math.cos(pitchRad);
-  const uTotal = length_mm + 2 * gableOverhang_mm;
+  const uTotal = effectiveLength + 2 * gableOverhang_mm;
 
   const planes = [];
 
   if (type === ROOF_TYPES.GABLE) {
     // Two sloping planes, ridge at center (+ offset)
-    const halfWidthLeft = width_mm / 2 + ridgeOffset_mm;
-    const halfWidthRight = width_mm / 2 - ridgeOffset_mm;
+    const halfWidthLeft = effectiveWidth / 2 + ridgeOffset_mm;
+    const halfWidthRight = effectiveWidth / 2 - ridgeOffset_mm;
 
     const slopeLengthLeft = cosPitch > 0 ? (halfWidthLeft + eaveOverhang_mm) / cosPitch : halfWidthLeft + eaveOverhang_mm;
     const slopeLengthRight = cosPitch > 0 ? (halfWidthRight + eaveOverhang_mm) / cosPitch : halfWidthRight + eaveOverhang_mm;
@@ -92,17 +113,21 @@ export function computeRoofPlanes(roof) {
       pitchDeg: pitch_deg,
     });
   } else if (type === ROOF_TYPES.SKILLION) {
-    // Single sloping plane
-    const slopeLength = cosPitch > 0 ? (width_mm + eaveOverhang_mm) / cosPitch : width_mm + eaveOverhang_mm;
+    // Single sloping plane — separate high/low eave overhangs
+    const { highEave, lowEave } = resolveEaveOverhangs(roof);
+    const totalWidth = width_mm + highEave + lowEave;
+    const slopeLength = cosPitch > 0 ? totalWidth / cosPitch : totalWidth;
 
     planes.push({
       index: 0,
       label: 'Slope',
       uLength: uTotal,
       vLength: slopeLength,
-      planWidth: width_mm + eaveOverhang_mm,
+      planWidth: totalWidth,
       pitchDeg: pitch_deg,
       highEdge,
+      eaveOverhangHigh: highEave,
+      eaveOverhangLow: lowEave,
     });
   } else {
     // Flat / ceiling
@@ -130,7 +155,7 @@ export function computeRoofPlanes(roof) {
  * @param {Array} penetrations - Penetrations on this plane
  * @returns {Object} { panels, splines, courses }
  */
-function layoutPlane(plane, panelDirection, penetrations = []) {
+function layoutPlane(plane, panelDirection, penetrations = [], joistRecess = 0, splineDepthInfo = {}) {
   const { uLength, vLength } = plane;
 
   // Determine primary and secondary dimensions based on panel direction
@@ -213,24 +238,111 @@ function layoutPlane(plane, panelDirection, penetrations = []) {
     }
   }
 
-  // Generate splines between adjacent columns
+  // Generate perimeter plates (4 edges of the plane rectangle)
+  const perimeterPlates = [
+    { x1: 0, y1: 0, x2: uLength, y2: 0 },           // top (v=0)
+    { x1: 0, y1: vLength, x2: uLength, y2: vLength }, // bottom (v=vLength)
+    { x1: 0, y1: 0, x2: 0, y2: vLength },             // left (u=0)
+    { x1: uLength, y1: 0, x2: uLength, y2: vLength }, // right (u=uLength)
+  ];
+
+  // Generate splines between adjacent columns — inset v-extent by joistRecess
   const splines = [];
   for (let i = 0; i < columnPositions.length - 1; i++) {
     const col = columnPositions[i];
     const splineU = col.x + col.width + PANEL_GAP / 2;
     for (const course of courses) {
-      splines.push({
-        u: panelDirection === ROOF_PANEL_DIRECTIONS.ALONG_RIDGE ? splineU : course.offset,
-        v: panelDirection === ROOF_PANEL_DIRECTIONS.ALONG_RIDGE ? course.offset : splineU,
-        width: SPLINE_WIDTH,
-        length: course.height,
-        course: courses.indexOf(course),
-        planeIndex: plane.index,
-      });
+      const vStart = Math.max(course.offset, joistRecess);
+      const vEnd = Math.min(course.offset + course.height, secondaryLen - joistRecess);
+      const splineLen = Math.max(0, vEnd - vStart);
+      if (splineLen <= 0) continue;
+
+      const MIN_SPLINE_OVERLAP = 600;
+      let numSegments = Math.ceil(splineLen / PLY_SHEET_HEIGHT);
+
+      // Build per-segment lengths to maximize full-length (PLY_SHEET_HEIGHT) pieces
+      const segLengths = [];
+      if (numSegments === 1) {
+        segLengths.push(splineLen);
+      } else {
+        const remainder = splineLen - (numSegments - 1) * PLY_SHEET_HEIGHT;
+        if (remainder >= MIN_SPLINE_OVERLAP) {
+          // Normal: (n-1) full-length pieces + remainder
+          for (let s = 0; s < numSegments - 1; s++) segLengths.push(PLY_SHEET_HEIGHT);
+          segLengths.push(remainder);
+        } else {
+          // Maximize full-length: (n-2) full + shortened + MIN_SPLINE_OVERLAP
+          for (let s = 0; s < numSegments - 2; s++) segLengths.push(PLY_SHEET_HEIGHT);
+          segLengths.push(splineLen - (numSegments - 2) * PLY_SHEET_HEIGHT - MIN_SPLINE_OVERLAP);
+          segLengths.push(MIN_SPLINE_OVERLAP);
+        }
+      }
+
+      let segOffset = 0;
+      for (let seg = 0; seg < numSegments; seg++) {
+        const thisLen = segLengths[seg];
+        const segStart = vStart + segOffset;
+        segOffset += thisLen;
+        splines.push({
+          u: panelDirection === ROOF_PANEL_DIRECTIONS.ALONG_RIDGE ? splineU : segStart,
+          v: panelDirection === ROOF_PANEL_DIRECTIONS.ALONG_RIDGE ? segStart : splineU,
+          width: SPLINE_WIDTH,
+          length: thisLen,
+          course: courses.indexOf(course),
+          planeIndex: plane.index,
+          splineType: 'long',
+          epsDepth: splineDepthInfo.longSplineEps,
+          totalDepth: splineDepthInfo.splineTotal,
+        });
+      }
     }
   }
 
-  return { panels, splines, courses, columnPositions };
+  // Generate splines at course breaks (horizontal — running along primary axis)
+  // Inset u-extent by joistRecess and split around long spline positions
+  if (courses.length > 1) {
+    // Collect long-spline centre positions along the primary (u) axis
+    const longSplineUs = columnPositions.slice(0, -1).map(col => col.x + col.width + PANEL_GAP / 2);
+
+    for (let c = 0; c < courses.length - 1; c++) {
+      const breakV = courses[c].offset + courses[c].height;
+      const uStart = joistRecess;
+      const uEnd = Math.max(0, primaryLen - joistRecess);
+
+      // Build segments: split the full span at each long spline zone
+      const cuts = longSplineUs
+        .map(u => ({ from: u - SPLINE_WIDTH / 2, to: u + SPLINE_WIDTH / 2 }))
+        .filter(cut => cut.to > uStart && cut.from < uEnd)
+        .sort((a, b) => a.from - b.from);
+
+      const segments = [];
+      let cursor = uStart;
+      for (const cut of cuts) {
+        if (cut.from > cursor) segments.push({ start: cursor, end: cut.from });
+        cursor = Math.max(cursor, cut.to);
+      }
+      if (cursor < uEnd) segments.push({ start: cursor, end: uEnd });
+
+      for (const seg of segments) {
+        const segLen = seg.end - seg.start;
+        if (segLen <= 0) continue;
+        splines.push({
+          u: panelDirection === ROOF_PANEL_DIRECTIONS.ALONG_RIDGE ? seg.start : breakV,
+          v: panelDirection === ROOF_PANEL_DIRECTIONS.ALONG_RIDGE ? breakV : seg.start,
+          width: panelDirection === ROOF_PANEL_DIRECTIONS.ALONG_RIDGE ? segLen : SPLINE_WIDTH,
+          length: panelDirection === ROOF_PANEL_DIRECTIONS.ALONG_RIDGE ? SPLINE_WIDTH : segLen,
+          course: c,
+          planeIndex: plane.index,
+          orientation: 'horizontal',
+          splineType: 'short',
+          epsDepth: splineDepthInfo.shortSplineEps,
+          totalDepth: splineDepthInfo.splineTotal,
+        });
+      }
+    }
+  }
+
+  return { panels, splines, courses, columnPositions, perimeterPlates };
 }
 
 /**
@@ -286,7 +398,11 @@ export function calculateRoofLayout(roof, projectWalls = []) {
     eaveOverhang_mm = DEFAULT_EAVE_OVERHANG,
     gableOverhang_mm = DEFAULT_GABLE_OVERHANG,
     penetrations = [],
+    boundaryJoistCount = 1,
   } = roof;
+
+  const perimeterPlateWidth = DEFAULT_PERIMETER_PLATE_WIDTH;
+  const joistRecess = boundaryJoistCount * perimeterPlateWidth + HSPLINE_CLEARANCE;
 
   // Validate dimensions
   if (!length_mm || length_mm <= 0) {
@@ -303,11 +419,18 @@ export function calculateRoofLayout(roof, projectWalls = []) {
   const thicknessOption = ROOF_THICKNESS_OPTIONS[thickness] || ROOF_THICKNESS_OPTIONS.roof;
   const epsDepth = thicknessOption.eps;
   const totalThickness = thicknessOption.total;
+  const { longSplineEps, shortSplineEps, splineTotal } = thicknessOption;
+
+  // Resolve separate high/low eave overhangs for skillion
+  const { highEave: eaveOverhangHigh_mm, lowEave: eaveOverhangLow_mm } = resolveEaveOverhangs(roof);
 
   // Compute planes
+  const ridgeOrientation = roof.ridgeOrientation || RIDGE_ORIENTATIONS.ALONG_LENGTH;
   const resolvedRoof = {
     type, length_mm, width_mm, pitch_deg, ridgeOffset_mm,
     highEdge, eaveOverhang_mm, gableOverhang_mm,
+    eaveOverhangHigh_mm, eaveOverhangLow_mm,
+    ridgeOrientation,
   };
   const planes = computeRoofPlanes(resolvedRoof);
 
@@ -319,7 +442,8 @@ export function calculateRoofLayout(roof, projectWalls = []) {
 
   for (const plane of planes) {
     const planePenetrations = penetrations.filter(p => p.plane === plane.index);
-    const planeLayout = layoutPlane(plane, panelDirection, planePenetrations);
+    const splineDepthInfo = { longSplineEps, shortSplineEps, splineTotal };
+    const planeLayout = layoutPlane(plane, panelDirection, planePenetrations, joistRecess, splineDepthInfo);
 
     // Reindex panels globally
     for (const panel of planeLayout.panels) {
@@ -334,6 +458,7 @@ export function calculateRoofLayout(roof, projectWalls = []) {
       splines: planeLayout.splines,
       courses: planeLayout.courses,
       columnPositions: planeLayout.columnPositions,
+      perimeterPlates: planeLayout.perimeterPlates,
     });
   }
 
@@ -341,14 +466,22 @@ export function calculateRoofLayout(roof, projectWalls = []) {
   const totalPlanArea = planes.reduce((sum, p) => sum + p.uLength * p.vLength, 0);
   const totalPanelArea = allPanels.reduce((sum, p) => sum + p.width * p.length, 0);
 
+  // Effective dimensions after ridge orientation swap
+  let effectiveLength = length_mm;
+  let effectiveWidth = width_mm;
+  if (type === ROOF_TYPES.GABLE && ridgeOrientation === RIDGE_ORIENTATIONS.ALONG_WIDTH) {
+    effectiveLength = width_mm;
+    effectiveWidth = length_mm;
+  }
+
   // ── Internal roof area for H1 compliance ──
   // This is the ceiling area bounded by the inside face of the walls,
   // excluding overhangs. Wall thickness (162mm) is deducted from all sides
   // of the building footprint. For pitched roofs the slope area of this
   // internal footprint is used (heat flows through the sloped surface).
   const wallThk = WALL_THICKNESS; // 162mm
-  const internalLength = Math.max(0, length_mm - 2 * wallThk);
-  const internalWidth = Math.max(0, width_mm - 2 * wallThk);
+  const internalLength = Math.max(0, effectiveLength - 2 * wallThk);
+  const internalWidth = Math.max(0, effectiveWidth - 2 * wallThk);
   const pitchRad = (pitch_deg * Math.PI) / 180;
   const cosPitch = Math.cos(pitchRad) || 1;
 
@@ -370,20 +503,21 @@ export function calculateRoofLayout(roof, projectWalls = []) {
   }
 
   // Ridge length (for gable)
-  const ridgeLength = type === ROOF_TYPES.GABLE ? length_mm + 2 * gableOverhang_mm : 0;
+  const ridgeLength = type === ROOF_TYPES.GABLE ? effectiveLength + 2 * gableOverhang_mm : 0;
 
   // Ridge height
   let ridgeHeight = 0;
   if (type === ROOF_TYPES.GABLE) {
-    ridgeHeight = (width_mm / 2 + ridgeOffset_mm) * Math.tan(pitchRad);
+    ridgeHeight = (effectiveWidth / 2 + ridgeOffset_mm) * Math.tan(pitchRad);
   } else if (type === ROOF_TYPES.SKILLION) {
     ridgeHeight = width_mm * Math.tan(pitchRad);
   }
 
   return {
     type,
-    length_mm,
-    width_mm,
+    length_mm: effectiveLength,
+    width_mm: effectiveWidth,
+    ridgeOrientation,
     pitch_deg,
     ridgeOffset_mm,
     highEdge,
@@ -392,6 +526,8 @@ export function calculateRoofLayout(roof, projectWalls = []) {
     epsDepth,
     totalThickness,
     eaveOverhang_mm,
+    eaveOverhangHigh_mm,
+    eaveOverhangLow_mm,
     gableOverhang_mm,
     planes,
     planeLayouts,
@@ -409,5 +545,10 @@ export function calculateRoofLayout(roof, projectWalls = []) {
     internalRoofArea: Math.round(internalRoofArea),
     ridgeLength: Math.round(ridgeLength),
     ridgeHeight: Math.round(ridgeHeight),
+    boundaryJoistCount,
+    perimeterPlateWidth,
+    longSplineEps,
+    shortSplineEps,
+    splineTotal,
   };
 }

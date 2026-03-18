@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code
+.claude/
+
+# LibreOffice lock files
+.~lock.*#
+
+# Temp/scratch files
+*.tar.gz
+devpro-audit-hooks*

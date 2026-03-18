@@ -16,17 +16,20 @@ export default function H1Page() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const projects = getProjects();
-    const p = projects.find(p => p.id === projectId);
-    if (!p) {
-      navigate('/', { replace: true });
-      return;
-    }
-    setProject(p);
-    setClimateZone(getClimateZone(p.territorialAuthority));
+    async function load() {
+      const projects = await getProjects();
+      const p = projects.find(p => p.id === projectId);
+      if (!p) {
+        navigate('/', { replace: true });
+        return;
+      }
+      setProject(p);
+      setClimateZone(getClimateZone(p.territorialAuthority));
 
-    const savedH1 = getProjectH1(projectId);
-    if (savedH1) setH1Input(savedH1);
+      const savedH1 = await getProjectH1(projectId);
+      if (savedH1) setH1Input(savedH1);
+    }
+    load();
   }, [projectId, navigate]);
 
   const handleCalculate = (input) => {
@@ -45,9 +48,9 @@ export default function H1Page() {
     setSaved(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (h1Input) {
-      saveProjectH1(projectId, h1Input);
+      await saveProjectH1(projectId, h1Input);
       setSaved(true);
     }
   };

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { PANEL_HEIGHTS, OPENING_TYPES, WALL_PROFILES } from '../utils/constants.js';
+import CalcInput from './CalcInput.jsx';
 
 const defaultOpening = {
   ref: '',
@@ -13,7 +14,7 @@ const defaultOpening = {
 };
 
 const defaultWall = {
-  name: 'N-W1',
+  name: 'W01',
   length_mm: 9740,
   height_mm: 2440,
   profile: WALL_PROFILES.STANDARD,
@@ -26,7 +27,7 @@ const defaultWall = {
 };
 
 export default function WallForm({ onCalculate, onChange, initialWall }) {
-  const [wall, setWall] = useState(initialWall || defaultWall);
+  const [wall, setWall] = useState(initialWall ? { ...defaultWall, ...initialWall } : defaultWall);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -199,13 +200,11 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
         </div>
         <div style={styles.field}>
           <label style={styles.label}>Length (mm)</label>
-          <input
-            type="number"
+          <CalcInput
             value={wall.length_mm}
-            onChange={e => updateField('length_mm', parseInt(e.target.value) || 0)}
+            onChange={v => updateField('length_mm', v)}
             onBlur={() => validateField('length_mm', wall.length_mm)}
             style={{ ...styles.input, ...(fieldErrors.length_mm ? styles.inputError : {}) }}
-            min={300}
           />
           {fieldErrors.length_mm && <span style={styles.fieldError}>{fieldErrors.length_mm}</span>}
         </div>
@@ -230,13 +229,11 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
              profile === WALL_PROFILES.GABLE ? 'Eave Height (mm)' :
              'Height (mm)'}
           </label>
-          <input
-            type="number"
+          <CalcInput
             value={wall.height_mm}
-            onChange={e => updateField('height_mm', parseInt(e.target.value) || 0)}
+            onChange={v => updateField('height_mm', v)}
             onBlur={() => validateField('height_mm', wall.height_mm)}
             style={{ ...styles.input, ...(fieldErrors.height_mm ? styles.inputError : {}) }}
-            min={300}
           />
           {fieldErrors.height_mm && <span style={styles.fieldError}>{fieldErrors.height_mm}</span>}
         </div>
@@ -244,12 +241,10 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
         {profile === WALL_PROFILES.RAKED && (
           <div style={styles.field}>
             <label style={styles.label}>Height Right (mm)</label>
-            <input
-              type="number"
+            <CalcInput
               value={wall.height_right_mm || wall.height_mm}
-              onChange={e => updateField('height_right_mm', parseInt(e.target.value) || 0)}
+              onChange={v => updateField('height_right_mm', v)}
               style={styles.input}
-              min={300}
             />
           </div>
         )}
@@ -258,23 +253,18 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
           <>
             <div style={styles.field}>
               <label style={styles.label}>Peak Height (mm)</label>
-              <input
-                type="number"
+              <CalcInput
                 value={wall.peak_height_mm || 4000}
-                onChange={e => updateField('peak_height_mm', parseInt(e.target.value) || 0)}
+                onChange={v => updateField('peak_height_mm', v)}
                 style={styles.input}
-                min={wall.height_mm || 300}
               />
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Peak Position from Left (mm)</label>
-              <input
-                type="number"
+              <CalcInput
                 value={wall.peak_position_mm || Math.round(wall.length_mm / 2)}
-                onChange={e => updateField('peak_position_mm', parseInt(e.target.value) || 0)}
+                onChange={v => updateField('peak_position_mm', v)}
                 style={styles.input}
-                min={0}
-                max={wall.length_mm}
               />
             </div>
           </>
@@ -360,59 +350,49 @@ export default function WallForm({ onCalculate, onChange, initialWall }) {
           <div style={styles.row}>
             <div style={styles.field}>
               <label style={styles.label}>Width (mm)</label>
-              <input
-                type="number"
+              <CalcInput
                 value={op.width_mm}
-                onChange={e => updateOpening(i, 'width_mm', parseInt(e.target.value) || 0)}
+                onChange={v => updateOpening(i, 'width_mm', v)}
                 onBlur={() => validateOpeningField(i, 'width_mm', op.width_mm, op)}
                 style={{ ...styles.input, ...(fieldErrors[`opening_${i}_width_mm`] ? styles.inputError : {}) }}
-                min={0}
               />
               {fieldErrors[`opening_${i}_width_mm`] && <span style={styles.fieldError}>{fieldErrors[`opening_${i}_width_mm`]}</span>}
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Height (mm)</label>
-              <input
-                type="number"
+              <CalcInput
                 value={op.height_mm}
-                onChange={e => updateOpening(i, 'height_mm', parseInt(e.target.value) || 0)}
+                onChange={v => updateOpening(i, 'height_mm', v)}
                 onBlur={() => validateOpeningField(i, 'height_mm', op.height_mm, op)}
                 style={{ ...styles.input, ...(fieldErrors[`opening_${i}_height_mm`] ? styles.inputError : {}) }}
-                min={0}
               />
               {fieldErrors[`opening_${i}_height_mm`] && <span style={styles.fieldError}>{fieldErrors[`opening_${i}_height_mm`]}</span>}
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Sill Height (mm)</label>
-              <input
-                type="number"
+              <CalcInput
                 value={op.sill_mm}
-                onChange={e => updateOpening(i, 'sill_mm', parseInt(e.target.value) || 0)}
+                onChange={v => updateOpening(i, 'sill_mm', v)}
                 style={styles.input}
-                min={0}
                 disabled={op.type !== OPENING_TYPES.WINDOW}
               />
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Position from Left (mm)</label>
-              <input
-                type="number"
+              <CalcInput
                 value={op.position_from_left_mm}
-                onChange={e => updateOpening(i, 'position_from_left_mm', parseInt(e.target.value) || 0)}
+                onChange={v => updateOpening(i, 'position_from_left_mm', v)}
                 onBlur={() => validateOpeningField(i, 'position_from_left_mm', op.position_from_left_mm, op)}
                 style={{ ...styles.input, ...(fieldErrors[`opening_${i}_position_from_left_mm`] ? styles.inputError : {}) }}
-                min={0}
               />
               {fieldErrors[`opening_${i}_position_from_left_mm`] && <span style={styles.fieldError}>{fieldErrors[`opening_${i}_position_from_left_mm`]}</span>}
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Lintel Height (mm)</label>
-              <input
-                type="number"
+              <CalcInput
                 value={op.lintel_height_mm ?? 200}
-                onChange={e => updateOpening(i, 'lintel_height_mm', parseInt(e.target.value) || 0)}
+                onChange={v => updateOpening(i, 'lintel_height_mm', v)}
                 style={styles.input}
-                min={0}
               />
             </div>
           </div>

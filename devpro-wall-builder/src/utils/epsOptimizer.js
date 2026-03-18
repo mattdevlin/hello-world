@@ -12,10 +12,11 @@
 import { BOTTOM_PLATE, TOP_PLATE, PANEL_GAP, FLOOR_EPS_DEPTH, FLOOR_SPLINE_EPS_DEPTH,
   FLOOR_PANEL_SLABS_PER_BLOCK, FLOOR_SPLINE_SLABS_PER_BLOCK,
   REINFORCED_SPLINE_SLABS_PER_BLOCK,
-  ROOF_EPS_DEPTH, ROOF_SPLINE_EPS_DEPTH,
+  ROOF_EPS_DEPTH, ROOF_SPLINE_EPS_DEPTH, ROOF_THICKNESS_OPTIONS,
   ROOF_PANEL_SLABS_PER_BLOCK, ROOF_SPLINE_SLABS_PER_BLOCK,
   REINFORCED_SPLINE_EPS_WIDTH, REINFORCED_SPLINE_EPS_DEPTH,
-  SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP, MAGBOARD } from './constants.js';
+  SPLINE_WIDTH as CONST_SPLINE_WIDTH, EPS_GAP, MAGBOARD,
+  WALL_SPLINE_EPS_DEPTH } from './constants.js';
 import { calculateWallLayout } from './calculator.js';
 import { calculateFloorLayout } from './floorCalculator.js';
 import { calculateRoofLayout } from './roofCalculator.js';
@@ -30,7 +31,7 @@ export const EPS_BLOCK = {
 
 // ── EPS thicknesses ──
 const PANEL_EPS_DEPTH = 142;
-const SPLINE_EPS_DEPTH = 120;
+const SPLINE_EPS_DEPTH = WALL_SPLINE_EPS_DEPTH;
 const SPLINE_WIDTH = 146;
 const HALF_SPLINE = SPLINE_WIDTH / 2;
 
@@ -438,16 +439,17 @@ export function extractRoofEpsPieces(layout, roofName = '') {
     }
   }
 
-  // Spline EPS pieces
+  // Spline EPS pieces — use per-spline epsDepth (long vs short)
   const splineEpsW = CONST_SPLINE_WIDTH - ROOF_MAGBOARD * 2;
   for (const s of splines) {
     if (s.length > 0) {
       pieces.push({
         width: splineEpsW,
         height: Math.round(s.length),
-        depth: ROOF_SPLINE_EPS_DEPTH,
-        label: 'Spline',
+        depth: s.epsDepth || 208,
+        label: s.splineType === 'short' ? 'Short Spline' : 'Long Spline',
         roofName,
+        splineType: s.splineType || 'long',
       });
     }
   }
@@ -478,8 +480,8 @@ export function computeProjectEpsBlocksWithRoofs(walls, floors, roofs) {
     const layout = calculateRoofLayout(roof);
     if (layout.error) continue;
     const pieces = extractRoofEpsPieces(layout, roof.name);
-    const panelP = pieces.filter(p => p.depth !== ROOF_SPLINE_EPS_DEPTH);
-    const splineP = pieces.filter(p => p.depth === ROOF_SPLINE_EPS_DEPTH);
+    const panelP = pieces.filter(p => !p.splineType);
+    const splineP = pieces.filter(p => p.splineType);
     roofPanelPieces.push(...panelP);
     roofSplinePieces.push(...splineP);
     perRoof.push({
@@ -496,19 +498,32 @@ export function computeProjectEpsBlocksWithRoofs(walls, floors, roofs) {
   const slabH = EPS_BLOCK.width;
 
   const roofPanelSlabs = shelfPack(roofPanelPieces, slabW, slabH);
-  const roofSplineSlabs = shelfPack(roofSplinePieces, slabW, slabH);
-
   const roofPanelBlocks = Math.ceil(roofPanelSlabs.length / ROOF_PANEL_SLABS_PER_BLOCK);
-  const roofSplineBlocks = Math.ceil(roofSplineSlabs.length / ROOF_SPLINE_SLABS_PER_BLOCK);
+
+  // Partition spline pieces by depth for separate bin-packing (long vs short have different EPS depths)
+  const splineByDepth = {};
+  for (const p of roofSplinePieces) {
+    (splineByDepth[p.depth] || (splineByDepth[p.depth] = [])).push(p);
+  }
+
+  let roofSplineSlabCount = 0;
+  let roofSplineBlocks = 0;
+  for (const [depthStr, group] of Object.entries(splineByDepth)) {
+    const depth = Number(depthStr);
+    const slabs = shelfPack(group, slabW, slabH);
+    const slabsPerBlock = Math.floor(EPS_BLOCK.depth / depth) || 1;
+    roofSplineSlabCount += slabs.length;
+    roofSplineBlocks += Math.ceil(slabs.length / slabsPerBlock);
+  }
 
   const slabArea = slabW * slabH;
   const rPanelUsedArea = roofPanelPieces.reduce((s, p) => s + p.width * p.height, 0);
   const rSplineUsedArea = roofSplinePieces.reduce((s, p) => s + p.width * p.height, 0);
   const rPanelTotalArea = roofPanelSlabs.length * slabArea;
-  const rSplineTotalArea = roofSplineSlabs.length * slabArea;
+  const rSplineTotalArea = roofSplineSlabCount * slabArea;
 
-  const roofPanelVolume = rPanelUsedArea * ROOF_EPS_DEPTH;
-  const roofSplineVolume = rSplineUsedArea * ROOF_SPLINE_EPS_DEPTH;
+  const roofPanelVolume = rPanelUsedArea * (roofs[0] ? (ROOF_THICKNESS_OPTIONS[roofs[0].thickness] || ROOF_THICKNESS_OPTIONS.roof).eps : ROOF_EPS_DEPTH);
+  const roofSplineVolume = roofSplinePieces.reduce((s, p) => s + p.width * p.height * p.depth, 0);
 
   return {
     ...baseResult,
@@ -517,7 +532,7 @@ export function computeProjectEpsBlocksWithRoofs(walls, floors, roofs) {
     roofPanelSlabs,
     roofSplineSlabs,
     roofPanelSlabCount: roofPanelSlabs.length,
-    roofSplineSlabCount: roofSplineSlabs.length,
+    roofSplineSlabCount,
     roofPanelBlocks,
     roofSplineBlocks,
     roofPanelUtilization: rPanelTotalArea > 0 ? rPanelUsedArea / rPanelTotalArea : 0,

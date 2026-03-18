@@ -79,13 +79,16 @@ function shelfPackSorted(sorted, slabW, slabH) {
       const { o } = bestAction;
       if (bestAction.type === 'shelf') {
         const shelf = slabs[bestAction.si].shelves[bestAction.shi];
-        shelf.pieces.push({ ...piece, placedW: o.w, placedH: o.h });
+        const placedX = slabW - shelf.remainingW;
+        const placedY = slabs[bestAction.si].shelves.slice(0, bestAction.shi).reduce((s, sh) => s + sh.h, 0);
+        shelf.pieces.push({ ...piece, placedW: o.w, placedH: o.h, placedX, placedY });
         shelf.remainingW -= o.w;
       } else {
+        const usedH = slabs[bestAction.si].shelves.reduce((s, sh) => s + sh.h, 0);
         slabs[bestAction.si].shelves.push({
           h: o.h,
           remainingW: slabW - o.w,
-          pieces: [{ ...piece, placedW: o.w, placedH: o.h }],
+          pieces: [{ ...piece, placedW: o.w, placedH: o.h, placedX: 0, placedY: usedH }],
         });
       }
     } else {
@@ -97,7 +100,7 @@ function shelfPackSorted(sorted, slabW, slabH) {
         shelves: [{
           h: o.h,
           remainingW: slabW - o.w,
-          pieces: [{ ...piece, placedW: o.w, placedH: o.h }],
+          pieces: [{ ...piece, placedW: o.w, placedH: o.h, placedX: 0, placedY: 0 }],
         }],
       });
     }

@@ -1,18 +1,18 @@
-import { useState, useMemo } from 'react';
-import { computeProjectMagboardSheets, computeProjectMagboardSheetsWithFloors, computeProjectMagboardSheetsWithRoofs } from '../utils/magboardOptimizer.js';
+import { useState, useEffect, useMemo } from 'react';
+import { computeProjectMagboardSheetsUnified } from '../utils/magboardOptimizer.js';
+import { fetchUnitPricing } from '../utils/priceCalculator.js';
 
 export default function MagboardSheetSummary({ walls, floors, roofs }) {
   const [expanded, setExpanded] = useState(false);
+  const [pricing, setPricing] = useState(null);
+
+  useEffect(() => {
+    fetchUnitPricing().then(setPricing);
+  }, []);
 
   const result = useMemo(() => {
     if ((!walls || walls.length === 0) && (!floors || floors.length === 0) && (!roofs || roofs.length === 0)) return null;
-    if (roofs && roofs.length > 0) {
-      return computeProjectMagboardSheetsWithRoofs(walls || [], floors || [], roofs);
-    }
-    if (floors && floors.length > 0) {
-      return computeProjectMagboardSheetsWithFloors(walls || [], floors);
-    }
-    return computeProjectMagboardSheets(walls);
+    return computeProjectMagboardSheetsUnified(walls || [], floors || [], roofs || []);
   }, [walls, floors, roofs]);
 
   if (!result) return null;
@@ -70,7 +70,29 @@ export default function MagboardSheetSummary({ walls, floors, roofs }) {
               <div style={styles.cardUnit}>panel faces</div>
               <div style={styles.cardDetail}>2 per panel (front + back)</div>
             </div>
+            {pricing && (
+              <div style={styles.card}>
+                <div style={{ ...styles.cardValue, color: '#D84315' }}>
+                  ${(totalSheets * pricing.magboard.unit_cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div style={styles.cardUnit}>material cost (ex GST)</div>
+                <div style={styles.cardDetail}>@ ${pricing.magboard.unit_cost.toFixed(2)}/sheet</div>
+              </div>
+            )}
           </div>
+
+          {/* Unified packing savings */}
+          {(result.savingsVsSeparate > 0 || result.piecesInRemnants > 0) && (
+            <div style={{ padding: '6px 12px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 6, fontSize: 12, fontWeight: 600, color: '#065f46', marginBottom: 12 }}>
+              {result.savingsVsSeparate > 0 && (
+                <span>Unified packing saved {result.savingsVsSeparate} sheet{result.savingsVsSeparate !== 1 ? 's' : ''}</span>
+              )}
+              {result.savingsVsSeparate > 0 && result.piecesInRemnants > 0 && <span> · </span>}
+              {result.piecesInRemnants > 0 && (
+                <span>{result.piecesInRemnants} piece{result.piecesInRemnants !== 1 ? 's' : ''} placed in panel remnants</span>
+              )}
+            </div>
+          )}
 
           {/* Cut pieces breakdown */}
           {cutPieceCount > 0 && (
