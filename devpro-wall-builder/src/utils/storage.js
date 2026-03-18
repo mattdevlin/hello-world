@@ -1,332 +1,169 @@
-const PROJECTS_KEY = 'devpro-projects';
-const LEGACY_KEY = 'devpro-saved-walls';
+const API_BASE = '/api/projects';
 
-function projectWallsKey(projectId) {
-  return `devpro-project-${projectId}`;
+async function apiGet(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+  return res.json();
 }
 
-function projectConnectionsKey(projectId) {
-  return `devpro-project-${projectId}-connections`;
+async function apiPut(url, body) {
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+  return res.json();
 }
 
-function projectPlacementsKey(projectId) {
-  return `devpro-project-${projectId}-placements`;
+async function apiPost(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+  return res.json();
 }
 
-function projectWallPositionsKey(projectId) {
-  return `devpro-project-${projectId}-wallpositions`;
-}
-
-function projectFloorsKey(projectId) {
-  return `devpro-project-${projectId}-floors`;
-}
-
-function projectRoofsKey(projectId) {
-  return `devpro-project-${projectId}-roofs`;
-}
-
-function projectH1Key(projectId) {
-  return `devpro-project-${projectId}-h1`;
-}
-
-function readJson(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
-  } catch (err) {
-    console.warn(`Failed to parse localStorage key "${key}":`, err);
-    return null;
-  }
-}
-
-function writeJson(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    if (e?.name === 'QuotaExceededError' || e?.code === 22) {
-      console.error('localStorage quota exceeded while writing key:', key);
-      throw new Error('Storage is full. Export your projects and clear old data to free space.');
-    }
-    throw e;
-  }
+async function apiDelete(url) {
+  const res = await fetch(url, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`);
+  return res.json();
 }
 
 // ── Projects ──
 
-export function getProjects() {
-  return (readJson(PROJECTS_KEY) || []).sort(
-    (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)
-  );
+export async function getProjects() {
+  return apiGet(API_BASE);
 }
 
-export function saveProjects(projects) {
-  writeJson(PROJECTS_KEY, projects);
+export async function createProject(name) {
+  return apiPost(API_BASE, { name });
 }
 
-export function createProject(name) {
-  const projects = getProjects();
-  const project = {
-    id: crypto.randomUUID(),
-    name,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    wallCount: 0,
-  };
-  projects.push(project);
-  saveProjects(projects);
-  writeJson(projectWallsKey(project.id), []);
-  return project;
+export async function renameProject(id, name) {
+  return apiPut(`${API_BASE}/${id}`, { name });
 }
 
-export function renameProject(id, name) {
-  const projects = getProjects();
-  const p = projects.find(p => p.id === id);
-  if (p) {
-    p.name = name;
-    p.updatedAt = Date.now();
-    saveProjects(projects);
-  }
+export async function updateProjectDetails(id, fields) {
+  return apiPut(`${API_BASE}/${id}`, fields);
 }
 
-const ALLOWED_PROJECT_FIELDS = ['name', 'address', 'territorialAuthority'];
-
-export function updateProjectDetails(id, fields) {
-  const projects = getProjects();
-  const p = projects.find(p => p.id === id);
-  if (p) {
-    for (const key of ALLOWED_PROJECT_FIELDS) {
-      if (key in fields) p[key] = fields[key];
-    }
-    p.updatedAt = Date.now();
-    saveProjects(projects);
-  }
-}
-
-export function deleteProject(id) {
-  const projects = getProjects().filter(p => p.id !== id);
-  saveProjects(projects);
-  localStorage.removeItem(projectWallsKey(id));
-  localStorage.removeItem(projectFloorsKey(id));
-  localStorage.removeItem(projectRoofsKey(id));
-  localStorage.removeItem(projectH1Key(id));
-  localStorage.removeItem(projectConnectionsKey(id));
-  localStorage.removeItem(projectPlacementsKey(id));
-  localStorage.removeItem(projectWallPositionsKey(id));
+export async function deleteProject(id) {
+  return apiDelete(`${API_BASE}/${id}`);
 }
 
 // ── Walls within a project ──
 
-export function getProjectWalls(projectId) {
-  return (readJson(projectWallsKey(projectId)) || []).sort(
-    (a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' })
-  );
+export async function getProjectWalls(projectId) {
+  return apiGet(`${API_BASE}/${projectId}/walls`);
 }
 
-function syncWallCount(projectId) {
-  const walls = getProjectWalls(projectId);
-  const projects = getProjects();
-  const p = projects.find(p => p.id === projectId);
-  if (p) {
-    p.wallCount = walls.length;
-    p.updatedAt = Date.now();
-    saveProjects(projects);
-  }
+export async function saveWall(projectId, wallInput) {
+  const id = wallInput.id || crypto.randomUUID();
+  const entry = { ...wallInput, id };
+  return apiPut(`${API_BASE}/${projectId}/walls/${id}`, entry);
 }
 
-export function saveWall(projectId, wallInput) {
-  const walls = getProjectWalls(projectId);
-  const existing = walls.findIndex(w => w.id === wallInput.id);
-  const entry = {
-    ...wallInput,
-    id: wallInput.id || crypto.randomUUID(),
-    updatedAt: Date.now(),
-  };
-  if (!entry.createdAt) entry.createdAt = Date.now();
-
-  if (existing >= 0) {
-    walls[existing] = entry;
-  } else {
-    walls.push(entry);
-  }
-  writeJson(projectWallsKey(projectId), walls);
-  syncWallCount(projectId);
-  return entry;
+export async function deleteWall(projectId, wallId) {
+  return apiDelete(`${API_BASE}/${projectId}/walls/${wallId}`);
 }
 
-export function deleteWall(projectId, wallId) {
-  const walls = getProjectWalls(projectId).filter(w => w.id !== wallId);
-  writeJson(projectWallsKey(projectId), walls);
-  // Remove any connections referencing the deleted wall
-  const connections = getProjectConnections(projectId)
-    .filter(c => c.wallId !== wallId && c.attachedWallId !== wallId);
-  saveProjectConnections(projectId, connections);
-  // Remove from placements
-  const placements = getProjectPlacements(projectId).filter(id => id !== wallId);
-  saveProjectPlacements(projectId, placements);
-  // Remove stored position
-  const positions = getProjectWallPositions(projectId);
-  delete positions[wallId];
-  saveProjectWallPositions(projectId, positions);
-  syncWallCount(projectId);
-}
-
-export function copyWallToProject(wall, targetProjectId) {
-  const copy = {
-    ...wall,
-    id: crypto.randomUUID(),
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-  const walls = getProjectWalls(targetProjectId);
-  walls.push(copy);
-  writeJson(projectWallsKey(targetProjectId), walls);
-  syncWallCount(targetProjectId);
-  return copy;
+export async function copyWallToProject(wall, targetProjectId) {
+  return apiPost(`${API_BASE}/${targetProjectId}/walls/copy`, {
+    wall,
+    targetProjectId,
+  });
 }
 
 // ── Floors within a project ──
 
-export function getProjectFloors(projectId) {
-  return (readJson(projectFloorsKey(projectId)) || []).sort(
-    (a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' })
-  );
+export async function getProjectFloors(projectId) {
+  return apiGet(`${API_BASE}/${projectId}/floors`);
 }
 
-function syncFloorCount(projectId) {
-  const floors = getProjectFloors(projectId);
-  const projects = getProjects();
-  const p = projects.find(p => p.id === projectId);
-  if (p) {
-    p.floorCount = floors.length;
-    p.updatedAt = Date.now();
-    saveProjects(projects);
-  }
+export async function saveFloor(projectId, floorInput) {
+  const id = floorInput.id || crypto.randomUUID();
+  const entry = { ...floorInput, id };
+  return apiPut(`${API_BASE}/${projectId}/floors/${id}`, entry);
 }
 
-export function saveFloor(projectId, floorInput) {
-  const floors = getProjectFloors(projectId);
-  const existing = floors.findIndex(f => f.id === floorInput.id);
-  const entry = {
-    ...floorInput,
-    id: floorInput.id || crypto.randomUUID(),
-    updatedAt: Date.now(),
-  };
-  if (!entry.createdAt) entry.createdAt = Date.now();
-
-  if (existing >= 0) {
-    floors[existing] = entry;
-  } else {
-    floors.push(entry);
-  }
-  writeJson(projectFloorsKey(projectId), floors);
-  syncFloorCount(projectId);
-  return entry;
-}
-
-export function deleteFloor(projectId, floorId) {
-  const floors = getProjectFloors(projectId).filter(f => f.id !== floorId);
-  writeJson(projectFloorsKey(projectId), floors);
-  syncFloorCount(projectId);
+export async function deleteFloor(projectId, floorId) {
+  return apiDelete(`${API_BASE}/${projectId}/floors/${floorId}`);
 }
 
 // ── Roofs within a project ──
 
-export function getProjectRoofs(projectId) {
-  return (readJson(projectRoofsKey(projectId)) || []).sort(
-    (a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' })
-  );
+export async function getProjectRoofs(projectId) {
+  return apiGet(`${API_BASE}/${projectId}/roofs`);
 }
 
-function syncRoofCount(projectId) {
-  const roofs = getProjectRoofs(projectId);
-  const projects = getProjects();
-  const p = projects.find(p => p.id === projectId);
-  if (p) {
-    p.roofCount = roofs.length;
-    p.updatedAt = Date.now();
-    saveProjects(projects);
-  }
+export async function saveRoof(projectId, roofInput) {
+  const id = roofInput.id || crypto.randomUUID();
+  const entry = { ...roofInput, id };
+  return apiPut(`${API_BASE}/${projectId}/roofs/${id}`, entry);
 }
 
-export function saveRoof(projectId, roofInput) {
-  const roofs = getProjectRoofs(projectId);
-  const existing = roofs.findIndex(r => r.id === roofInput.id);
-  const entry = {
-    ...roofInput,
-    id: roofInput.id || crypto.randomUUID(),
-    updatedAt: Date.now(),
-  };
-  if (!entry.createdAt) entry.createdAt = Date.now();
-
-  if (existing >= 0) {
-    roofs[existing] = entry;
-  } else {
-    roofs.push(entry);
-  }
-  writeJson(projectRoofsKey(projectId), roofs);
-  syncRoofCount(projectId);
-  return entry;
-}
-
-export function deleteRoof(projectId, roofId) {
-  const roofs = getProjectRoofs(projectId).filter(r => r.id !== roofId);
-  writeJson(projectRoofsKey(projectId), roofs);
-  syncRoofCount(projectId);
+export async function deleteRoof(projectId, roofId) {
+  return apiDelete(`${API_BASE}/${projectId}/roofs/${roofId}`);
 }
 
 // ── Connections (wall snap layout) ──
 
-export function getProjectConnections(projectId) {
-  return readJson(projectConnectionsKey(projectId)) || [];
+export async function getProjectConnections(projectId) {
+  return apiGet(`${API_BASE}/${projectId}/connections`);
 }
 
-export function saveProjectConnections(projectId, connections) {
-  writeJson(projectConnectionsKey(projectId), connections);
+export async function saveProjectConnections(projectId, connections) {
+  return apiPut(`${API_BASE}/${projectId}/connections/_`, connections);
 }
 
 // ── Placements (which walls are placed in the 3D scene) ──
 
-export function getProjectPlacements(projectId) {
-  return readJson(projectPlacementsKey(projectId)) || [];
+export async function getProjectPlacements(projectId) {
+  return apiGet(`${API_BASE}/${projectId}/placements`);
 }
 
-export function saveProjectPlacements(projectId, placedWallIds) {
-  writeJson(projectPlacementsKey(projectId), placedWallIds);
+export async function saveProjectPlacements(projectId, placedWallIds) {
+  return apiPut(`${API_BASE}/${projectId}/placements/_`, placedWallIds);
 }
 
 // ── Wall Positions (manual positions for standalone walls in 3D) ──
 
-export function getProjectWallPositions(projectId) {
-  return readJson(projectWallPositionsKey(projectId)) || {};
+export async function getProjectWallPositions(projectId) {
+  return apiGet(`${API_BASE}/${projectId}/wall-positions`);
 }
 
-export function saveProjectWallPositions(projectId, positions) {
-  writeJson(projectWallPositionsKey(projectId), positions);
+export async function saveProjectWallPositions(projectId, positions) {
+  return apiPut(`${API_BASE}/${projectId}/wall-positions/_`, positions);
 }
 
 // ── H1 Compliance Data ──
 
-export function getProjectH1(projectId) {
-  return readJson(projectH1Key(projectId)) || null;
+export async function getProjectH1(projectId) {
+  return apiGet(`${API_BASE}/${projectId}/h1`);
 }
 
-export function saveProjectH1(projectId, h1Data) {
-  writeJson(projectH1Key(projectId), h1Data);
+export async function saveProjectH1(projectId, h1Data) {
+  return apiPut(`${API_BASE}/${projectId}/h1/_`, h1Data);
 }
 
 // ── Archive (export/import as JSON zip) ──
 
 export async function exportProject(projectId) {
   const JSZip = (await import('jszip')).default;
-  const projects = getProjects();
+  const [projects, walls, connections, floors, roofs, h1Data] = await Promise.all([
+    getProjects(),
+    getProjectWalls(projectId),
+    getProjectConnections(projectId),
+    getProjectFloors(projectId),
+    getProjectRoofs(projectId),
+    getProjectH1(projectId),
+  ]);
   const project = projects.find(p => p.id === projectId);
   if (!project) throw new Error('Project not found');
 
-  const walls = getProjectWalls(projectId);
-  const connections = getProjectConnections(projectId);
-  const floors = getProjectFloors(projectId);
-  const roofs = getProjectRoofs(projectId);
-  const h1Data = getProjectH1(projectId);
   const zip = new JSZip();
   zip.file('project.json', JSON.stringify({ ...project, exportedAt: Date.now() }, null, 2));
   zip.file('walls.json', JSON.stringify(walls, null, 2));
@@ -385,46 +222,34 @@ export async function importProject(file) {
     throw new Error('Invalid .devpro file: walls data must be an array');
   }
 
-  // Validate wall entries
   const validWalls = wallsData.filter(w => validateWallData(w));
   if (validWalls.length === 0 && wallsData.length > 0) {
     throw new Error('Invalid .devpro file: no valid wall entries found');
   }
 
-  // Create as a new project with a fresh ID to avoid collisions
+  // Create as a new project with a fresh ID
   const newId = crypto.randomUUID();
-  const project = {
+  const project = await apiPost(API_BASE, {
     id: newId,
     name: projectData.name + ' (imported)',
     address: projectData.address || '',
     territorialAuthority: projectData.territorialAuthority || '',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    wallCount: validWalls.length,
-  };
+  });
 
-  // Import connections if present (backward compatible with older exports)
-  const connectionsJson = await zip.file('connections.json')?.async('string');
-  const connectionsData = connectionsJson ? JSON.parse(connectionsJson) : [];
-  const validConnections = Array.isArray(connectionsData)
-    ? connectionsData.filter(c => validateConnectionData(c))
-    : [];
-
-  // Import floors if present (backward compatible with older exports)
-  const floorsJson = await zip.file('floors.json')?.async('string');
-  const floorsData = floorsJson ? JSON.parse(floorsJson) : [];
-
-  // Import roofs if present (backward compatible with older exports)
-  const roofsJson = await zip.file('roofs.json')?.async('string');
-  const roofsData = roofsJson ? JSON.parse(roofsJson) : [];
-
-  // Remap wall IDs in connections
+  // Remap wall IDs
   const wallIdMap = new Map();
   const walls = validWalls.map(w => {
     const newWallId = crypto.randomUUID();
     wallIdMap.set(w.id, newWallId);
     return { ...w, id: newWallId };
   });
+
+  // Import connections
+  const connectionsJson = await zip.file('connections.json')?.async('string');
+  const connectionsData = connectionsJson ? JSON.parse(connectionsJson) : [];
+  const validConnections = Array.isArray(connectionsData)
+    ? connectionsData.filter(c => validateConnectionData(c))
+    : [];
   const connections = validConnections.map(c => ({
     ...c,
     id: crypto.randomUUID(),
@@ -432,59 +257,88 @@ export async function importProject(file) {
     attachedWallId: wallIdMap.get(c.attachedWallId) || c.attachedWallId,
   }));
 
-  // Remap floor IDs
-  const floors = floorsData.map(f => ({
-    ...f,
-    id: crypto.randomUUID(),
-  }));
+  // Import floors
+  const floorsJson = await zip.file('floors.json')?.async('string');
+  const floorsData = floorsJson ? JSON.parse(floorsJson) : [];
+  const floors = floorsData.map(f => ({ ...f, id: crypto.randomUUID() }));
 
-  // Remap roof IDs
-  const roofs = roofsData.map(r => ({
-    ...r,
-    id: crypto.randomUUID(),
-  }));
+  // Import roofs
+  const roofsJson = await zip.file('roofs.json')?.async('string');
+  const roofsData = roofsJson ? JSON.parse(roofsJson) : [];
+  const roofs = roofsData.map(r => ({ ...r, id: crypto.randomUUID() }));
 
-  project.floorCount = floors.length;
-  project.roofCount = roofs.length;
-
-  const projects = getProjects();
-  projects.push(project);
-  saveProjects(projects);
-  writeJson(projectWallsKey(newId), walls);
-  if (floors.length > 0) {
-    writeJson(projectFloorsKey(newId), floors);
+  // Save all entities
+  const savePromises = [];
+  for (const w of walls) {
+    savePromises.push(apiPut(`${API_BASE}/${newId}/walls/${w.id}`, w));
   }
-  if (roofs.length > 0) {
-    writeJson(projectRoofsKey(newId), roofs);
+  for (const f of floors) {
+    savePromises.push(apiPut(`${API_BASE}/${newId}/floors/${f.id}`, f));
+  }
+  for (const r of roofs) {
+    savePromises.push(apiPut(`${API_BASE}/${newId}/roofs/${r.id}`, r));
   }
   if (connections.length > 0) {
-    saveProjectConnections(newId, connections);
+    savePromises.push(apiPut(`${API_BASE}/${newId}/connections/_`, connections));
   }
+  await Promise.all(savePromises);
 
-  // Import H1 data if present
+  // Import H1 data
   const h1Json = await zip.file('h1.json')?.async('string');
   if (h1Json) {
-    saveProjectH1(newId, JSON.parse(h1Json));
+    await apiPut(`${API_BASE}/${newId}/h1/_`, JSON.parse(h1Json));
   }
 
   return project;
 }
 
-// ── Migration: move legacy flat walls into a default project ──
+// ── Migration: localStorage → SQLite ──
 
+export async function migrateLocalStorageToSqlite() {
+  // Already migrated?
+  if (localStorage.getItem('devpro-migrated-to-sqlite')) return false;
+
+  const projectsRaw = localStorage.getItem('devpro-projects');
+  if (!projectsRaw) return false;
+
+  let projects;
+  try {
+    projects = JSON.parse(projectsRaw);
+  } catch {
+    return false;
+  }
+  if (!Array.isArray(projects) || projects.length === 0) return false;
+
+  // Collect all data
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('devpro-') && key !== 'devpro-migrated-to-sqlite') {
+      try {
+        data[key] = JSON.parse(localStorage.getItem(key));
+      } catch {
+        // skip unparseable
+      }
+    }
+  }
+
+  // Send to migration endpoint
+  await apiPost(`${API_BASE}/migrate`, { projects, data });
+
+  // Mark as migrated
+  localStorage.setItem('devpro-migrated-to-sqlite', 'true');
+
+  // Clean up old keys
+  const keysToRemove = Object.keys(data);
+  for (const key of keysToRemove) {
+    localStorage.removeItem(key);
+  }
+
+  return true;
+}
+
+// ── Legacy migration (flat walls → project) — now a no-op ──
 export function migrateLegacyWalls() {
-  const legacy = readJson(LEGACY_KEY);
-  if (!legacy || legacy.length === 0) return null;
-
-  const project = createProject('Imported Walls');
-  writeJson(projectWallsKey(project.id), legacy);
-  project.wallCount = legacy.length;
-
-  const projects = getProjects();
-  const p = projects.find(p => p.id === project.id);
-  if (p) p.wallCount = legacy.length;
-  saveProjects(projects);
-
-  localStorage.removeItem(LEGACY_KEY);
-  return project;
+  // Legacy migration is handled by migrateLocalStorageToSqlite
+  return null;
 }
