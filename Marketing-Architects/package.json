@@ -1,0 +1,21 @@
+{
+  "name": "marketing-architects",
+  "version": "1.0.0",
+  "description": "Architect email pipeline — Excel import, qualification, and HubSpot CRM sync for DevPro SIP panel marketing",
+  "type": "module",
+  "scripts": {
+    "import": "node scripts/import-architects.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@hubspot/api-client": "^12.0.1",
+    "chalk": "^5.3.0",
+    "dotenv": "^16.4.7",
+    "googleapis": "^144.0.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "vitest": "^3.1.1"
+  }
+}
