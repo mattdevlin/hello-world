@@ -1,0 +1,42 @@
+{
+  "name": "Architect — DevPro SIP Evidence Sequence",
+  "description": "4-email sequence for NZ architects. Escalating value from data hook to case study close. Same-thread (Re: subject) format.",
+  "sender": {
+    "name": "Matt Devlin",
+    "company": "Devlin Property"
+  },
+  "emails": [
+    {
+      "id": "hook",
+      "step": 1,
+      "label": "The Hook",
+      "subject": "Clients sitting on the fence?",
+      "delayDays": 0,
+      "body": "Give them the data they need.\n\nWhen clients hesitate, it's usually because they can't see the value. DEVPRO SIPs give you the evidence to change that — real energy performance data, air quality results, and lifetime cost comparisons from a completed 19-home development that exceeded Homestar 10.\n\nSpec DEVPRO, and you're not just specifying a building product. You're handing your clients a reason to press go.\n\nMore clients saying yes means more work through your door.\n\nHappy to share the data if it's useful — just hit reply.\n\nMatt Devlin\nDevlin Property"
+    },
+    {
+      "id": "evidence",
+      "step": 2,
+      "label": "The Evidence",
+      "subject": "Re: Clients sitting on the fence?",
+      "delayDays": 3,
+      "body": "Quick follow-up — here's what I mean by evidence.\n\nOn our 19-home Haruru development, we hit air quality and energy performance results that exceeded Homestar 10. No formaldehyde. No thermal bridging. No building wrap or gib required.\n\nThat's not a sales pitch — it's test data your clients can see and your builds can be measured against.\n\nIf you're working on anything where energy performance or healthy homes matters, worth a 10-minute chat.\n\nMatt"
+    },
+    {
+      "id": "reframe",
+      "step": 3,
+      "label": "The Reframe",
+      "subject": "Re: Clients sitting on the fence?",
+      "delayDays": 7,
+      "body": "One thing architects tell us — once clients see the numbers, the conversation shifts from \"should we build?\" to \"when can we start?\"\n\nThat's what real performance data does. It removes the doubt.\n\nWe're happy to run the numbers on a current project if you've got one sitting in the pipeline. No cost, no obligation — just data.\n\nMatt"
+    },
+    {
+      "id": "close",
+      "step": 4,
+      "label": "The Close",
+      "subject": "Re: Clients sitting on the fence?",
+      "delayDays": 14,
+      "body": "Last one from me.\n\nIf the timing isn't right, no worries at all. But if you've got clients who need a push, we've got the evidence that does it.\n\nJust reply \"interested\" and I'll send through the Haruru case study.\n\nMatt"
+    }
+  ]
+}

@@ -11,6 +11,9 @@ Marketing-Architects — a Node.js CLI tool for importing, qualifying, and synci
 - `npm run import -- ./path/to/file.xlsx` — import architects from Excel into HubSpot
 - `npm run import -- ./path/to/file.xlsx --dry-run` — preview import without pushing to HubSpot
 - `npm run import -- ./path/to/file.xlsx --verbose` — detailed logging during import
+- `npm run enroll -- ./path/to/results.json --sender matt@devlinproperty.co.nz` — enroll imported contacts into email sequence
+- `npm run enroll -- ./path/to/results.json --sender matt@devlinproperty.co.nz --dry-run` — preview enrollment
+- `npm run enroll -- ./path/to/results.json --sender matt@devlinproperty.co.nz --max-tier 1` — enroll only Tier 1 (Hot) contacts
 - `npm test` — run all Vitest tests
 - `npm run test:watch` — run Vitest in watch mode
 
@@ -23,7 +26,9 @@ Marketing-Architects — a Node.js CLI tool for importing, qualifying, and synci
 4. **Contact Enricher** (`src/services/contactEnricher.js`) — adds region, firm type, HubSpot properties
 5. **Prior Contact Checker** (`src/services/priorContactChecker.js`) — checks Gmail + HubSpot for prior communication
 6. **HubSpot Client** (`src/services/hubspotClient.js`) — upserts contacts/companies, manages associations
-7. **Import CLI** (`scripts/import-architects.js`) — orchestrates the full pipeline
+7. **Email Sequence** (`src/services/emailSequence.js`) — loads templates, enrolls contacts in HubSpot sequences
+8. **Import CLI** (`scripts/import-architects.js`) — orchestrates the full import pipeline
+9. **Enrollment CLI** (`scripts/enroll-sequence.js`) — enrolls imported contacts into email sequences
 
 ### Qualification Tiers
 | Tier | Label | Score | Description |
@@ -38,6 +43,7 @@ Marketing-Architects — a Node.js CLI tool for importing, qualifying, and synci
 - `src/config.js` — loads environment variables from `.env`
 - `src/utils/logger.js` — structured CLI logging with chalk
 - `data/sample-architects.xlsx` — sample data for testing
+- `templates/architect-sequence.json` — 4-email sequence template for architect outreach
 
 ## Key Conventions
 

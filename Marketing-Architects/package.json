@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "import": "node scripts/import-architects.js",
+    "enroll": "node scripts/enroll-sequence.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },
