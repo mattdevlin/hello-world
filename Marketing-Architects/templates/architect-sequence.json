@@ -19,6 +19,18 @@
         "location": "Glendowie, Auckland"
       },
       "usageNote": "Evidence that energy performance drives property value premiums in NZ — supports the 'data removes doubt' pitch in emails 1-3"
+    },
+    {
+      "id": "free-comparison-offer",
+      "title": "Free Plan Comparison — Standard Build vs DevPro SIP",
+      "description": "Architect sends their current house plan; we return a one-page side-by-side comparison",
+      "comparisonMetrics": [
+        "Energy performance (heating/cooling load)",
+        "Lifetime cost (build + running costs over 50 years)",
+        "Build time (weeks saved with SIP vs stick-frame)",
+        "Healthy home metrics (air quality, thermal bridging, moisture)"
+      ],
+      "usageNote": "Primary CTA in Email 3 (The Reframe). Low-friction: architect just replies with their plan. Deliverable is a one-page comparison their client can read."
     }
   ],
   "emails": [
@@ -44,7 +56,7 @@
       "label": "The Reframe",
       "subject": "Re: Clients sitting on the fence?",
       "delayDays": 7,
-      "body": "One thing architects tell us — once clients see the numbers, the conversation shifts from \"should we build?\" to \"when can we start?\"\n\nThat's what real performance data does. It removes the doubt.\n\nWe're happy to run the numbers on a current project if you've got one sitting in the pipeline. No cost, no obligation — just data.\n\nMatt"
+      "body": "One thing architects tell us — once clients see the numbers, the conversation shifts from \"should we build?\" to \"when can we start?\"\n\nThat's what real performance data does. It removes the doubt.\n\nHere's what we're offering: send us a current house plan and we'll run a free side-by-side comparison — their standard build vs a DevPro SIP build. Energy performance, lifetime cost, build time, and healthy home metrics. All on one page your client can actually read.\n\nNo cost, no obligation. Just reply with the plan or a link to it and we'll do the rest.\n\nMatt"
     },
     {
       "id": "close",
