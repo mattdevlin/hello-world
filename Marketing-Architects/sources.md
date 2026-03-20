@@ -51,6 +51,21 @@ This document contains all evidence, statistics, and reference links that inform
 
 ---
 
+## Property Value & Performance Premium
+
+### NZ's First Passive House Sells $640K Above RV
+- NZ's first certified Passive House (Kesteven Ave, Glendowie, Auckland) sold at auction for **$4.215M** — **$640K above its RV of $3.575M**
+- Bidding started at $3.3M and climbed past $4M with 19 further bids after the auction was paused
+- The 323m² home on a 999m² section was the first certified Passive House in the Southern Hemisphere
+- **80% lower heating/cooling energy** than conventional builds
+- Winter power bills no more than summer — energy costs a fraction of non-Passive House norms
+- Only **~15% more to build** than a conventional home (owner's estimate)
+- Won the **2015 South Pacific Passive House Award** and **2014 International Passive House Award**
+- Source: [First Passive House in NZ sells at auction for top dollar](https://www.stuff.co.nz/home-property/360836312/watch-your-energy-costs-plummet-first-passive-house-listed-sale) (Stuff.co.nz)
+- Related: [Watch your energy costs plummet — first Passive House listed for sale](https://www.stuff.co.nz/home-property/360819008/watch-your-energy-costs-plummet-first-passive-house-listed-sale) (Stuff.co.nz)
+
+---
+
 ## HubSpot Technical References
 
 ### Sequences vs Workflows

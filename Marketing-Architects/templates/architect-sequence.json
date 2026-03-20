@@ -5,6 +5,22 @@
     "name": "Matt Devlin",
     "company": "Devlin Property"
   },
+  "references": [
+    {
+      "id": "passive-house-glendowie",
+      "title": "First Passive House in NZ sells at auction for top dollar",
+      "source": "Stuff.co.nz",
+      "url": "https://www.stuff.co.nz/home-property/360836312/watch-your-energy-costs-plummet-first-passive-house-listed-sale",
+      "keyStats": {
+        "salePrice": "$4.215M",
+        "aboveRV": "$640K above RV ($3.575M)",
+        "energySaving": "80% lower heating/cooling energy than conventional builds",
+        "buildCostPremium": "~15% more to build",
+        "location": "Glendowie, Auckland"
+      },
+      "usageNote": "Evidence that energy performance drives property value premiums in NZ — supports the 'data removes doubt' pitch in emails 1-3"
+    }
+  ],
   "emails": [
     {
       "id": "hook",
